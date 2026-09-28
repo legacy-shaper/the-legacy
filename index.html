@@ -259,8 +259,8 @@ body.home-on{overflow:hidden}
 .pp-bottom span+span::before{content:"·";margin-right:10px;color:#C4A052}
 .fiche{width:794px;height:1123px;background:#fff;color:#000;display:flex;flex-direction:column;align-items:center;font:16px/1.22 "Carlito","Calibri","Helvetica Neue",Arial,sans-serif;text-align:center}
 .fiche .fl{width:260px;height:auto;margin-top:110px}
-.fiche .fbox{margin-top:62px;width:450px;height:460px;display:flex;align-items:center;justify-content:center}
-.fiche .fbox img{max-width:450px;max-height:460px;width:auto;height:auto;display:block}
+.fiche .fbox{margin-top:62px;width:450px;height:460px;display:flex;align-items:center;justify-content:center;padding:0;background:transparent;border-radius:0;box-shadow:none}
+.fiche .fbox img{max-width:450px;max-height:460px;width:auto;height:auto;display:block;margin:0;border-radius:0;object-fit:initial}
 .fiche .ft{margin-top:34px;display:flex;flex-direction:column;gap:1px;max-width:560px}
 .fiche .ft b{font-weight:700}
 .fiche .fc{margin-top:12px;display:flex;flex-direction:column;gap:1px}
@@ -347,9 +347,9 @@ body[data-view="accounting"] .app,body[data-view="accounting"] .alt,body[data-vi
 .efile .btn{padding:5px 10px;font-size:12px}
 .addfile{cursor:pointer}
 .rcpt{z-index:70;justify-content:center;align-items:center}
-.fbox{background:var(--surface);border-radius:14px;padding:14px;width:min(900px,94vw);max-height:92vh;display:flex;flex-direction:column;gap:10px}
-.fbox img{max-width:100%;max-height:78vh;object-fit:contain;margin:0 auto;display:block}
-.fbox iframe{width:100%;height:78vh;border:0;background:#fff;border-radius:8px}
+.rbox{background:var(--surface);border-radius:14px;padding:14px;width:min(900px,94vw);max-height:92vh;display:flex;flex-direction:column;gap:10px}
+.rbox img{max-width:100%;max-height:78vh;object-fit:contain;margin:0 auto;display:block}
+.rbox iframe{width:100%;height:78vh;border:0;background:#fff;border-radius:8px}
 @media (max-width:900px){
   .acct .acards.a3{grid-template-columns:1fr}
   .acct .ahead{flex-direction:column;gap:6px}
@@ -1632,7 +1632,7 @@ function findFile(fid){ for(const e of Object.values(state.expenses)) for(const 
 async function viewFile(fid){
   const x=findFile(fid); if(!x) return; const m=$("#expFileMsg"); if(m){ m.hidden=false; m.textContent="Ouverture…"; }
   try{ const blob=await fileBlob(x.f); const u=URL.createObjectURL(blob); if(m) m.hidden=true;
-    const d=document.createElement("div"); d.className="ov lb rcpt"; d.innerHTML=`<div class="lbox fbox" role="dialog" aria-label="Justificatif">${fileKind(x.f)==="img"?`<img src="${u}" alt="">`:`<iframe src="${u}" title="${esc(x.f.name)}"></iframe>`}<div class="eacts"><button type="button" class="btn" data-fdl="${x.f.id}">Télécharger</button><button type="button" class="btn" data-fclose>Fermer</button></div></div>`;
+    const d=document.createElement("div"); d.className="ov lb rcpt"; d.innerHTML=`<div class="lbox rbox" role="dialog" aria-label="Justificatif">${fileKind(x.f)==="img"?`<img src="${u}" alt="">`:`<iframe src="${u}" title="${esc(x.f.name)}"></iframe>`}<div class="eacts"><button type="button" class="btn" data-fdl="${x.f.id}">Télécharger</button><button type="button" class="btn" data-fclose>Fermer</button></div></div>`;
     document.body.appendChild(d); d.onclick=ev=>{ if(ev.target===d||ev.target.closest("[data-fclose]")){ d.remove(); URL.revokeObjectURL(u); } };
   }catch(err){ if(m){ m.hidden=false; m.textContent=err.message==="offline"?"Connexion nécessaire pour ouvrir ce justificatif la première fois.":"Justificatif introuvable."; } }
 }
@@ -1847,6 +1847,6 @@ async function viewerSync(manual){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") r.update().catch(()=>{}); }); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v30c1a894</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">ve7c3b33b</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>
