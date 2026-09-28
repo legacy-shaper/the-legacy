@@ -268,6 +268,15 @@ body.home-on{overflow:hidden}
 .fview{display:none}
 #printArea .fview{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;width:210mm;height:296mm;padding:15mm;box-sizing:border-box;break-before:page;page-break-before:always;font:10px "Helvetica Neue",Arial,sans-serif;color:#777}
 #printArea .fview img{max-width:100%;max-height:255mm;object-fit:contain}
+/* ---------- invoices: list page first ---------- */
+.invback{display:none}
+body[data-view="invoices"].inv-open .invback{display:flex;align-items:center;padding:10px 20px 0}
+.invback button{appearance:none;border:0;background:none;padding:6px 2px;font:500 11px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.invback button:hover{color:var(--green)}
+body[data-view="invoices"]:not(.inv-open) .app{display:block;height:auto}
+body[data-view="invoices"]:not(.inv-open) .editor,body[data-view="invoices"]:not(.inv-open) .preview,body[data-view="invoices"]:not(.inv-open) .tabs,body[data-view="invoices"]:not(.inv-open) .listbtn{display:none!important}
+body[data-view="invoices"]:not(.inv-open) .list{position:static;transform:none;box-shadow:none;width:auto;max-width:860px;margin:0 auto;border-right:0;background:transparent;padding:26px 20px 60px;overflow:visible}
+@media (max-width:900px){ body[data-view="invoices"]:not(.inv-open) .list{padding:16px 16px 60px} body[data-view="invoices"].inv-open .invback{padding:10px 16px 0} }
 .pdfstage{position:fixed;left:-12000px;top:0;pointer-events:none}
 
 /* ---------- responsive ---------- */
@@ -424,6 +433,7 @@ body[data-view="contacts"] .listbtn,body[data-view="artworks"] .listbtn{display:
   <button class="tbtn" id="btnSettings" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="hide-sm">Société</span></button>
   <button class="tbtn solid" id="btnNew" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg><span id="btnNewLbl">Nouvelle facture</span></button>
 </header>
+<div class="invback"><button type="button" id="invBack"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"/></svg>Toutes les factures</button></div>
 <div class="tabs"><div class="seg" id="tabs"><button type="button" data-tab="edit" class="on">Édition</button><button type="button" data-tab="preview">Aperçu</button></div></div>
 
 <main class="app">
@@ -751,7 +761,7 @@ document.addEventListener("change",e=>{
 document.addEventListener("click",async e=>{
   const b=e.target.closest("button"); if(!b) return;
   const inv=state.invoices[state.current];
-  if(b.dataset.open){ openInvoice(b.dataset.open); document.body.classList.remove("show-list"); return; }
+  if(b.dataset.open){ openInvoice(b.dataset.open); document.body.classList.remove("show-list"); document.body.classList.add("inv-open"); requestAnimationFrame(fitPreview); invMobilePreview(); window.scrollTo(0,0); return; }
   if(b.dataset.tab){ document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x===b)); document.body.classList.toggle("tab-preview",b.dataset.tab==="preview"); fitPreview(); window.scrollTo(0,0); return; }
   if(!inv) return;
   if(b.dataset.lang){ const old=inv.lang, nl=b.dataset.lang; if(old===nl) return;
@@ -768,7 +778,7 @@ document.addEventListener("click",async e=>{
   else if(b.id==="btnDel"){
     if(!b.classList.contains("arm")){ b.classList.add("arm"); b.lastChild.textContent="Confirmer la suppression"; setTimeout(()=>{ if(b.isConnected){ b.classList.remove("arm"); b.lastChild.textContent="Supprimer"; } },4000); return; }
     const id=inv.id; clearTimeout(timers[id]); delete timers[id]; delete state.invoices[id];
-    state.current=sortedInvoices()[0]?.id||null; renderAll();
+    state.current=sortedInvoices()[0]?.id||null; document.body.classList.remove("inv-open"); renderAll(); window.scrollTo(0,0);
     try{ await removeInvoice(id); setSave("Facture supprimée"); }catch(err){ setSave("Échec de la suppression",true); }
   }
 });
@@ -1026,12 +1036,14 @@ function openSettings(){
     state.company[k]=v; } dirty=true; renderPreview(); renderEditor(); const m=$("#setMsg"); if(m){ m.textContent="Modifications non enregistrées."; m.classList.remove("err"); m.style.color="var(--warn)"; } };
 }
 $("#btnSettings").onclick=openSettings;
+$("#invBack").onclick=()=>{ document.body.classList.remove("inv-open","show-list"); renderList(); window.scrollTo(0,0); };
 $("#btnList").onclick=()=>document.body.classList.toggle("show-list");
 $("#btnNew").onclick=()=>{ if(state.view==="contacts"){ const c=newContact(); state.contacts[c.id]=c; state.curContact=c.id; flushDoc("contacts",c.id); document.body.classList.add("alt-detail"); renderAlt(); const f=$("#k_name"); if(f) f.focus(); return; }
   if(state.view==="artworks"){ const a=newArtwork(); state.artworks[a.id]=a; state.curArt=a.id; flushDoc("artworks",a.id); document.body.classList.add("alt-detail"); renderAlt(); const f=$("#k_artist"); if(f) f.focus(); return; }
-  const inv=newInvoice(); state.invoices[inv.id]=inv; state.current=inv.id; flush(inv.id); renderAll(); document.body.classList.remove("show-list"); const f=$("#f_client_name"); if(f) f.focus(); };
+  const inv=newInvoice(); state.invoices[inv.id]=inv; state.current=inv.id; flush(inv.id); renderAll(); document.body.classList.remove("show-list"); document.body.classList.add("inv-open"); requestAnimationFrame(fitPreview); const f=$("#f_client_name"); if(f) f.focus(); };
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ if(window.__cancelSettings) window.__cancelSettings(); document.body.classList.remove("show-list"); } });
 
+function invMobilePreview(){ if(VIEWER && window.matchMedia("(max-width:900px)").matches){ const t=document.querySelector('#tabs [data-tab="preview"]'); if(t) t.click(); } }
 function openInvoice(id){ state.current=id; try{ localStorage.setItem("ls-current",id);}catch(e){} renderAll(); }
 function renderAll(){ renderList(); renderEditor(); renderPreview(); renderHome(); }
 
@@ -1331,17 +1343,17 @@ function openView(vid){
 function renderHome(){}
 function goHome(){ renderHome(); document.body.classList.add("home-on"); window.scrollTo(0,0); }
 function leaveHome(v){ document.body.classList.remove("home-on"); switchView(v);
-  if(VIEWER && v==="invoices" && window.matchMedia("(max-width:900px)").matches){ const t=document.querySelector('#tabs [data-tab="preview"]'); if(t) t.click(); } }
+}
 function renderAlt(){ renderSide(); renderDetail(); renderHome(); }
 function switchView(v){
-  state.view=v; document.body.dataset.view=v; document.body.classList.remove("alt-detail","show-list");
+  state.view=v; document.body.dataset.view=v; document.body.classList.remove("alt-detail","show-list","inv-open");
   document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on",b.dataset.view===v));
   $("#btnNewLbl").textContent = v==="contacts"?"Nouveau contact": v==="artworks"?"Nouvelle œuvre":"Nouvelle facture";
   try{ localStorage.setItem("ls-view",v); }catch(e){}
   q2=""; if(v==="invoices") renderAll(); else renderAlt();
   window.scrollTo(0,0);
 }
-function createInvoiceWith(fn){ const inv=newInvoice(); fn(inv); state.invoices[inv.id]=inv; state.current=inv.id; flush(inv.id); switchView("invoices"); }
+function createInvoiceWith(fn){ const inv=newInvoice(); fn(inv); state.invoices[inv.id]=inv; state.current=inv.id; flush(inv.id); switchView("invoices"); document.body.classList.add("inv-open"); requestAnimationFrame(fitPreview); }
 
 document.addEventListener("input",e=>{
   const k=e.target.dataset?.k; if(!k) return;
@@ -1358,7 +1370,7 @@ document.addEventListener("click",async e=>{
   if(b.dataset.artOpen){ state.curArt=b.dataset.artOpen; window.__locOther=false; window.__ownOther=false; switchView("artworks"); document.body.classList.add("alt-detail"); renderAlt(); return; }
   if(b.dataset.af){ artFilter=b.dataset.af; renderSide(); return; }
   if(b.dataset.back!==undefined){ document.body.classList.remove("alt-detail"); window.scrollTo(0,0); return; }
-  if(b.dataset.openinv){ state.current=b.dataset.openinv; switchView("invoices"); return; }
+  if(b.dataset.openinv){ state.current=b.dataset.openinv; switchView("invoices"); document.body.classList.add("inv-open"); requestAnimationFrame(fitPreview); invMobilePreview(); return; }
   if(b.dataset.pick && pickTarget>=0){ const a=state.artworks[b.dataset.pick], inv=state.invoices[state.current]; if(a&&inv&&inv.items[pickTarget]){ const q=inv.items[pickTarget].qty||1; inv.items[pickTarget]=Object.assign(itemFromArtwork(a),{qty:q}); pickTarget=-1; $("#modal").innerHTML=""; touch({editor:true}); } return; }
   if(b.dataset.pick){ const a=state.artworks[b.dataset.pick], inv=state.invoices[state.current]; if(a&&inv){ const blank=inv.items.length===1 && !inv.items[0].artist && !inv.items[0].title && !inv.items[0].price && !inv.items[0].photo; if(blank) inv.items=[]; inv.items.push(itemFromArtwork(a)); $("#modal").innerHTML=""; touch({editor:true}); } return; }
   if(b.dataset.pickclose!==undefined){ $("#modal").innerHTML=""; return; }
