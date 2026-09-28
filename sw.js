@@ -1,5 +1,5 @@
 /* The Legacy — offline service worker (read-only app) */
-const VERSION = "the-legacy-v2";
+const VERSION = "the-legacy-v3";
 const APP = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png", "./apple-touch-icon.png"];
 const EXTERNAL = [
   "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
@@ -37,7 +37,7 @@ self.addEventListener("fetch", event => {
   // App page: network first (to get updates), cache when offline.
   if (req.mode === "navigate") {
     event.respondWith((async () => {
-      try { const res = await fetch(req); const c = await caches.open(VERSION); c.put("./index.html", res.clone()); return res; }
+      try { const res = await fetch(new Request(req.url.split("#")[0], { cache: "no-store", credentials: "same-origin" })); if (res.ok) { const c = await caches.open(VERSION); c.put("./index.html", res.clone()); } return res; }
       catch (e) { return (await caches.match("./index.html")) || (await caches.match("./")); }
     })());
     return;
