@@ -1,5 +1,5 @@
 /* The Legacy — offline service worker (read-only app) */
-const VERSION = "the-legacy-v1";
+const VERSION = "the-legacy-v2";
 const APP = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png", "./apple-touch-icon.png"];
 const EXTERNAL = [
   "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
