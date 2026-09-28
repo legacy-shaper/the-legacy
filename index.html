@@ -1621,7 +1621,7 @@ function openExp(id){
 async function fileBlob(f){
   if(!VIEWER){ const r=await fetch("/_blob/"+f.id); if(!r.ok) throw new Error("missing"); return await r.blob(); }
   try{ const c=await idb.get("f:"+f.id); if(c) return c; }catch(e){}
-  const r=await fetch("files/"+f.id+".enc"); if(!r.ok) throw new Error("offline");
+  let r; try{ const ctl=new AbortController(); setTimeout(()=>ctl.abort(),20000); r=await fetch("files/"+f.id+".enc",{signal:ctl.signal}); }catch(e){ throw new Error("offline"); } if(!r.ok) throw new Error("offline");
   const env=await r.json(), key=await idb.get("privkey");
   const raw=await crypto.subtle.decrypt({name:"RSA-OAEP"},key,b64d(env.ek));
   const aes=await crypto.subtle.importKey("raw",raw,{name:"AES-GCM"},false,["decrypt"]);
@@ -1778,7 +1778,7 @@ function askCode(){ return new Promise(res=>{
 async function viewerSync(manual){
   let key=null; try{ key=await idb.get("privkey"); }catch(e){}
   if(!key){ key=await askCode(); }
-  let res; try{ res=await fetch("data.enc?t="+Date.now(),{cache:"no-store"}); }catch(e){ res=null; }
+  let res; try{ const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),12000); res=await fetch("data.enc?t="+Date.now(),{cache:"no-store",signal:ctl.signal}); clearTimeout(to); }catch(e){ res=null; }
   const stamp=iso=>iso?new Date(iso).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"";
   if(!res||!res.ok){ const last=await idb.get("exportedAt").catch(()=>null); setSave(last?`Hors ligne · données du ${stamp(last)}`:"Hors ligne"); return; }
   try{
