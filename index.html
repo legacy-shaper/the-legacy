@@ -313,6 +313,57 @@ body[data-view="accounting"] .app,body[data-view="accounting"] .alt,body[data-vi
   .acct td,.acct th{padding:10px 10px}
   .acct .hide-sm{display:none}
 }
+.acct .ahead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.acct .ayear{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font-size:13px;margin-top:6px}
+.acct .aseg{margin-top:22px}
+.acct .aseg button{padding:7px 16px;font-size:13px}
+.acct .awarn{margin:14px 0 0;font-size:12.5px;color:var(--warn)}
+.acct .acards.a3{grid-template-columns:repeat(3,1fr)}
+.acct .abar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:24px 0 12px;flex-wrap:wrap}
+.acct .abar .filters{margin:0}
+.acct td .cl{display:block;font-size:12px;color:var(--muted);white-space:normal}
+.acct td small{color:var(--muted);font-size:11px}
+.acct .show-sm{display:none}
+.acct td.lk{font-size:12px;color:var(--muted);white-space:normal;text-align:right}
+.acct td .rate{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.acct .fxin{width:58px;border:1px solid var(--line);border-radius:6px;padding:2px 5px;font-size:11px;text-align:right;background:var(--surface-2)}
+.acct tbody.static tr{cursor:default}
+.acct .clip{font-size:11px;color:var(--gold)}
+.acct .bars{display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.acct .bar{appearance:none;border:0;background:none;display:grid;grid-template-columns:190px 1fr 130px;align-items:center;gap:14px;padding:5px 0;text-align:left;cursor:pointer;color:inherit}
+.acct .bar .bl{font-size:12.5px}
+.acct .bar .bt{height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.acct .bar .bt i{display:block;height:100%;background:var(--gold);border-radius:99px}
+.acct .bar .bv{font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums}
+.opfin small{display:block;font-size:11px;color:var(--muted)}
+.opfin>div{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.opfin .oplink{cursor:pointer}
+.opfin .oplink:hover span:first-child{text-decoration:underline}
+.efiles{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.efile{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--surface-2)}
+.efile .fi{color:var(--gold);display:flex}
+.efile .fn{flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.efile .fn small{display:block;color:var(--muted);font-size:11px}
+.efile .btn{padding:5px 10px;font-size:12px}
+.addfile{cursor:pointer}
+.rcpt{z-index:70;justify-content:center;align-items:center}
+.fbox{background:var(--surface);border-radius:14px;padding:14px;width:min(900px,94vw);max-height:92vh;display:flex;flex-direction:column;gap:10px}
+.fbox img{max-width:100%;max-height:78vh;object-fit:contain;margin:0 auto;display:block}
+.fbox iframe{width:100%;height:78vh;border:0;background:#fff;border-radius:8px}
+@media (max-width:900px){
+  .acct .acards.a3{grid-template-columns:1fr}
+  .acct .ahead{flex-direction:column;gap:6px}
+  .acct .aseg{display:flex;width:100%;overflow-x:auto}
+  .acct .aseg button{flex:1;white-space:nowrap;padding:7px 10px}
+  .acct .bar{grid-template-columns:1fr 100px;gap:6px 10px}
+  .acct .bar .bt{grid-column:1/-1;order:3}
+  .efile{flex-wrap:wrap}
+  .acct .show-sm{display:block;margin-top:2px}
+  .acct td:last-child{white-space:nowrap}
+  .acct table{font-size:12px}
+  .acct td{white-space:normal;font-size:12px}
+  .acct th{white-space:normal}
+}
 .pdfstage{position:fixed;left:-12000px;top:0;pointer-events:none}
 
 /* ---------- responsive ---------- */
@@ -576,7 +627,7 @@ const local = {
     try{ return JSON.parse(localStorage.getItem("ls-invoicing")||"null"); }catch(e){ return null; }
   },
   async write(){
-    const data={company:state.company, invoices:state.invoices, contacts:state.contacts, artworks:state.artworks, views:state.views||{}};
+    const data={company:state.company, invoices:state.invoices, contacts:state.contacts, artworks:state.artworks, views:state.views||{}, expenses:state.expenses||{}};
     try{ await idb.set("data", JSON.parse(JSON.stringify(data))); return; }catch(e){}
     try{ localStorage.setItem("ls-invoicing", JSON.stringify(data)); }catch(e){ setTimeout(()=>setSave("Stockage de cet appareil plein : exportez une sauvegarde",true),0); throw e; }
   }
@@ -969,7 +1020,7 @@ $("#viewsIn").addEventListener("change",e=>{ addViews(e.target.files||[]); });
 async function exportData(){
   const z=$("#impZone"); const d=new Date().toISOString().slice(0,10);
   if(z) z.textContent="Préparation de la sauvegarde…"; for(const id of Object.keys(state.artworks)) await loadViews(id);
-  const data={app:"legacy-shaper-invoicing",version:2,exportedAt:new Date().toISOString(),company:state.company,invoices:state.invoices,contacts:state.contacts,artworks:state.artworks,views:state.views};
+  const data={app:"legacy-shaper-invoicing",version:2,exportedAt:new Date().toISOString(),company:state.company,invoices:state.invoices,contacts:state.contacts,artworks:state.artworks,views:state.views,expenses:state.expenses};
   try{ await saveFile(`Legacy Shaper - sauvegarde ${d}.json`, new Blob([JSON.stringify(data)],{type:"application/json"}));
     if(z) z.textContent=`Sauvegarde téléchargée : ${Object.keys(state.invoices).length} factures, ${Object.keys(state.contacts).length} contacts, ${Object.keys(state.artworks).length} œuvres.`; }
   catch(err){ if(z && err?.code!=="declined") z.textContent="Le téléchargement n’a pas abouti. Réessayez."; }
@@ -986,9 +1037,9 @@ function readImport(file, done){
     $("#impGo").onclick=async()=>{ const b=$("#impGo"); b.disabled=true; b.textContent="Import en cours…";
       try{
         if(d.company) state.company=mergeCompany(d.company);
-        Object.assign(state.invoices,d.invoices||{}); Object.assign(state.contacts,d.contacts||{}); Object.assign(state.artworks,d.artworks||{}); for(const [aid,vs] of Object.entries(d.views||{})) state.views[aid]=Object.assign(state.views[aid]||{},vs);
+        Object.assign(state.invoices,d.invoices||{}); Object.assign(state.contacts,d.contacts||{}); Object.assign(state.artworks,d.artworks||{}); Object.assign(state.expenses,d.expenses||{}); for(const [aid,vs] of Object.entries(d.views||{})) state.views[aid]=Object.assign(state.views[aid]||{},vs);
         if(db){ await db.doc("settings/company").set(clone(state.company));
-          for(const [coll,src] of [["invoices",d.invoices],["contacts",d.contacts],["artworks",d.artworks]]) for(const id of Object.keys(src||{})) await db.collection(coll).doc(id).set(clone(src[id]));
+          for(const [coll,src] of [["invoices",d.invoices],["contacts",d.contacts],["artworks",d.artworks],["expenses",d.expenses]]) for(const id of Object.keys(src||{})) await db.collection(coll).doc(id).set(clone(src[id]));
           for(const [aid,vs] of Object.entries(d.views||{})) for(const [vid,v] of Object.entries(vs||{})) await db.collection("artworks/"+aid+"/views").doc(vid).set(clone(v)); }
         else await local.write();
         setSave("Sauvegarde importée"); done&&done(); if(state.view==="invoices") renderAll(); else renderAlt();
@@ -1378,46 +1429,218 @@ function renderHome(){}
 function goHome(){ renderHome(); document.body.classList.add("home-on"); window.scrollTo(0,0); }
 function leaveHome(v){ document.body.classList.remove("home-on"); switchView(v);
 }
+/* ---------------- accounting: currencies, expenses, margins ---------------- */
+const PEG=3.6725; // 1 USD = 3.6725 AED (fixed peg)
+const EXP_CATS=[["art","Achat d’œuvres"],["transport","Transport & caisserie"],["insurance","Assurance & stockage"],["commission","Commissions intermédiaires"],["travel","Déplacements"],["meals","Restaurants & représentation"],["overhead","Frais de structure"],["other","Autres"]];
+const EXP_CAT=Object.fromEntries(EXP_CATS);
+state.expenses=state.expenses||{}; state.acctTab="overview"; state.curExp=null;
+let acctYear=String(new Date().getFullYear()), expCat="all", assetsCap=null;
+function fxOf(cur,rate){ return cur==="AED"?1: cur==="USD"?PEG: (num(rate)||0); }
+function toAED(amount,cur,rate){ const f=fxOf(cur||"USD",rate); return f? num(amount)*f : null; }
+function convCur(amount,cur,rate,toCur,toRate){ const a=toAED(amount,cur,rate); const f=fxOf(toCur||"USD",toRate); return (a===null||!f)?null:a/f; }
+const mAED=v=>esc(money(v,"AED","en")), mUSD=v=>esc(money(v/PEG,"USD","en")), mC=(v,c)=>esc(money(v,c||"USD","en"));
+const pctTxt=(n,d)=>d?(n/d*100).toFixed(1).replace(".",",")+" %":"—";
+const sortedExpenses=()=>Object.values(state.expenses).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||"").localeCompare(a.createdAt||""));
+const newExpense=()=>({id:uid(),date:today(),status:"paid",supplier:"",ref:"",label:"",category:"transport",amount:"",currency:"USD",fx:"",invoiceId:"",artworkId:"",notes:"",files:[],createdAt:new Date().toISOString()});
+const inYear=d=>acctYear==="all"||(d||"").startsWith(acctYear);
+function invBaseAED(i){ return toAED(totals(i).base,i.currency,i.fxAED); }
+function invTotalAED(i){ return toAED(totals(i).total,i.currency,i.fxAED); }
+function expAED(e){ return toAED(e.amount,e.currency,e.fx); }
+function invLabel(i){ return `${i.number||"Sans numéro"}${i.client?.name||i.client?.company?" · "+(i.client.name||i.client.company):""}`; }
+
+/* cost lines of one sale (invoice): linked expenses + artwork purchase/commission fallbacks */
+function opOf(inv){
+  const cur=inv.currency||"USD", rate=inv.fxAED, rev=totals(inv).base, lines=[]; let missing=false;
+  const push=(label,src,amount,c,r,expId)=>{ const v=convCur(amount,c,r,cur,rate); if(v===null) missing=true; lines.push({label,src,amount:num(amount),cur:c,conv:v,expId}); };
+  const exps=sortedExpenses(), used=new Set();
+  exps.filter(e=>e.invoiceId===inv.id).forEach(e=>{ used.add(e.id); push(e.label||EXP_CAT[e.category]||"Dépense",(e.supplier?e.supplier+" · ":"")+(EXP_CAT[e.category]||""),e.amount,e.currency,e.fx,e.id); });
+  (inv.items||[]).filter(t=>t.artworkId && state.artworks[t.artworkId]).forEach(t=>{
+    const a=state.artworks[t.artworkId], q=num(t.qty||1)||1, forArt=exps.filter(e=>e.artworkId===a.id);
+    const artE=forArt.filter(e=>e.category==="art"), comE=forArt.filter(e=>e.category==="commission");
+    forArt.filter(e=>!used.has(e.id)).forEach(e=>{ used.add(e.id); push(e.label||EXP_CAT[e.category],(e.supplier?e.supplier+" · ":"")+EXP_CAT[e.category]+" · œuvre",e.amount,e.currency,e.fx,e.id); });
+    if(!artE.length && num(a.cost)) push((isConsigned(a)?"Net propriétaire · ":"Prix d’achat · ")+(a.artist||"")+" "+(a.title||""),"Fiche œuvre",num(a.cost)*q,a.costCurrency||a.currency||cur,a.costCurrency==="EUR"||(!a.costCurrency&&a.currency==="EUR")?a.costFx:undefined);
+    const bv=num(a.brokerValue);
+    if(!comE.length && bv){ const amt=(a.brokerMode||"pct")==="pct"? num(t.price)*q*bv/100 : bv; push("Intermédiaire"+(brokerName(a)?" · "+brokerName(a):""),"Fiche œuvre",amt,(a.brokerMode||"pct")==="pct"?cur:(a.currency||cur),undefined); }
+  });
+  const cost=lines.reduce((s,l)=>s+(l.conv||0),0);
+  return {rev,cost,net:rev-cost,cur,lines,missing,netAED:toAED(rev-cost,cur,rate)};
+}
+
+function acctCard(k,aed,n,hl){ return `<div class="acard ${hl?"hl":""}"><div class="k">${k}</div><div class="v">${aed===null?"—":mAED(aed)}</div><div class="n">${aed!==null&&aed!==0?"≈ "+mUSD(aed)+(n?" · ":""):""}${n||""}</div></div>`; }
 function renderAcct(){
   const el=$("#acct"); if(!el) return;
-  const y=String(new Date().getFullYear()), inv=sortedInvoices();
-  const agg=list=>{ const m={}; list.forEach(i=>{ m[i.currency||"USD"]=(m[i.currency||"USD"]||0)+totals(i).total; }); return m; };
-  const fm=m=>{ const k=Object.keys(m).filter(c=>m[c]); return k.length? k.map(c=>`<div>${esc(money(m[c],c,"en"))}</div>`).join("") : "<div>—</div>"; };
-  const due=inv.filter(i=>["sent","late"].includes(statusOf(i))), late=inv.filter(i=>statusOf(i)==="late");
-  const paidY=inv.filter(i=>i.status==="paid"&&(i.date||"").startsWith(y)), billedY=inv.filter(i=>statusOf(i)!=="draft"&&(i.date||"").startsWith(y));
-  const cnt=(n,a,b)=>n+" "+(n>1?b:a);
-  const card=(k,m,n,hl)=>`<div class="acard ${hl?"hl":""}"><div class="k">${k}</div><div class="v">${fm(m)}</div><div class="n">${n}</div></div>`;
-  const arts=sortedArtworks();
-  const rowsFor=list=>{ const tot={}, rows=[]; let skipped=0;
-    list.forEach(a=>{ const r=finOf(a); if(r.missing||r.mismatch){ skipped++; return; }
-      const t=tot[r.cur]=tot[r.cur]||{price:0,cost:0,broker:0,net:0}; t.price+=r.price; t.cost+=r.cost; t.broker+=r.broker; t.net+=r.net;
-      rows.push({a,r}); });
-    return {rows,tot,skipped}; };
-  const m=(v,c)=>esc(money(v,c,"en"));
-  const table=(d,costLbl)=>{ if(!d.rows.length) return `<div class="aempty">Aucune œuvre avec un prix renseigné dans cette catégorie.</div>`;
-    return `<div class="tw"><table><thead><tr><th>Œuvre</th><th>Prix final</th><th class="hide-sm">${costLbl}</th><th class="hide-sm">Intermédiaire</th><th>Marge nette</th><th>%</th></tr></thead><tbody>${d.rows.map(({a,r})=>`<tr data-art-open="${a.id}"><td><span class="ar">${esc(a.artist||"Artiste")}</span><span class="ti">${esc(a.title||"Sans titre")}${a.year?", "+esc(a.year):""}</span></td><td>${m(r.price,r.cur)}</td><td class="hide-sm">${r.hasCost?m(r.cost,r.cur):"—"}</td><td class="hide-sm">${r.broker?m(r.broker,r.cur):"—"}</td><td class="${r.net<0?"neg":"pos"}">${m(r.net,r.cur)}</td><td>${r.pct.toFixed(1).replace(".",",")} %</td></tr>`).join("")}</tbody>
-      <tfoot>${Object.entries(d.tot).map(([c,t])=>`<tr><td>Total ${c}</td><td>${m(t.price,c)}</td><td class="hide-sm">${m(t.cost,c)}</td><td class="hide-sm">${m(t.broker,c)}</td><td class="${t.net<0?"neg":"pos"}">${m(t.net,c)}</td><td>${t.price?(t.net/t.price*100).toFixed(1).replace(".",","):"0"} %</td></tr>`).join("")}</tfoot></table></div>
-      ${d.skipped?`<p class="anote">${cnt(d.skipped,"œuvre non comptée","œuvres non comptées")} (prix manquant ou devises différentes entre achat et vente).</p>`:""}`; };
-  const sold=rowsFor(arts.filter(a=>artStatus(a)==="sold"));
-  const stock=rowsFor(arts.filter(a=>["available","reserved","consignment"].includes(artStatus(a))));
-  const net=d=>{ const o={}; Object.entries(d.tot).forEach(([c,t])=>o[c]=t.net); return o; };
+  const inv=sortedInvoices(), exps=sortedExpenses();
+  const years=[...new Set([...inv.map(i=>(i.date||"").slice(0,4)),...exps.map(e=>(e.date||"").slice(0,4)),String(new Date().getFullYear())].filter(Boolean))].sort().reverse();
+  const tabs=[["overview","Vue d’ensemble"],["sales","Ventes"],["expenses","Dépenses"],["margins","Marges"]];
+  const noRate=[...inv.filter(i=>statusOf(i)!=="draft"&&invBaseAED(i)===null).map(i=>"facture "+(i.number||"")),...exps.filter(e=>expAED(e)===null).map(e=>"dépense "+(e.label||e.supplier||""))];
+  let body="";
+  if(state.acctTab==="overview") body=acctOverview(inv,exps);
+  else if(state.acctTab==="sales") body=acctSales(inv);
+  else if(state.acctTab==="expenses") body=acctExpenses(exps);
+  else body=acctMargins(inv);
   el.innerHTML=`<div class="aw">
-    <h1>Comptabilité</h1><p class="asub">Vue réservée : trésorerie, marges réalisées et marge potentielle sur le stock.</p>
-    <h2><span>Trésorerie</span></h2>
-    <div class="acards">
-      ${card("À encaisser",agg(due),cnt(due.length,"facture envoyée","factures envoyées"),true)}
-      ${card("Dont en retard",agg(late),cnt(late.length,"facture","factures"))}
-      ${card("Encaissé en "+y,agg(paidY),cnt(paidY.length,"facture payée","factures payées"))}
-      ${card("Facturé en "+y,agg(billedY),"hors brouillons")}
-    </div>
-    <h2><span>Marges réalisées · œuvres vendues</span></h2>
-    <div class="acards" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:10px">${card("Marge nette réalisée",net(sold),cnt(sold.rows.length,"œuvre vendue","œuvres vendues"),true)}</div>
-    ${table(sold,"Coût / net propr.")}
-    <h2><span>Marge potentielle · stock en vente</span></h2>
-    <div class="acards" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:10px">${card("Valeur du stock (prix finaux)",Object.fromEntries(Object.entries(stock.tot).map(([c,t])=>[c,t.price])),"available · reserved · consignment")}${card("Marge nette potentielle",net(stock),cnt(stock.rows.length,"œuvre","œuvres"),true)}</div>
-    ${table(stock,"Coût / net propr.")}
-  </div>`;
+    <div class="ahead"><div><h1>Comptabilité</h1><p class="asub">Montants convertis en AED · 1 USD = 3,6725 AED (taux fixe) · EUR au taux du jour de l’opération.</p></div>
+      <select class="ayear" id="acctYear" aria-label="Année">${years.map(y=>`<option value="${y}" ${acctYear===y?"selected":""}>${y}</option>`).join("")}<option value="all" ${acctYear==="all"?"selected":""}>Toutes les années</option></select></div>
+    <div class="seg aseg" role="tablist">${tabs.map(([k,v])=>`<button type="button" data-atab="${k}" class="${state.acctTab===k?"on":""}">${v}</button>`).join("")}</div>
+    ${noRate.length?`<p class="awarn">Taux EUR manquant pour ${noRate.length>2?noRate.length+" opérations":esc(noRate.join(", "))} : ${VIEWER?"Claude doit le renseigner.":"renseignez le taux AED de l’opération pour l’inclure."}</p>`:""}
+    ${body}</div>`;
+  const ys=$("#acctYear"); if(ys) ys.onchange=e=>{ acctYear=e.target.value; renderAcct(); };
 }
+function acctOverview(inv,exps){
+  const y=acctYear==="all"?"":" "+acctYear;
+  const sales=inv.filter(i=>statusOf(i)!=="draft"&&inYear(i.date)), ex=exps.filter(e=>inYear(e.date));
+  const sum=(l,f)=>l.reduce((s,x)=>s+(f(x)||0),0);
+  const ca=sum(sales,invBaseAED), dep=sum(ex,expAED), res=ca-dep;
+  const paid=sum(inv.filter(i=>i.status==="paid"&&inYear(i.date)),invTotalAED);
+  const due=inv.filter(i=>["sent","late"].includes(statusOf(i))), dueAED=sum(due,invTotalAED);
+  const toPay=exps.filter(e=>e.status==="due"), toPayAED=sum(toPay,expAED);
+  const cnt=(n,a,b)=>n+" "+(n>1?b:a);
+  const byCat=EXP_CATS.map(([k,v])=>[k,v,sum(ex.filter(e=>e.category===k),expAED)]).filter(r=>r[2]).sort((a,b)=>b[2]-a[2]);
+  const max=Math.max(1,...byCat.map(r=>r[2]));
+  let period="";
+  if(acctYear!=="all"){ const rows=[]; for(let m=1;m<=12;m++){ const p=acctYear+"-"+String(m).padStart(2,"0"); const c=sum(sales.filter(i=>(i.date||"").startsWith(p)),invBaseAED), d=sum(ex.filter(e=>(e.date||"").startsWith(p)),expAED); if(c||d) rows.push([new Date(p+"-15").toLocaleDateString("fr-FR",{month:"long"}),c,d]); }
+    period=rows.length?`<h2><span>Par mois</span></h2><div class="tw"><table><thead><tr><th>Mois</th><th>Chiffre d’affaires</th><th>Dépenses</th><th>Résultat</th></tr></thead><tbody class="static">${rows.map(r=>`<tr><td style="text-transform:capitalize">${r[0]}</td><td>${mAED(r[1])}</td><td>${mAED(r[2])}</td><td class="${r[1]-r[2]<0?"neg":"pos"}">${mAED(r[1]-r[2])}</td></tr>`).join("")}</tbody></table></div>`:""; }
+  return `<h2><span>Résultat${y}</span></h2>
+    <div class="acards a3">${acctCard("Chiffre d’affaires HT",ca,cnt(sales.length,"facture","factures"))}${acctCard("Dépenses",dep,cnt(ex.length,"dépense","dépenses"))}${acctCard("Résultat",res,res<0?"perte":"bénéfice avant impôt",true)}</div>
+    <h2><span>Trésorerie</span></h2>
+    <div class="acards a3">${acctCard("Encaissé"+y,paid,"factures payées")}${acctCard("À encaisser",dueAED,cnt(due.length,"facture envoyée","factures envoyées"))}${acctCard("Dépenses à payer",toPayAED,cnt(toPay.length,"facture fournisseur","factures fournisseurs"))}</div>
+    <h2><span>Dépenses par catégorie${y}</span></h2>
+    ${byCat.length?`<div class="bars">${byCat.map(([k,v,a])=>`<button type="button" class="bar" data-expcat="${k}"><span class="bl">${esc(v)}</span><span class="bt"><i style="width:${Math.max(2,a/max*100)}%"></i></span><span class="bv">${mAED(a)}</span></button>`).join("")}</div>`:`<div class="aempty">Aucune dépense enregistrée${y}.</div>`}
+    ${period}`;
+}
+function acctSales(inv){
+  const list=inv.filter(i=>inYear(i.date));
+  if(!list.length) return `<div class="aempty" style="margin-top:22px">Aucune facture sur cette période.</div>`;
+  let ca=0;
+  return `<h2><span>Factures de vente</span><span>${list.length}</span></h2><div class="tw"><table><thead><tr><th>Facture</th><th class="hide-sm">Date</th><th>Montant HT</th><th class="hide-sm">En AED</th><th class="hide-sm">Marge réelle</th><th>Statut</th></tr></thead><tbody>${list.map(i=>{ const s=statusOf(i), b=totals(i).base, a=invBaseAED(i), op=opOf(i); if(s!=="draft"&&a) ca+=a;
+      const rateCell=i.currency==="EUR"?`<span class="rate">${VIEWER?(num(i.fxAED)?"1 € = "+esc(i.fxAED)+" AED":"taux ?"):`1 € = <input class="fxin" data-invfx="${i.id}" value="${esc(i.fxAED||"")}" inputmode="decimal" placeholder="4,00" aria-label="Taux EUR en AED"> AED`}</span>`:"";
+      return `<tr data-openinv="${i.id}"><td><span class="ar">${esc(i.number||"Sans numéro")}</span><span class="cl">${esc(i.client?.name||i.client?.company||"Client à renseigner")}</span></td><td class="hide-sm">${esc(fdate(i.date,"fr"))}</td><td>${mC(b,i.currency)}${rateCell}${i.currency!=="AED"?`<small class="show-sm">${a===null?"taux ?":mAED(a)}</small>`:""}</td><td class="hide-sm">${a===null?"—":mAED(a)}</td><td class="hide-sm ${op.net<0?"neg":"pos"}">${op.lines.length?mC(op.net,op.cur)+" <small>"+pctTxt(op.net,op.rev)+"</small>":"<small>—</small>"}</td><td><span class="chip ${s}">${STATUS[s]}</span></td></tr>`; }).join("")}</tbody>
+    <tfoot><tr><td>Chiffre d’affaires HT (hors brouillons)</td><td class="hide-sm"></td><td>${mAED(ca)}</td><td class="hide-sm">${mAED(ca)}</td><td class="hide-sm"></td><td></td></tr></tfoot></table></div>
+    <p class="anote">Montants hors TVA. Touchez une facture pour l’ouvrir.</p>`;
+}
+function acctExpenses(exps){
+  const list=exps.filter(e=>inYear(e.date)&&(expCat==="all"||e.category===expCat));
+  const tot=list.reduce((s,e)=>s+(expAED(e)||0),0);
+  return `<div class="abar"><div class="filters">${[["all","Toutes"],...EXP_CATS].map(([k,v])=>`<button type="button" data-expcat="${k}" class="${expCat===k?"on":""}">${esc(v)}</button>`).join("")}</div>
+      ${VIEWER?"":`<button type="button" class="btn primary" id="expNew">+ Nouvelle dépense</button>`}</div>
+    ${list.length?`<div class="tw"><table><thead><tr><th>Dépense</th><th class="hide-sm">Date</th><th class="hide-sm">Catégorie</th><th>Montant</th><th class="hide-sm">En AED</th><th class="hide-sm">Rattachée à</th></tr></thead><tbody>${list.map(e=>{ const a=expAED(e), i=state.invoices[e.invoiceId], w=state.artworks[e.artworkId];
+      return `<tr data-exp="${e.id}"><td><span class="ar">${esc(e.supplier||"Fournisseur")}${e.files?.length?` <span class="clip" title="${e.files.length} justificatif(s)"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:-1px"><path d="M20 11.5l-8 8a5 5 0 01-7-7l8.5-8.5a3.3 3.3 0 014.7 4.7L9.7 17.2a1.7 1.7 0 01-2.4-2.4L15 7"/></svg>${e.files.length>1?e.files.length:""}</span>`:""}${e.status==="due"?` <span class="chip late">À payer</span>`:""}</span><span class="cl">${esc(e.label||EXP_CAT[e.category]||"")}</span></td><td class="hide-sm">${esc(fdate(e.date,"fr"))}</td><td class="hide-sm">${esc(EXP_CAT[e.category]||"")}</td><td>${num(e.amount)?mC(num(e.amount),e.currency):"—"}${e.currency!=="AED"?`<small class="show-sm">${a===null?"taux ?":mAED(a)}</small>`:""}</td><td class="hide-sm">${a===null?"taux ?":mAED(a)}</td><td class="hide-sm lk">${i?esc(i.number||"Facture"):e.invoiceId?"Facture supprimée":""}${w?(i?"<br>":"")+esc(w.artist||"")+" · <i>"+esc(w.title||"")+"</i>":""}${!i&&!w&&!e.invoiceId?"<small>Frais généraux</small>":""}</td></tr>`; }).join("")}</tbody>
+      <tfoot><tr><td>Total</td><td class="hide-sm"></td><td class="hide-sm"></td><td>${mAED(tot)}</td><td class="hide-sm">${mAED(tot)}</td><td class="hide-sm">≈ ${mUSD(tot)}</td></tr></tfoot></table></div>`
+    :`<div class="aempty">${exps.length?"Aucune dépense dans ce filtre.":VIEWER?"Aucune dépense enregistrée pour l’instant.":"Aucune dépense pour l’instant. Ajoutez vos factures fournisseurs et notes de frais avec « Nouvelle dépense », ou envoyez-les à Claude."}</div>`}`;
+}
+function acctMargins(inv){
+  const ops=inv.filter(i=>statusOf(i)!=="draft"&&inYear(i.date)).map(i=>({i,op:opOf(i)}));
+  const withCosts=ops.filter(x=>x.op.lines.length), none=ops.filter(x=>!x.op.lines.length);
+  const totAED=withCosts.reduce((s,x)=>s+(x.op.netAED||0),0);
+  const arts=sortedArtworks(), stock=arts.filter(a=>["available","reserved","consignment"].includes(artStatus(a)));
+  const st={}; let skipped=0; const srows=[];
+  stock.forEach(a=>{ const r=finOf(a); if(r.missing||r.mismatch){ skipped++; return; } const t=st[r.cur]=st[r.cur]||{price:0,net:0}; t.price+=r.price; t.net+=r.net; srows.push({a,r}); });
+  const stockAED=Object.entries(st).reduce((s,[c,t])=>s+(toAED(t.net,c)||0),0), stockVal=Object.entries(st).reduce((s,[c,t])=>s+(toAED(t.price,c)||0),0);
+  return `<h2><span>Marge réelle par opération</span><span>${withCosts.length}</span></h2>
+    <div class="acards a3" style="margin-bottom:10px">${acctCard("Marge nette réalisée",withCosts.length?totAED:null,withCosts.length+" opération"+(withCosts.length>1?"s":"")+" avec coûts",true)}</div>
+    ${withCosts.length?`<div class="tw"><table><thead><tr><th>Opération</th><th>Facturé HT</th><th class="hide-sm">Coûts</th><th>Marge</th><th>%</th></tr></thead><tbody>${withCosts.map(({i,op})=>`<tr data-op="${i.id}"><td><span class="ar">${esc(i.number||"")}</span><span class="cl">${esc(i.client?.name||i.client?.company||"")}</span></td><td>${mC(op.rev,op.cur)}</td><td class="hide-sm">${mC(op.cost,op.cur)}${op.missing?" <small>+ taux ?</small>":""}</td><td class="${op.net<0?"neg":"pos"}">${mC(op.net,op.cur)}</td><td>${pctTxt(op.net,op.rev)}</td></tr>`).join("")}</tbody></table></div><p class="anote">Touchez une opération pour voir le détail des coûts. Chaque coût est converti dans la devise de la facture.</p>`
+      :`<div class="aempty">Aucune opération avec des coûts rattachés. Rattachez une dépense à une facture de vente (ou renseignez le prix d’achat d’une œuvre facturée) pour voir la marge réelle.</div>`}
+    ${none.length?`<p class="anote">${none.length} facture${none.length>1?"s":""} sans coût rattaché : ${none.map(x=>esc(x.i.number||"")).join(", ")}.</p>`:""}
+    <h2><span>Marge potentielle · stock en vente</span><span>${srows.length}</span></h2>
+    <div class="acards a3" style="margin-bottom:10px">${acctCard("Valeur du stock (prix finaux)",srows.length?stockVal:null,"available · reserved · consignment")}${acctCard("Marge nette potentielle",srows.length?stockAED:null,srows.length+" œuvre"+(srows.length>1?"s":""),true)}</div>
+    ${srows.length?`<div class="tw"><table><thead><tr><th>Œuvre</th><th>Prix final</th><th class="hide-sm">Coût / net propr.</th><th>Marge nette</th><th>%</th></tr></thead><tbody>${srows.map(({a,r})=>`<tr data-art-open="${a.id}"><td><span class="ar">${esc(a.artist||"Artiste")}</span><span class="ti">${esc(a.title||"Sans titre")}${a.year?", "+esc(a.year):""}</span></td><td>${mC(r.price,r.cur)}</td><td class="hide-sm">${r.hasCost?mC(r.cost,r.cur):"—"}</td><td class="${r.net<0?"neg":"pos"}">${mC(r.net,r.cur)}</td><td>${pctTxt(r.net,r.price)}</td></tr>`).join("")}</tbody></table></div>`:`<div class="aempty">Aucune œuvre en vente avec un prix renseigné.</div>`}
+    ${skipped?`<p class="anote">${skipped} œuvre${skipped>1?"s":""} non comptée${skipped>1?"s":""} (prix manquant ou devises différentes).</p>`:""}`;
+}
+function openOp(id){
+  const i=state.invoices[id]; if(!i) return; const op=opOf(i);
+  $("#modal").innerHTML=`<div class="ov" id="ovx"><div class="sheet" role="dialog" aria-label="Détail de l’opération">
+    <div class="shead"><div><h1>${esc(i.number||"Opération")}</h1><div class="sub">${esc(i.client?.name||i.client?.company||"")} · ${esc(fdate(i.date,"fr"))}</div></div><button type="button" class="btn" id="opClose">Fermer</button></div>
+    <div class="fin opfin"><div class="strong"><span>Facturé HT</span><span>${mC(op.rev,op.cur)}</span></div>
+      ${op.lines.map(l=>`<div ${l.expId?`data-exp="${l.expId}" class="oplink"`:""}><span>− ${esc(l.label)}<small>${esc(l.src)}${l.cur!==op.cur?" · "+mC(l.amount,l.cur)+" converti":""}</small></span><span>${l.conv===null?"taux ?":mC(l.conv,op.cur)}</span></div>`).join("")}
+      <div class="margin ${op.net<0?"neg":""}"><span>Marge réelle</span><b>${mC(op.net,op.cur)}</b><span>${pctTxt(op.net,op.rev)} du facturé HT${op.netAED!==null&&op.cur!=="AED"?" · "+mAED(op.netAED):""}</span></div></div>
+    <div class="sfoot"><button type="button" class="btn" data-openinv="${i.id}">Ouvrir la facture</button>${VIEWER?"":`<button type="button" class="btn primary" id="opAdd">+ Ajouter un coût</button>`}</div></div></div>`;
+  const close=()=>{ $("#modal").innerHTML=""; };
+  $("#opClose").onclick=close; $("#ovx").onclick=e=>{ if(e.target.id==="ovx") close(); };
+  if($("#opAdd")) $("#opAdd").onclick=()=>{ const e=newExpense(); e.invoiceId=i.id; e.currency=i.currency||"USD"; state.expenses[e.id]=e; flushDoc("expenses",e.id); openExp(e.id); };
+}
+
+/* ---------------- expense sheet ---------------- */
+function fileKind(f){ return (f.type||"").startsWith("image/")?"img":"pdf"; }
+function filesHTML(e){
+  const fs=e.files||[];
+  return `${fs.length?`<div class="efiles">${fs.map(f=>`<div class="efile"><span class="fi">${fileKind(f)==="img"?'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="5" width="17" height="14" rx="1.5"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 16l-5-5-8 8"/></svg>':'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 15h5M10 18h3"/></svg>'}</span><span class="fn">${esc(f.name||"Justificatif")}<small>${f.size?Math.max(1,Math.round(f.size/1024))+" Ko":""}</small></span>
+      <button type="button" class="btn" data-fview="${f.id}">Voir</button><button type="button" class="btn" data-fdl="${f.id}">Télécharger</button>${VIEWER?"":`<button type="button" class="btn danger" data-fdel="${f.id}" aria-label="Supprimer">${ICON.trash}</button>`}</div>`).join("")}</div>`:`<p class="hint keep">Aucun justificatif.</p>`}
+    ${VIEWER?"":assetsCap?`<label class="btn addfile"><input type="file" id="expFile" accept="application/pdf,image/*" multiple hidden>+ Ajouter un justificatif (PDF ou photo)</label>`:`<p class="hint keep">Pour joindre un justificatif, envoyez-le à Claude dans la conversation.</p>`}
+    <div class="msg" id="expFileMsg" hidden></div>`;
+}
+function openExp(id){
+  const e=state.expenses[id]; if(!e) return; state.curExp=id;
+  const ro=VIEWER, dis=ro?"disabled":"";
+  const F=(label,k,cls,inp)=>`<div class="f ${cls}"><label for="e_${k}">${label}</label>${inp}</div>`;
+  const I=(k,o={})=>`<input id="e_${k}" data-e="${k}" type="${o.type||"text"}" value="${esc(e[k])}" ${o.num?'inputmode="decimal" class="num"':""} ${o.ph?`placeholder="${esc(o.ph)}"`:""} ${o.list?`list="${o.list}"`:""} ${dis}>`;
+  const S=(k,opts)=>`<select id="e_${k}" data-e="${k}" ${dis}>${opts.map(([v,t])=>`<option value="${esc(v)}" ${String(e[k]||"")===String(v)?"selected":""}>${esc(t)}</option>`).join("")}</select>`;
+  const aed=expAED(e);
+  $("#modal").innerHTML=`<div class="ov" id="ovx"><div class="sheet expsheet" role="dialog" aria-label="Dépense">
+    <div class="shead"><div><h1>${esc(e.supplier||"Nouvelle dépense")}</h1><div class="sub">${esc(EXP_CAT[e.category]||"")}</div></div><button type="button" class="btn" id="expClose">Fermer</button></div>
+    <div class="card"><h2>Dépense</h2><div class="grid">
+      ${F("Fournisseur","supplier","s4",I("supplier",{ph:"Transporteur, galerie, hôtel…",list:"ctList"}))}${F("Statut","status","s2",S("status",[["paid","Payée"],["due","À payer"]]))}
+      ${F("Libellé","label","s6",I("label",{ph:"Transport Tokyo → New York, caisse…"}))}
+      ${F("Catégorie","category","s3",S("category",EXP_CATS))}${F("N° facture fournisseur","ref","s3",I("ref"))}
+      ${F("Date (paiement)","date","s2",I("date",{type:"date"}))}${F("Montant TTC","amount","s2",I("amount",{num:true,ph:"0.00"}))}${F("Devise","currency","s2",S("currency",CURRENCIES.map(c=>[c,c])))}
+      ${e.currency==="EUR"?F("Taux du jour : 1 EUR = … AED","fx","s3",I("fx",{num:true,ph:"ex. 4.31"})):""}
+      <div class="f s6"><span class="hint keep" id="eAed">${aed===null?"Renseignez le taux EUR → AED du jour de paiement (Banque centrale des Émirats).":"= "+mAED(aed)+" · ≈ "+mUSD(aed)}</span></div>
+    </div></div>
+    <div class="card"><h2>Rattachement</h2><div class="grid">
+      ${F("Facture de vente (opération)","invoiceId","s6",S("invoiceId",[["","— Aucune (frais généraux) —"],...sortedInvoices().map(i=>[i.id,invLabel(i)])]))}
+      ${F("Œuvre","artworkId","s6",S("artworkId",[["","— Aucune —"],...sortedArtworks().map(a=>[a.id,artLabel(a)])]))}
+      ${F("Notes","notes","s6",`<textarea id="e_notes" data-e="notes" rows="2" ${dis}>${esc(e.notes)}</textarea>`)}
+    </div></div>
+    <div class="card"><h2>Justificatifs</h2><div id="expFiles">${filesHTML(e)}</div></div>
+    <datalist id="ctList">${sortedContacts().map(c=>`<option value="${esc(c.company||c.name)}">`).join("")}</datalist>
+    <div class="sfoot">${ro?"":`<button type="button" class="btn danger" id="expDel">${ICON.trash}Supprimer la dépense</button>`}<button type="button" class="btn primary" id="expDone">${ro?"Fermer":"Terminé"}</button></div>
+  </div></div>`;
+  const close=()=>{ $("#modal").innerHTML=""; state.curExp=null; renderAcct(); };
+  $("#expClose").onclick=close; $("#expDone").onclick=close; $("#ovx").onclick=ev=>{ if(ev.target.id==="ovx") close(); };
+  if(ro) return;
+  $("#ovx").addEventListener("input",ev=>{ const k=ev.target.dataset?.e; if(!k) return; e[k]=ev.target.value; schedDoc("expenses",e.id);
+    if(k==="currency"){ openExp(e.id); return; }
+    const a=expAED(e), h=$("#eAed"); if(h) h.textContent=a===null?"Renseignez le taux EUR → AED du jour de paiement (Banque centrale des Émirats).":"= "+money(a,"AED","en")+" · ≈ "+money(a/PEG,"USD","en");
+    if(k==="supplier"){ const t=$(".expsheet h1"); if(t) t.textContent=e.supplier||"Nouvelle dépense"; }
+    if(k==="category"){ const t=$(".expsheet .sub"); if(t) t.textContent=EXP_CAT[e.category]||""; } });
+  $("#expDel").onclick=async()=>{ const b=$("#expDel"); if(!b.classList.contains("arm")){ b.classList.add("arm"); b.lastChild.textContent="Confirmer la suppression"; return; }
+    const ids=(e.files||[]).map(f=>f.id); $("#modal").innerHTML=""; state.curExp=null;
+    try{ await removeDoc("expenses",e.id); setSave("Dépense supprimée"); }catch(err){ setSave("Échec de la suppression",true); }
+    if(assetsCap) for(const fid of ids){ try{ await assetsCap.delete(fid); }catch(err){} }
+    renderAcct(); };
+  const fi=$("#expFile"); if(fi) fi.onchange=async ev=>{ const files=[...ev.target.files]; ev.target.value=""; const msg=$("#expFileMsg");
+    for(const file of files){ msg.hidden=false; msg.textContent="Envoi de « "+file.name+" »…";
+      try{ let blob=file, type=file.type, name=file.name;
+        if(type.startsWith("image/")){ const du=await resizeImage(file,2400); blob=await (await fetch(du)).blob(); type="image/jpeg"; name=name.replace(/\.[^.]+$/,"")+".jpg"; }
+        else if(type!=="application/pdf"){ msg.textContent="Format non accepté : PDF ou photo uniquement."; continue; }
+        const r=await assetsCap.upload(blob,{type}); e.files=e.files||[]; e.files.push({id:r.id,name,type:r.contentType,size:r.sizeBytes,addedAt:new Date().toISOString()});
+        await flushDoc("expenses",e.id); msg.hidden=true;
+      }catch(err){ msg.textContent=err?.code==="too_large"?"Fichier trop lourd (20 Mo maximum).":"L’envoi n’a pas abouti. Réessayez."; }
+      $("#expFiles").innerHTML=filesHTML(e); const nf=$("#expFile"); if(nf) nf.onchange=fi.onchange; }
+  };
+}
+async function fileBlob(f){
+  if(!VIEWER){ const r=await fetch("/_blob/"+f.id); if(!r.ok) throw new Error("missing"); return await r.blob(); }
+  try{ const c=await idb.get("f:"+f.id); if(c) return c; }catch(e){}
+  const r=await fetch("files/"+f.id+".enc"); if(!r.ok) throw new Error("offline");
+  const env=await r.json(), key=await idb.get("privkey");
+  const raw=await crypto.subtle.decrypt({name:"RSA-OAEP"},key,b64d(env.ek));
+  const aes=await crypto.subtle.importKey("raw",raw,{name:"AES-GCM"},false,["decrypt"]);
+  const plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(env.iv)},aes,b64d(env.ct));
+  const blob=new Blob([plain],{type:f.type||env.type||"application/octet-stream"}); try{ await idb.set("f:"+f.id,blob); }catch(e){} return blob;
+}
+function findFile(fid){ for(const e of Object.values(state.expenses)) for(const f of (e.files||[])) if(f.id===fid) return {e,f}; return null; }
+async function viewFile(fid){
+  const x=findFile(fid); if(!x) return; const m=$("#expFileMsg"); if(m){ m.hidden=false; m.textContent="Ouverture…"; }
+  try{ const blob=await fileBlob(x.f); const u=URL.createObjectURL(blob); if(m) m.hidden=true;
+    const d=document.createElement("div"); d.className="ov lb rcpt"; d.innerHTML=`<div class="lbox fbox" role="dialog" aria-label="Justificatif">${fileKind(x.f)==="img"?`<img src="${u}" alt="">`:`<iframe src="${u}" title="${esc(x.f.name)}"></iframe>`}<div class="eacts"><button type="button" class="btn" data-fdl="${x.f.id}">Télécharger</button><button type="button" class="btn" data-fclose>Fermer</button></div></div>`;
+    document.body.appendChild(d); d.onclick=ev=>{ if(ev.target===d||ev.target.closest("[data-fclose]")){ d.remove(); URL.revokeObjectURL(u); } };
+  }catch(err){ if(m){ m.hidden=false; m.textContent=err.message==="offline"?"Connexion nécessaire pour ouvrir ce justificatif la première fois.":"Justificatif introuvable."; } }
+}
+async function dlFile(fid){ const x=findFile(fid); if(!x) return; try{ const blob=await fileBlob(x.f); await saveFile(x.f.name||"justificatif", blob); }catch(err){ if(err?.code!=="declined") setSave("Téléchargement impossible",true); } }
+async function delFile(fid,btn){ const x=findFile(fid); if(!x) return; if(!btn.classList.contains("arm")){ btn.classList.add("arm"); btn.title="Confirmer"; return; }
+  x.e.files=x.e.files.filter(f=>f.id!==fid); await flushDoc("expenses",x.e.id); openExp(x.e.id);
+  if(assetsCap){ try{ await assetsCap.delete(fid); }catch(err){} } }
+
 function renderAlt(){ if(state.view==="accounting"){ renderAcct(); return; } renderSide(); renderDetail(); renderHome(); }
 function switchView(v){
   state.view=v; document.body.dataset.view=v; document.body.classList.remove("alt-detail","show-list","inv-open");
@@ -1430,6 +1653,7 @@ function switchView(v){
 function createInvoiceWith(fn){ const inv=newInvoice(); fn(inv); state.invoices[inv.id]=inv; state.current=inv.id; flush(inv.id); switchView("invoices"); document.body.classList.add("inv-open"); requestAnimationFrame(fitPreview); }
 
 document.addEventListener("input",e=>{
+  if(e.target.dataset?.invfx){ const i=state.invoices[e.target.dataset.invfx]; if(i){ i.fxAED=e.target.value; scheduleSave(i.id); } return; }
   const k=e.target.dataset?.k; if(!k) return;
   const coll=state.view==="contacts"?"contacts":"artworks", id=coll==="contacts"?state.curContact:state.curArt, o=state[coll][id]; if(!o) return;
   o[k]=e.target.value; schedDoc(coll,id); renderSide();
@@ -1437,15 +1661,25 @@ document.addEventListener("input",e=>{
   const h=document.querySelector("#detail .ehead h1"); if(h && ["name","company","artist","title","year"].includes(k)){ if(coll==="contacts") h.textContent=o.name||o.company||"Nouveau contact"; else h.innerHTML=`<span>${esc(o.artist||"Artiste")}</span><i>${esc(o.title||"Sans titre")}</i>${o.year?", "+esc(o.year):""}`; }
 });
 document.addEventListener("click",async e=>{
-  const tr=e.target.closest("#acct tr[data-art-open]"); if(tr){ state.curArt=tr.dataset.artOpen; switchView("artworks"); document.body.classList.add("alt-detail"); renderAlt(); window.scrollTo(0,0); return; }
+  const tr=e.target.closest("input,select,textarea")?null:e.target.closest("#acct tr[data-art-open],#acct tr[data-openinv],#acct tr[data-exp],#acct tr[data-op],.oplink[data-exp]");
+  if(tr){ if(tr.dataset.artOpen){ state.curArt=tr.dataset.artOpen; switchView("artworks"); document.body.classList.add("alt-detail"); renderAlt(); window.scrollTo(0,0); return; }
+    if(tr.dataset.openinv){ state.current=tr.dataset.openinv; switchView("invoices"); document.body.classList.add("inv-open"); requestAnimationFrame(fitPreview); invMobilePreview(); return; }
+    if(tr.dataset.exp){ openExp(tr.dataset.exp); return; }
+    if(tr.dataset.op){ openOp(tr.dataset.op); return; } }
   const b=e.target.closest("button"); if(!b) return;
   if(b.dataset.view){ switchView(b.dataset.view); return; }
+  if(b.dataset.atab){ state.acctTab=b.dataset.atab; renderAcct(); return; }
+  if(b.dataset.expcat){ expCat=b.dataset.expcat; state.acctTab="expenses"; renderAcct(); return; }
+  if(b.id==="expNew"){ const x=newExpense(); state.expenses[x.id]=x; flushDoc("expenses",x.id); openExp(x.id); return; }
+  if(b.dataset.fview){ viewFile(b.dataset.fview); return; }
+  if(b.dataset.fdl){ dlFile(b.dataset.fdl); return; }
+  if(b.dataset.fdel){ delFile(b.dataset.fdel,b); return; }
   if(b.dataset.ct){ state.curContact=b.dataset.ct; document.body.classList.add("alt-detail"); renderAlt(); window.scrollTo(0,0); return; }
   if(b.dataset.art){ window.__locOther=false; window.__ownOther=false; window.__brkOther=false; state.curArt=b.dataset.art; document.body.classList.add("alt-detail"); renderAlt(); window.scrollTo(0,0); return; }
   if(b.dataset.artOpen){ state.curArt=b.dataset.artOpen; window.__locOther=false; window.__ownOther=false; switchView("artworks"); document.body.classList.add("alt-detail"); renderAlt(); return; }
   if(b.dataset.af){ artFilter=b.dataset.af; renderSide(); return; }
   if(b.dataset.back!==undefined){ document.body.classList.remove("alt-detail"); window.scrollTo(0,0); return; }
-  if(b.dataset.openinv){ state.current=b.dataset.openinv; switchView("invoices"); document.body.classList.add("inv-open"); requestAnimationFrame(fitPreview); invMobilePreview(); return; }
+  if(b.dataset.openinv){ $("#modal").innerHTML=""; state.current=b.dataset.openinv; switchView("invoices"); document.body.classList.add("inv-open"); requestAnimationFrame(fitPreview); invMobilePreview(); return; }
   if(b.dataset.pick && pickTarget>=0){ const a=state.artworks[b.dataset.pick], inv=state.invoices[state.current]; if(a&&inv&&inv.items[pickTarget]){ const q=inv.items[pickTarget].qty||1; inv.items[pickTarget]=Object.assign(itemFromArtwork(a),{qty:q}); pickTarget=-1; $("#modal").innerHTML=""; touch({editor:true}); } return; }
   if(b.dataset.pick){ const a=state.artworks[b.dataset.pick], inv=state.invoices[state.current]; if(a&&inv){ const blank=inv.items.length===1 && !inv.items[0].artist && !inv.items[0].title && !inv.items[0].price && !inv.items[0].photo; if(blank) inv.items=[]; inv.items.push(itemFromArtwork(a)); $("#modal").innerHTML=""; touch({editor:true}); } return; }
   if(b.dataset.pickclose!==undefined){ $("#modal").innerHTML=""; return; }
@@ -1516,6 +1750,8 @@ function subscribeColl(coll){
       const d=clone(ch.doc.data()); if(JSON.stringify(state[coll][id])===JSON.stringify(d)) return;
       state[coll][id]=d; if(id===curId) cur=true; });
     if(first){ first=false; if(state.view!=="invoices") renderAlt(); else renderEditor(); return; }
+    if(state.view==="accounting"){ if(!state.curExp) renderAcct(); return; }
+    if(coll==="expenses") return;
     if(state.view!=="invoices"){ renderSide(); const a=document.activeElement; if(cur && (!a||!a.dataset?.k)) renderDetail(); }
   },()=>setSave("Synchronisation interrompue, rechargez la page",true));
 }
@@ -1553,7 +1789,7 @@ async function viewerSync(manual){
     const aes=await crypto.subtle.importKey("raw",raw,{name:"AES-GCM"},false,["decrypt"]);
     const plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(env.iv)},aes,b64d(env.ct));
     const d=JSON.parse(new TextDecoder().decode(plain));
-    state.company=mergeCompany(d.company); state.invoices=d.invoices||{}; state.contacts=d.contacts||{}; state.artworks=d.artworks||{}; state.views=d.views||{};
+    state.company=mergeCompany(d.company); state.invoices=d.invoices||{}; state.contacts=d.contacts||{}; state.artworks=d.artworks||{}; state.views=d.views||{}; state.expenses=d.expenses||{};
     await local.write(); await idb.set("exportedAt",env.exportedAt);
     if(!state.invoices[state.current]) state.current=sortedInvoices()[0]?.id||null;
     if(state.view==="invoices") renderAll(); else renderAlt(); lockUI();
@@ -1563,7 +1799,7 @@ async function viewerSync(manual){
 /* ---------------- boot ---------------- */
 (async function boot(){
   const saved=await local.read();
-  if(saved){ state.company=mergeCompany(saved.company); state.invoices=saved.invoices||{}; state.contacts=saved.contacts||{}; state.artworks=saved.artworks||{}; state.views=saved.views||{}; }
+  if(saved){ state.company=mergeCompany(saved.company); state.invoices=saved.invoices||{}; state.contacts=saved.contacts||{}; state.artworks=saved.artworks||{}; state.views=saved.views||{}; state.expenses=saved.expenses||{}; }
   try{ state.current=localStorage.getItem("ls-current"); }catch(e){}
   if(!state.invoices[state.current]) state.current=sortedInvoices()[0]?.id||null;
   let v0="invoices"; try{ v0=localStorage.getItem("ls-view")||"invoices"; }catch(e){}
@@ -1581,10 +1817,11 @@ async function viewerSync(manual){
   const use = window.claude?.use ? window.claude.use.bind(window.claude) : null;
   if(!use){ setSave("Enregistré sur cet appareil"); return; }
   use("downloads").then(d=>{ downloads=d; }).catch(()=>{});
+  use("assets").then(a=>{ assetsCap=a; }).catch(()=>{});
   use("db").then(d=>{
     if(!d){ setSave("Enregistré sur cet appareil"); return; }
-    db=d; state.invoices={}; state.contacts={}; state.artworks={}; let first=true;
-    subscribeColl("contacts"); subscribeColl("artworks");
+    db=d; state.invoices={}; state.contacts={}; state.artworks={}; state.expenses={}; let first=true;
+    subscribeColl("contacts"); subscribeColl("artworks"); subscribeColl("expenses");
     db.doc("settings/company").onSnapshot(s=>{ if(s.exists && !window.__cancelSettings){ state.company=mergeCompany(clone(s.data())); renderPreview(); const a=document.activeElement; if(!first && (!a||!a.dataset?.p)) renderEditor(); } },()=>{});
     db.collection("invoices").onSnapshot(snap=>{
       let curChanged=false;
