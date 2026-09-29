@@ -374,6 +374,8 @@ body[data-view="accounting"] .app,body[data-view="accounting"] .alt,body[data-vi
 .rcpt{z-index:70;justify-content:center;align-items:center}
 .rbox{background:var(--surface);border-radius:14px;padding:14px;width:min(900px,94vw);max-height:92vh;display:flex;flex-direction:column;gap:10px}
 .rbox img{max-width:100%;max-height:78vh;object-fit:contain;margin:0 auto;display:block}
+.pdfbox{max-height:78vh;overflow:auto;background:#e9ebe8;border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:8px;-webkit-overflow-scrolling:touch}
+.pdfbox .pdfpage{display:block;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.15)}
 .rbox iframe{width:100%;height:78vh;border:0;background:#fff;border-radius:8px}
 @media (max-width:900px){
   .acct .acards.a3{grid-template-columns:1fr}
@@ -1788,6 +1790,7 @@ function openExp(id){
     <datalist id="ctList">${sortedContacts().map(c=>`<option value="${esc(c.company||c.name)}">`).join("")}</datalist>
     <div class="sfoot">${ro?"":`<button type="button" class="btn danger" id="expDel">${ICON.trash}Supprimer la facture</button>`}<button type="button" class="btn primary" id="expDone">${ro?"Fermer":"Terminé"}</button></div>
   </div></div>`;
+  prefetchFiles(e);
   const close=()=>{ $("#modal").innerHTML=""; state.curExp=null; refreshAfterExp(); };
   $("#expClose").onclick=close; $("#expDone").onclick=close; $("#ovx").onclick=ev=>{ if(ev.target.id==="ovx") close(); };
   if(ro) return;
@@ -1839,14 +1842,36 @@ async function fileBlob(f){
   const blob=new Blob([plain],{type:f.type||env.type||"application/octet-stream"}); try{ await idb.set("f:"+f.id,blob); }catch(e){} return blob;
 }
 function findFile(fid){ for(const e of Object.values(state.expenses)) for(const f of (e.files||[])) if(f.id===fid) return {e,f}; return null; }
+const PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+let pdfjsP=null;
+function ensurePdfJs(){ if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib); if(pdfjsP) return pdfjsP;
+  pdfjsP=new Promise((res,rej)=>{ const sc=document.createElement("script"); sc.src=PDFJS+"pdf.min.js"; sc.onload=()=>{ try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+"pdf.worker.min.js"; res(window.pdfjsLib); }catch(e){ rej(e); } }; sc.onerror=()=>{ pdfjsP=null; rej(new Error("pdfjs")); }; document.head.appendChild(sc); setTimeout(()=>rej(new Error("pdfjs-timeout")),15000); });
+  return pdfjsP; }
+async function renderPdfInto(box, blob){
+  const lib=await ensurePdfJs(); const data=new Uint8Array(await blob.arrayBuffer());
+  const doc=await lib.getDocument({data, isEvalSupported:false}).promise; box.innerHTML="";
+  const w=Math.min(box.clientWidth||800, 1000);
+  for(let n=1;n<=doc.numPages;n++){ const pg=await doc.getPage(n); const v1=pg.getViewport({scale:1}); const k=(w/v1.width)*(window.devicePixelRatio||1); const vp=pg.getViewport({scale:k});
+    const cv=document.createElement("canvas"); cv.width=Math.floor(vp.width); cv.height=Math.floor(vp.height); cv.style.width="100%"; cv.style.height="auto"; cv.className="pdfpage";
+    box.appendChild(cv); await pg.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise; }
+}
+const fileCache={};
 async function viewFile(fid){
   const x=findFile(fid); if(!x) return; const m=$("#expFileMsg"); if(m){ m.hidden=false; m.textContent="Ouverture…"; }
-  try{ const blob=await fileBlob(x.f); const u=URL.createObjectURL(blob); if(m) m.hidden=true;
-    const d=document.createElement("div"); d.className="ov lb rcpt"; d.innerHTML=`<div class="lbox rbox" role="dialog" aria-label="Justificatif">${fileKind(x.f)==="img"?`<img src="${u}" alt="">`:`<iframe src="${u}" title="${esc(x.f.name)}"></iframe>`}<div class="eacts"><button type="button" class="btn" data-fdl="${x.f.id}">Télécharger</button><button type="button" class="btn" data-fclose>Fermer</button></div></div>`;
+  try{ const blob=fileCache[fid]||await fileBlob(x.f); fileCache[fid]=blob; if(m) m.hidden=true;
+    const isImg=fileKind(x.f)==="img", u=URL.createObjectURL(blob);
+    const d=document.createElement("div"); d.className="ov lb rcpt"; d.innerHTML=`<div class="lbox rbox" role="dialog" aria-label="Justificatif">${isImg?`<img src="${u}" alt="">`:`<div class="pdfbox" id="pdfBox"><div class="hint keep">Affichage du PDF…</div></div>`}<div class="eacts"><button type="button" class="btn" data-fdl="${x.f.id}">Télécharger</button><button type="button" class="btn" data-fclose>Fermer</button></div></div>`;
     document.body.appendChild(d); d.onclick=ev=>{ if(ev.target===d||ev.target.closest("[data-fclose]")){ d.remove(); URL.revokeObjectURL(u); } };
+    if(!isImg){ const box=d.querySelector("#pdfBox"); try{ await renderPdfInto(box, blob); }catch(err){ box.innerHTML=`<iframe src="${u}" title="${esc(x.f.name)}"></iframe>`; } }
   }catch(err){ if(m){ m.hidden=false; m.textContent=err.message==="offline"?"Connexion nécessaire pour ouvrir ce justificatif la première fois.":"Justificatif introuvable."; } }
 }
-async function dlFile(fid){ const x=findFile(fid); if(!x) return; try{ const blob=await fileBlob(x.f); await saveFile(x.f.name||"justificatif", blob); }catch(err){ if(err?.code!=="declined") setSave("Téléchargement impossible",true); } }
+async function dlFile(fid){ const x=findFile(fid); if(!x) return;
+  try{ const blob=fileCache[fid]||await fileBlob(x.f); fileCache[fid]=blob;
+    const file=new File([blob], x.f.name||"justificatif.pdf", {type:blob.type||x.f.type||"application/pdf"});
+    if(!downloads && navigator.canShare && navigator.share && navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file], title:x.f.name}); return; }catch(e){ if(e&&e.name==="AbortError") return; } }
+    await saveFile(x.f.name||"justificatif", blob);
+  }catch(err){ if(err?.code!=="declined") setSave("Téléchargement impossible",true); } }
+function prefetchFiles(e){ (e.files||[]).forEach(f=>{ if(!fileCache[f.id]) fileBlob(f).then(b=>{ fileCache[f.id]=b; }).catch(()=>{}); }); }
 async function delFile(fid,btn){ const x=findFile(fid); if(!x) return; if(!btn.classList.contains("arm")){ btn.classList.add("arm"); btn.title="Confirmer"; return; }
   x.e.files=x.e.files.filter(f=>f.id!==fid); await flushDoc("expenses",x.e.id); openExp(x.e.id);
   if(assetsCap){ try{ await assetsCap.delete(fid); }catch(err){} } }
@@ -2064,6 +2089,6 @@ async function viewerSync(manual){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") r.update().catch(()=>{}); }); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">vefba4322</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v29b3fb62</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>
