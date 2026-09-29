@@ -194,7 +194,7 @@ body.home-on{overflow:hidden}
 
 /* modal */
 .ov{position:fixed;inset:0;background:rgba(10,18,12,.45);z-index:50;display:flex;justify-content:flex-end}
-.sheet{width:min(560px,100%);height:100%;background:var(--surface);overflow:auto;padding:22px 22px 0;box-shadow:var(--shadow)}
+.sheet{width:min(560px,100%);height:100%;background:var(--surface);overflow:auto;padding:calc(22px + env(safe-area-inset-top,0px)) 22px 0;box-shadow:var(--shadow)}
 .sheet h1{font:500 28px/1.1 var(--serif);margin:0 0 4px}
 .sheet .sub{color:var(--muted);margin-bottom:18px}
 .shead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
@@ -1752,15 +1752,21 @@ function expConvText(e){ const a=expAED(e); if(e.currency==="USD"||e.currency===
   return a===null?"Renseignez le taux du jour de paiement pour convertir ce montant.":"≈ "+money(a/PEG,"USD","en")+" · "+money(a,"AED","en"); }
 function expPayHTML(e){
   const cur=e.currency||"USD", st=expStatus(e), pays=expPays(e), m=v=>esc(money(v,cur,"en"));
-  return `<div class="pay-sum"><span>Montant <b>${m(num(e.amount))}</b></span><span>Payé <b>${m(expPaidOf(e))}</b></span><span class="${expBalance(e)>0?"due":"ok"}">Reste à payer <b>${m(expBalance(e))}</b></span><span class="chip ${st==="paid"?"paid":st==="late"?"late":"sent"}">${EXP_STATUS[st]}</span></div>
-    ${pays.length?`<div class="pay-list">${pays.map(x=>`<div class="pay-row"><span>${esc(fdate(x.date,"fr"))}</span><span>${m(num(x.amount))}</span><span class="pay-note">${esc(x.note||"")}</span>${VIEWER?"":`<button type="button" class="st-link pay-del" data-epaydel="${x.id}">Supprimer</button>`}</div>`).join("")}</div>`:""}
-    ${VIEWER?"":`<div class="st-act" style="margin-top:10px">${st!=="paid"?`<button type="button" class="btn" data-epayform>+ Paiement effectué</button><button type="button" class="btn primary" data-epayfull>Marquer comme payée</button>`:(pays.length?"":`<button type="button" class="st-link" data-epayundo>Annuler « payée »</button>`)}</div>
-    <div class="pay-form" id="ePayForm" hidden>
+  const step=st==="paid"?2:st==="partial"?1:0, bal=expBalance(e), paid=expPaidOf(e);
+  const steps=[["À payer"],["Payée en partie"],["Payée"]].map(([l],i)=>`<span class="st-step ${i<step?"done":""} ${i===step?"on":""}">${l}</span>`).join('<i class="st-sep"></i>');
+  const lastDate=pays.length?pays[pays.length-1].date:(e.paidDate||"");
+  let act="";
+  if(st!=="paid") act=`${st==="late"?`<span class="st-late">En retard depuis le ${esc(fdate(e.due,"fr"))}</span>`:""}<button type="button" class="btn" data-epayform>+ Paiement effectué</button><button type="button" class="btn primary" data-epayfull>Marquer comme payée</button>`;
+  else act=`<span class="st-paid">Payée${lastDate?" le "+esc(fdate(lastDate,"fr")):""}</span>${pays.length?"":`<button type="button" class="st-link" data-epayundo>Annuler « payée »</button>`}`;
+  const sum=`<div class="pay-sum"><span>Total <b>${m(num(e.amount))}</b></span><span>Payé <b>${m(paid)}</b></span><span class="${bal>0?"due":"ok"}">Reste à payer <b>${m(bal)}</b></span></div>`;
+  const list=pays.length?`<div class="pay-list">${pays.map(x=>`<div class="pay-row"><span>${esc(fdate(x.date,"fr"))}</span><span>${m(num(x.amount))}</span><span class="pay-note">${esc(x.note||"")}</span>${VIEWER?"":`<button type="button" class="st-link pay-del" data-epaydel="${x.id}" aria-label="Supprimer ce paiement">Supprimer</button>`}</div>`).join("")}</div>`:"";
+  const form=`<div class="pay-form" id="ePayForm" hidden>
       <div class="f"><label for="ePayDate">Date du paiement</label><input id="ePayDate" type="date" value="${today()}"></div>
-      <div class="f"><label for="ePayAmt">Montant payé (${esc(cur)})</label><input id="ePayAmt" class="num" inputmode="decimal" value="${expBalance(e)||""}"></div>
+      <div class="f"><label for="ePayAmt">Montant payé (${esc(cur)})</label><input id="ePayAmt" class="num" inputmode="decimal" value="${bal||""}"></div>
       <div class="f pay-n"><label for="ePayNote">Note (facultatif)</label><input id="ePayNote" placeholder="Virement, acompte 50 %…"></div>
       <div class="pay-btns"><button type="button" class="btn primary" data-epaysave>Enregistrer le paiement</button><button type="button" class="btn" data-epaycancel>Annuler</button></div>
-      <div class="pay-hint" id="ePayHint"></div></div>`}`;
+      <div class="pay-hint" id="ePayHint"></div></div>`;
+  return `<div class="st-top"><div class="st-steps">${steps}</div><div class="st-act">${act}</div></div>${sum}${list}${VIEWER?"":form}`;
 }
 function openExp(id){
   const e=state.expenses[id]; if(!e) return; state.curExp=id;
@@ -1771,6 +1777,7 @@ function openExp(id){
   const cur=e.currency||"USD", fixed=cur==="USD"||cur==="AED";
   $("#modal").innerHTML=`<div class="ov" id="ovx"><div class="sheet expsheet" role="dialog" aria-label="Facture fournisseur">
     <div class="shead"><div><h1>${esc(e.supplier||"Nouvelle facture fournisseur")}</h1><div class="sub">${esc(EXP_CAT[e.category]||"")}${e.ref?" · "+esc(e.ref):""}</div></div><button type="button" class="btn" id="expClose">Fermer</button></div>
+    <div class="stbar" id="ePay">${expPayHTML(e)}</div>
     <div class="card"><h2>Facture fournisseur</h2><div class="grid">
       ${F("Fournisseur","supplier","s4",I("supplier",{ph:"Transporteur, galerie, hôtel…",list:"ctList"}))}${F("N° de facture","ref","s2",I("ref"))}
       ${F("Libellé","label","s6",I("label",{ph:"Stockage et release, Tokyo…"}))}
@@ -1780,7 +1787,6 @@ function openExp(id){
       ${fixed?"":F(rateLabel(cur),"fxUsd","s2",I("fxUsd",{num:true,ph:cur==="JPY"?"157.48":"1.1362"}))}
       <div class="f s6"><span class="hint keep" id="eAed">${expConvText(e)}</span></div>
     </div></div>
-    <div class="card"><h2>Paiements</h2><div id="ePay">${expPayHTML(e)}</div></div>
     <div class="card"><h2>Liée à</h2><div class="grid">
       ${F("Facture client (opération)","invoiceId","s6",S("invoiceId",[["","— Aucune (frais généraux) —"],...sortedInvoices().map(i=>[i.id,invLabel(i)])]))}
       ${F("Œuvre","artworkId","s6",S("artworkId",[["","— Aucune —"],...sortedArtworks().map(a=>[a.id,artLabel(a)])]))}
@@ -1805,7 +1811,7 @@ function openExp(id){
   $("#ovx").addEventListener("click",ev=>{ const b=ev.target.closest("button"); if(!b) return;
     if(b.dataset.epayform!==undefined){ const f=$("#ePayForm"); if(f){ f.hidden=false; const a=$("#ePayAmt"); a&&a.focus(); } return; }
     if(b.dataset.epaycancel!==undefined){ const f=$("#ePayForm"); if(f) f.hidden=true; return; }
-    if(b.dataset.epayfull!==undefined){ const bal=expBalance(e); e.payments=e.payments||[]; if(bal>0) e.payments.push({id:uid(),date:today(),amount:String(bal),note:(e.payments.length?"Solde":"")}); e.status="paid"; flushDoc("expenses",e.id); repay(); setSave("Facture fournisseur marquée payée"); return; }
+    if(b.dataset.epayfull!==undefined){ const bal=expBalance(e); e.payments=e.payments||[]; if(bal>0) e.payments.push({id:uid(),date:today(),amount:String(bal),note:(e.payments.length?"Solde":"")}); e.status="paid"; e.paidDate=today(); flushDoc("expenses",e.id); repay(); setSave("Facture fournisseur marquée payée"); return; }
     if(b.dataset.epayundo!==undefined){ e.status="due"; flushDoc("expenses",e.id); repay(); return; }
     if(b.dataset.epaysave!==undefined){ const amt=num($("#ePayAmt").value), d=$("#ePayDate").value||today(), note=($("#ePayNote").value||"").trim(), h=$("#ePayHint");
       if(!(amt>0)){ h.textContent="Indiquez un montant."; return; }
@@ -2089,6 +2095,6 @@ async function viewerSync(manual){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") r.update().catch(()=>{}); }); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v29b3fb62</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v41ec435a</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>
