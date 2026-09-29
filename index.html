@@ -125,7 +125,7 @@ body.home-on{overflow:hidden}
 .inv .c{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .inv .a{text-align:right;font-variant-numeric:tabular-nums;font-size:12.5px}
 .chip{display:inline-block;font-size:10.5px;letter-spacing:.06em;padding:2px 8px;border-radius:999px;background:var(--chip-draft);color:var(--ink);white-space:nowrap;justify-self:end}
-.chip.sent{background:var(--chip-sent)} .chip.paid{background:var(--chip-paid)} .chip.late{background:var(--chip-late)}
+.chip.sent{background:var(--chip-sent)} .chip.partial{background:var(--chip-sent);box-shadow:inset 0 0 0 1px var(--gold)} .chip.paid{background:var(--chip-paid)} .chip.late{background:var(--chip-late)}
 .empty{color:var(--muted);font-size:13px;padding:14px 4px}
 
 /* editor */
@@ -248,6 +248,8 @@ body.home-on{overflow:hidden}
 .pp-tot tr.g td{border-top:1px solid #244A30;padding-top:12px;color:#244A30}
 .pp-tot tr.g td:first-child{font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;vertical-align:middle}
 .pp-tot tr.g td+td{font:500 26px/1 var(--serif)}
+.pp-tot tr.pd td{padding-top:10px}
+.pp-tot tr.bd td{border-top:1px solid #E4E0D4;padding-top:8px;color:#244A30;font-weight:600}
 .pp-vatnote{text-align:right;color:#8A8F86;font-size:10px;margin-top:10px;margin-left:auto;max-width:380px;line-height:1.5}
 .pp-foot{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;margin-top:40px;padding-top:22px;border-top:1px solid #E4E0D4}
 .pp-bank{display:grid;grid-template-columns:auto 1fr;gap:3px 16px;color:#3E4A42;font-variant-numeric:tabular-nums}
@@ -385,7 +387,20 @@ body[data-view="accounting"] .app,body[data-view="accounting"] .alt,body[data-vi
   .acct td{white-space:normal;font-size:12px}
   .acct th{white-space:normal}
 }
-.stbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:-4px 0 16px}
+.stbar{display:flex;flex-direction:column;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:-4px 0 16px}
+.st-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.pay-sum{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);padding-top:10px;border-top:1px solid var(--line)}
+.pay-sum b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.pay-sum .due b{color:var(--danger)} .pay-sum .ok b{color:var(--ok)}
+.pay-list{display:flex;flex-direction:column;gap:4px}
+.pay-row{display:grid;grid-template-columns:130px 120px 1fr auto;gap:10px;align-items:center;font-size:12.5px;font-variant-numeric:tabular-nums;padding:6px 10px;background:var(--surface-2);border-radius:8px}
+.pay-note{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pay-del.arm{color:var(--danger)}
+.pay-form{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:10px;align-items:end;padding-top:10px;border-top:1px solid var(--line)}
+.pay-form[hidden]{display:none}
+.pay-btns{grid-column:1/-1;display:flex;gap:8px}
+.pay-hint{grid-column:1/-1;font-size:12px;color:var(--warn);min-height:0}
+@media (max-width:700px){ .pay-form{grid-template-columns:1fr 1fr} .pay-n{grid-column:1/-1} .pay-row{grid-template-columns:1fr auto;} .pay-note{grid-column:1/-1;order:3} }
 .st-steps{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--faint)}
 .st-step{padding:4px 10px;border-radius:999px;border:1px solid var(--line)}
 .st-step.done{color:var(--muted);border-color:var(--line-2)}
@@ -591,7 +606,7 @@ const T = {
   fr:{invoice:"Facture",tax:"Facture fiscale",no:"N° de facture",date:"Date",due:"Échéance",billed:"Facturé à",from:"Émetteur",desc:"Désignation",qty:"Qté",unit:"Prix unitaire",amount:"Montant",sub:"Sous-total",vat:"TVA",disc:"Remise",total:"Total dû",pay:"Coordonnées bancaires",bank:"Banque",acc:"Titulaire",iban:"IBAN",swift:"SWIFT / BIC",accno:"N° de compte",ref:"Référence",terms:"Conditions",trn:"TRN",lic:"N° de licence",paid:"Payée",itemref:"Réf.",locale:"fr-FR",zr:"taux zéro",vatNA:"TVA non applicable",exportNote:"Opération au taux zéro : exportation de biens hors des Émirats arabes unis (article 45 du décret-loi fédéral n° 8 de 2017 relatif à la TVA).",naNote:"TVA non applicable : le fournisseur n’est pas enregistré à la TVA aux Émirats arabes unis.",
     defTerms:"Paiement par virement bancaire sous {d} jours à compter de la date de facture, en indiquant le numéro de facture en référence.\nLe transfert de propriété de l’œuvre (ou des œuvres) n’intervient qu’à réception de l’intégralité du paiement.\nTous les frais bancaires sont à la charge de l’acheteur."}
 };
-const STATUS = {draft:"Draft",sent:"Sent",paid:"Paid",late:"Overdue"};
+const STATUS = {draft:"Draft",sent:"Sent",partial:"Partially paid",paid:"Paid",late:"Overdue"};
 const CURRENCIES = ["USD","EUR","AED"];
 const EMPTY_BANK = () => ({bankName:"Wio Bank PJSC", accountName:"", accountNo:"", iban:"", swift:""});
 
@@ -634,7 +649,17 @@ function totals(inv){
 }
 const VAT_MODES=[["none","Sans TVA · société non enregistrée"],["standard","TVA 5 % · vente aux Émirats"],["export","Export · hors taxe (taux zéro)"]];
 function vatModeOf(inv){ return inv.vatMode || (num(inv.vatRate)>0?"standard":"none"); }
-function statusOf(inv){ if(inv.status==="sent" && inv.due && inv.due<today()) return "late"; return inv.status||"draft"; }
+function paymentsOf(inv){ return (inv.payments||[]).slice().sort((a,b)=>(a.date||"").localeCompare(b.date||"")); }
+function paidOf(inv){ const p=(inv.payments||[]).reduce((s,x)=>s+num(x.amount),0); if(!p && inv.status==="paid") return totals(inv).total; return p; }
+function balanceOf(inv){ return Math.max(0, Math.round((totals(inv).total-paidOf(inv))*100)/100); }
+function statusOf(inv){
+  if((inv.status||"draft")==="draft") return "draft";
+  const t=totals(inv).total, p=paidOf(inv);
+  if(inv.status==="paid" || (t>0 && p>=t-0.005)) return "paid";
+  if(p>0) return "partial";
+  if(inv.due && inv.due<today()) return "late";
+  return "sent";
+}
 function bankFor(cur){
   const c=state.company, b=(c.banks||{})[cur]||{};
   return {bankName:b.bankName||c.bankName||"", accountName:b.accountName||c.accountName||c.name||"", accountNo:b.accountNo||"", iban:b.iban||"", swift:b.swift||""};
@@ -851,15 +876,31 @@ function renderEdTotals(){
 }
 function setPath(obj,path,val){ const k=path.split("."); let o=obj; for(let i=0;i<k.length-1;i++){ o=o[isNaN(k[i])?k[i]:+k[i]]; } o[k[k.length-1]]=val; }
 
-let pvRaf=0;
+let pvRaf=0, confirmOver=false;
 function stBar(inv){
-  const s=statusOf(inv), step=s==="draft"?0:s==="paid"?2:1;
-  const steps=[["Brouillon"],["Envoyée"],["Payée"]].map(([l],i)=>`<span class="st-step ${i<step?"done":""} ${i===step?"on":""}">${l}</span>`).join('<i class="st-sep"></i>');
+  const s=statusOf(inv), step=s==="draft"?0:s==="paid"?2:1, cur=inv.currency||"USD", m=v=>esc(money(v,cur,"en"));
+  const steps=[["Brouillon"],[s==="partial"?"Paiement partiel":"Envoyée"],["Payée"]].map(([l],i)=>`<span class="st-step ${i<step?"done":""} ${i===step?"on":""}">${l}</span>`).join('<i class="st-sep"></i>');
+  const pays=paymentsOf(inv), paid=paidOf(inv), bal=balanceOf(inv), tot=totals(inv).total;
+  const overdue=inv.due && inv.due<today() && s!=="paid" && s!=="draft";
   let act="";
   if(s==="draft") act=`<button type="button" class="btn primary" data-setst="sent">Marquer comme envoyée</button>`;
-  else if(s==="sent"||s==="late") act=`${s==="late"?`<span class="st-late">En retard depuis le ${esc(fdate(inv.due,"fr"))}</span>`:""}<button type="button" class="btn primary" data-setst="paid">Marquer comme payée</button><button type="button" class="st-link" data-setst="draft">Repasser en brouillon</button>`;
-  else act=`<span class="st-paid">Payée le ${esc(fdate(inv.paidDate||today(),"fr"))}</span><button type="button" class="st-link" data-setst="sent">Annuler le paiement</button>`;
-  return `<div class="stbar"><div class="st-steps">${steps}</div><div class="st-act">${act}</div></div>`;
+  else if(s!=="paid") act=`${overdue?`<span class="st-late">En retard depuis le ${esc(fdate(inv.due,"fr"))}</span>`:""}<button type="button" class="btn" data-payform>+ Paiement reçu</button><button type="button" class="btn primary" data-setst="paid">Marquer comme payée</button>${pays.length?"":`<button type="button" class="st-link" data-setst="draft">Repasser en brouillon</button>`}`;
+  else act=`<span class="st-paid">Payée le ${esc(fdate(inv.paidDate||today(),"fr"))}</span>${pays.length?"":`<button type="button" class="st-link" data-setst="sent">Annuler le paiement</button>`}`;
+  const list=pays.length?`<div class="pay-list">${pays.map(x=>`<div class="pay-row"><span>${esc(fdate(x.date,"fr"))}</span><span>${m(num(x.amount))}</span><span class="pay-note">${esc(x.note||"")}</span>${VIEWER?"":`<button type="button" class="st-link pay-del" data-paydel="${x.id}" aria-label="Supprimer ce paiement">Supprimer</button>`}</div>`).join("")}</div>`:"";
+  const sum=(s!=="draft" && (pays.length||s==="partial"))?`<div class="pay-sum"><span>Total <b>${m(tot)}</b></span><span>Reçu <b>${m(paid)}</b></span><span class="${bal>0?"due":"ok"}">Reste à payer <b>${m(bal)}</b></span></div>`:"";
+  const form=`<div class="pay-form" id="payForm" hidden>
+      <div class="f"><label for="payDate">Date de réception</label><input id="payDate" type="date" value="${today()}"></div>
+      <div class="f"><label for="payAmt">Montant reçu (${esc(cur)})</label><input id="payAmt" class="num" inputmode="decimal" value="${bal||""}"></div>
+      <div class="f pay-n"><label for="payNote">Note (facultatif)</label><input id="payNote" placeholder="Virement, acompte…"></div>
+      <div class="pay-btns"><button type="button" class="btn primary" data-paysave>Enregistrer le paiement</button><button type="button" class="btn" data-paycancel>Annuler</button></div>
+      <div class="pay-hint" id="payHint"></div></div>`;
+  return `<div class="stbar"><div class="st-top"><div class="st-steps">${steps}</div><div class="st-act">${act}</div></div>${sum}${list}${VIEWER?"":form}</div>`;
+}
+function syncPaidStatus(inv){
+  const pays=paymentsOf(inv), t=totals(inv).total, p=pays.reduce((a,x)=>a+num(x.amount),0);
+  if(pays.length && t>0 && p>=t-0.005){ inv.status="paid"; inv.paidDate=pays[pays.length-1].date; }
+  else if(inv.status==="paid" && pays.length){ inv.status="sent"; inv.paidDate=""; }
+  else if(inv.status==="draft" && pays.length){ inv.status="sent"; }
 }
 function touch(opts={}){
   const inv=state.invoices[state.current]; if(!inv) return;
@@ -901,7 +942,19 @@ document.addEventListener("click",async e=>{
   else if(a==="up" && i>0){ [inv.items[i-1],inv.items[i]]=[inv.items[i],inv.items[i-1]]; touch({editor:true}); }
   else if(a==="down" && i<inv.items.length-1){ [inv.items[i+1],inv.items[i]]=[inv.items[i],inv.items[i+1]]; touch({editor:true}); }
   else if(a==="rmphoto"){ inv.items[i].photo=""; touch({editor:true}); }
-  else if(b.dataset.setst){ const v=b.dataset.setst; inv.status=v; if(v==="paid"){ inv.paidDate=today(); } else inv.paidDate=""; touch({editor:true}); setSave(v==="paid"?"Facture marquée payée":v==="sent"?"Facture marquée envoyée":"Facture repassée en brouillon"); }
+  else if(b.dataset.setst){ const v=b.dataset.setst;
+    if(v==="paid"){ const bal=balanceOf(inv); if((inv.payments||[]).length && bal>0){ inv.payments.push({id:uid(),date:today(),amount:String(bal),note:"Solde"}); syncPaidStatus(inv); } else { inv.status="paid"; inv.paidDate=today(); } }
+    else { inv.status=v; inv.paidDate=""; }
+    touch({editor:true}); setSave(v==="paid"?"Facture marquée payée":v==="sent"?"Facture marquée envoyée":"Facture repassée en brouillon"); }
+  else if(b.dataset.payform!==undefined){ const f=$("#payForm"); if(f){ f.hidden=false; const a=$("#payAmt"); if(a){ a.focus(); a.select(); } } }
+  else if(b.dataset.paycancel!==undefined){ const f=$("#payForm"); if(f) f.hidden=true; }
+  else if(b.dataset.paysave!==undefined){ const amt=num($("#payAmt").value), d=$("#payDate").value||today(), note=($("#payNote").value||"").trim(), h=$("#payHint");
+    if(!(amt>0)){ h.textContent="Indiquez un montant."; return; }
+    const bal=balanceOf(inv); if(amt>bal+0.005 && !confirmOver){ h.textContent=`Ce montant dépasse le reste à payer (${money(bal,inv.currency||"USD","en")}). Cliquez encore pour confirmer.`; confirmOver=true; return; }
+    confirmOver=false; inv.payments=inv.payments||[]; inv.payments.push({id:uid(),date:d,amount:String(amt),note}); syncPaidStatus(inv); touch({editor:true});
+    const left=balanceOf(inv); setSave(left>0?`Paiement enregistré · reste ${money(left,inv.currency||"USD","en")}`:"Paiement enregistré · facture soldée"); }
+  else if(b.dataset.paydel){ if(!b.classList.contains("arm")){ b.classList.add("arm"); b.textContent="Confirmer"; return; }
+    inv.payments=(inv.payments||[]).filter(x=>x.id!==b.dataset.paydel); syncPaidStatus(inv); touch({editor:true}); setSave("Paiement supprimé"); }
   else if(b.id==="btnDup"){ const d=clone(inv); d.id=uid(); d.number=nextNumber(); d.date=today(); d.due=addDays(d.date,state.company.payDays); d.status="draft"; d.paidDate=""; d.createdAt=new Date().toISOString(); d.items.forEach(x=>x.id=uid()); state.invoices[d.id]=d; state.current=d.id; flush(d.id); renderAll(); }
   else if(b.id==="btnDel"){
     if(!b.classList.contains("arm")){ b.classList.add("arm"); b.lastChild.textContent="Confirmer la suppression"; setTimeout(()=>{ if(b.isConnected){ b.classList.remove("arm"); b.lastChild.textContent="Supprimer"; } },4000); return; }
@@ -978,7 +1031,8 @@ function paperHTML(inv){
         <tr><td>${L.sub}</td><td>${m(t.sub)}</td></tr>
         ${t.disc?`<tr><td>${L.disc}</td><td>− ${m(t.disc)}</td></tr>`:""}
         ${vm==="standard"?`<tr><td>${L.vat} ${num(inv.vatRate)} %</td><td>${m(t.vat)}</td></tr>`:vm==="export"?`<tr><td>${L.vat} 0 % (${L.zr})</td><td>${m(0)}</td></tr>`:`<tr><td>${L.vatNA}</td><td>—</td></tr>`}
-        <tr class="g"><td>${L.total}</td><td>${m(t.total)}</td></tr></table></div>
+        <tr class="g"><td>${L.total}</td><td>${m(t.total)}</td></tr>
+        ${(inv.payments||[]).length && inv.status!=="draft"?`<tr class="pd"><td>${inv.lang==="fr"?"Déjà réglé":"Amount paid"}</td><td>− ${m(paidOf(inv))}</td></tr><tr class="bd"><td>${inv.lang==="fr"?"Reste à payer":"Balance due"}</td><td>${m(balanceOf(inv))}</td></tr>`:""}</table></div>
       ${vm==="export"?`<div class="pp-vatnote" data-keep>${L.exportNote}</div>`:vm==="none"?`<div class="pp-vatnote" data-keep>${L.naNote}</div>`:""}
       <div class="pp-foot" data-keep>
         <div><div class="pp-h">${L.pay}</div><dl class="pp-bank">${bank.map(b=>`<dt>${b[0]}</dt><dd>${esc(b[1])}</dd>`).join("")}</dl></div>
@@ -1540,8 +1594,11 @@ function acctOverview(inv,exps){
   const sales=inv.filter(i=>statusOf(i)!=="draft"&&inYear(i.date)), ex=exps.filter(e=>inYear(e.date));
   const sum=(l,f)=>l.reduce((s,x)=>s+(f(x)||0),0);
   const ca=sum(sales,invBaseAED), dep=sum(ex,expAED), res=ca-dep;
-  const paid=sum(inv.filter(i=>i.status==="paid"&&inYear(i.date)),invTotalAED);
-  const due=inv.filter(i=>["sent","late"].includes(statusOf(i))), dueAED=sum(due,invTotalAED);
+  const rate=i=>{ const t=totals(i).total; return t? (invTotalAED(i)||0)/t : 0; };
+  const paid=inv.reduce((acc,i)=>{ if(statusOf(i)==="draft") return acc; const ps=i.payments||[];
+      if(ps.length) return acc+ps.filter(x=>inYear(x.date)).reduce((a,x)=>a+num(x.amount)*rate(i),0);
+      return acc+(i.status==="paid"&&inYear(i.paidDate||i.date)?(invTotalAED(i)||0):0); },0);
+  const due=inv.filter(i=>["sent","late","partial"].includes(statusOf(i))), dueAED=due.reduce((a,i)=>a+balanceOf(i)*rate(i),0);
   const toPay=exps.filter(e=>e.status==="due"), toPayAED=sum(toPay,expAED);
   const cnt=(n,a,b)=>n+" "+(n>1?b:a);
   const byCat=EXP_CATS.map(([k,v])=>[k,v,sum(ex.filter(e=>e.category===k),expAED)]).filter(r=>r[2]).sort((a,b)=>b[2]-a[2]);
@@ -1896,6 +1953,6 @@ async function viewerSync(manual){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") r.update().catch(()=>{}); }); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v5366d8c6</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">vd8dd1dd1</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>
