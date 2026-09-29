@@ -302,7 +302,9 @@ body[data-view="invoices"]:not(.inv-open) .list{position:static;transform:none;b
 @media (max-width:900px){ body[data-view="invoices"]:not(.inv-open) .list{padding:16px 16px 60px} body[data-view="invoices"].inv-open .invback{padding:10px 16px 0} }
 /* ---------- accounting ---------- */
 .acct{display:none}
-body[data-view="accounting"] .acct{display:block}
+body[data-view="accounting"] #acct{display:block}
+body[data-view="payables"] #pay{display:block}
+body[data-view="payables"] .app,body[data-view="payables"] .alt,body[data-view="payables"] .tabs,body[data-view="payables"] .listbtn,body[data-view="payables"] .invback{display:none!important}
 body[data-view="accounting"] .app,body[data-view="accounting"] .alt,body[data-view="accounting"] .tabs,body[data-view="accounting"] .listbtn,body[data-view="accounting"] #btnNew,body[data-view="accounting"] .invback{display:none!important}
 .acct .aw{max-width:980px;margin:0 auto;padding:30px 22px 80px}
 .acct h1{font:500 34px/1.1 var(--serif);margin:0}
@@ -411,6 +413,20 @@ body[data-view="accounting"] .app,body[data-view="accounting"] .alt,body[data-vi
 .st-late{font-size:12px;color:var(--danger)}
 .st-paid{font-size:12.5px;color:var(--ok);font-weight:500}
 body.viewer .stbar .st-act{display:none}
+#pay td.lk{white-space:nowrap}
+.fseg{display:flex;width:max-content;max-width:100%;margin-bottom:14px}
+.fseg button{padding:7px 14px;font-size:12.5px;white-space:nowrap}
+#list .fseg{width:100%} #list .fseg button{flex:1;padding:6px 8px;font-size:12px}
+.opbox h2{gap:10px}
+.op-rows{display:flex;flex-direction:column}
+.op-row{display:grid;grid-template-columns:1fr auto 130px;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;font-variant-numeric:tabular-nums}
+.op-row[data-exp]{cursor:pointer} .op-row[data-exp]:hover .op-l{text-decoration:underline}
+.op-l small{display:block;color:var(--muted);font-size:11px}
+.op-v{text-align:right}
+.op-rev{font-weight:500}
+.op-net{border-bottom:0;font-weight:600;color:var(--ok)} .op-net.neg{color:var(--danger)}
+.op-pct{font-size:12px;color:var(--muted);font-weight:400}
+@media (max-width:700px){ .op-row{grid-template-columns:1fr 100px} .op-row .chip{grid-column:1;justify-self:start} }
 .pdfstage{position:fixed;left:-12000px;top:0;pointer-events:none}
 
 /* ---------- responsive ---------- */
@@ -584,6 +600,7 @@ body[data-view="contacts"] .listbtn,body[data-view="artworks"] .listbtn{display:
   </section>
 </main>
 <main class="acct" id="acct"></main>
+<main class="acct" id="pay"></main>
 <main class="alt" id="alt"><aside class="pane side" id="side"></aside><section class="pane detail" id="detail"></section></main>
 <div id="modal"></div>
 <div class="pdfstage" id="pdfstage" aria-hidden="true"></div>
@@ -734,7 +751,7 @@ function renderList(){
   const fmtAgg=m=>{ const k=Object.keys(m); return k.length? k.map(c=>`<div>${esc(money(m[c],c,"en"))}</div>`).join("") : `<div>—</div>`; };
   const f=q.trim().toLowerCase();
   const rows=all.filter(i=>!f || [i.number,i.client?.name,i.client?.company,...(i.items||[]).map(t=>t.artist+" "+t.title)].join(" ").toLowerCase().includes(f));
-  $("#list").innerHTML = `
+  $("#list").innerHTML = `${facSeg("invoices")}
     <input class="search" id="q" type="search" placeholder="Rechercher client, œuvre, n°…" value="${esc(q)}">
     <div class="lh" style="margin-top:16px"><span>Factures</span><span>${all.length}</span></div>
     <div class="inv-list">${rows.length? rows.map(i=>{ const s=statusOf(i); return `
@@ -817,6 +834,7 @@ function renderEditor(){
     </div>
   </div>
   ${stBar(inv)}
+  ${statusOf(inv)!=="draft"||opOf(inv).lines.length?opBox(inv):""}
 
   <div class="card"><h2>Facture
       <span class="seg" role="group" aria-label="Langue du document">${["en","fr"].map(l=>`<button type="button" data-lang="${l}" class="${L===l?"on":""}">${l==="en"?"English":"Français"}</button>`).join("")}</span></h2>
@@ -1226,7 +1244,7 @@ function openSettings(){
 $("#btnSettings").onclick=openSettings;
 $("#invBack").onclick=()=>{ document.body.classList.remove("inv-open","show-list"); renderList(); window.scrollTo(0,0); };
 $("#btnList").onclick=()=>document.body.classList.toggle("show-list");
-$("#btnNew").onclick=()=>{ if(state.view==="contacts"){ const c=newContact(); state.contacts[c.id]=c; state.curContact=c.id; flushDoc("contacts",c.id); document.body.classList.add("alt-detail"); renderAlt(); const f=$("#k_name"); if(f) f.focus(); return; }
+$("#btnNew").onclick=()=>{ if(state.view==="payables"){ const x=newExpense(); state.expenses[x.id]=x; flushDoc("expenses",x.id); openExp(x.id); return; } if(state.view==="contacts"){ const c=newContact(); state.contacts[c.id]=c; state.curContact=c.id; flushDoc("contacts",c.id); document.body.classList.add("alt-detail"); renderAlt(); const f=$("#k_name"); if(f) f.focus(); return; }
   if(state.view==="artworks"){ const a=newArtwork(); state.artworks[a.id]=a; state.curArt=a.id; flushDoc("artworks",a.id); document.body.classList.add("alt-detail"); renderAlt(); const f=$("#k_artist"); if(f) f.focus(); return; }
   const inv=newInvoice(); state.invoices[inv.id]=inv; state.current=inv.id; flush(inv.id); renderAll(); document.body.classList.remove("show-list"); document.body.classList.add("inv-open"); requestAnimationFrame(fitPreview); const f=$("#f_client_name"); if(f) f.focus(); };
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ if(window.__cancelSettings) window.__cancelSettings(); document.body.classList.remove("show-list"); } });
@@ -1359,7 +1377,7 @@ function renderDetail(){
         ${kf((a.brokerMode||"pct")==="pct"?"% du prix de vente":"Montant ("+esc(a.currency||"USD")+")","brokerValue",a.brokerValue||"","s2 half",{num:1,ph:(a.brokerMode||"pct")==="pct"?"5":"0.00"})}
       </div>
       <div id="marginBox">${marginHTML(a)}</div></div>
-      <div class="card"><h2>Historique de facturation</h2>${invRows(invs)}</div>`;
+      <div class="card"><h2>Historique de facturation</h2>${invRows(invs)}</div>${artLinks(a)}`;
   }
 }
 function isConsigned(a){ return !!a.ownerContactId || (!!a.owner && a.owner!=="Collection DL") || artStatus(a)==="consignment"; }
@@ -1539,16 +1557,28 @@ const EXP_CAT=Object.fromEntries(EXP_CATS);
 state.expenses=state.expenses||{}; state.acctTab="overview"; state.curExp=null;
 let acctYear=String(new Date().getFullYear()), expCat="all", assetsCap=null;
 function fxOf(cur,rate){ return cur==="AED"?1: cur==="USD"?PEG: (num(rate)||0); }
+/* expense lines pass an AED-per-unit rate already; invoices pass fxAED */
 function toAED(amount,cur,rate){ const f=fxOf(cur||"USD",rate); return f? num(amount)*f : null; }
 function convCur(amount,cur,rate,toCur,toRate){ const a=toAED(amount,cur,rate); const f=fxOf(toCur||"USD",toRate); return (a===null||!f)?null:a/f; }
 const mAED=v=>esc(money(v,"AED","en")), mUSD=v=>esc(money(v/PEG,"USD","en")), mC=(v,c)=>esc(money(v,c||"USD","en"));
 const pctTxt=(n,d)=>d?(n/d*100).toFixed(1).replace(".",",")+" %":"—";
 const sortedExpenses=()=>Object.values(state.expenses).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||"").localeCompare(a.createdAt||""));
-const newExpense=()=>({id:uid(),date:today(),status:"paid",supplier:"",ref:"",label:"",category:"transport",amount:"",currency:"USD",fx:"",invoiceId:"",artworkId:"",notes:"",files:[],createdAt:new Date().toISOString()});
+const newExpense=()=>({id:uid(),date:today(),due:"",status:"due",supplier:"",ref:"",label:"",category:"transport",amount:"",currency:"USD",fx:"",fxUsd:"",invoiceId:"",artworkId:"",notes:"",files:[],payments:[],createdAt:new Date().toISOString()});
+const EXP_CURS=["USD","EUR","AED","JPY","GBP","CHF"];
+const EXP_STATUS={due:"À payer",partial:"Payée en partie",paid:"Payée",late:"En retard"};
+/* rate of an expense, as AED per 1 unit. EUR/GBP/CHF are typed as "1 X = … USD", JPY as "1 USD = … JPY" */
+function expFx(e){ const c=e.currency||"USD"; if(c==="AED") return 1; if(c==="USD") return PEG; const r=num(e.fxUsd);
+  if(r) return c==="JPY"? PEG/r : r*PEG; return num(e.fx)||0; }
+function expPays(e){ return (e.payments||[]).slice().sort((a,b)=>(a.date||"").localeCompare(b.date||"")); }
+function expPaidOf(e){ const p=(e.payments||[]).reduce((s,x)=>s+num(x.amount),0); if(!p && e.status==="paid") return num(e.amount); return p; }
+function expBalance(e){ return Math.max(0, Math.round((num(e.amount)-expPaidOf(e))*100)/100); }
+function expStatus(e){ const a=num(e.amount), p=expPaidOf(e); if(e.status==="paid" || (a>0 && p>=a-0.005)) return "paid"; if(p>0) return "partial"; if(e.due && e.due<today()) return "late"; return "due"; }
+function expSync(e){ const a=num(e.amount), p=(e.payments||[]).reduce((s,x)=>s+num(x.amount),0); if((e.payments||[]).length){ e.status = (a>0 && p>=a-0.005)? "paid" : "due"; } }
 const inYear=d=>acctYear==="all"||(d||"").startsWith(acctYear);
 function invBaseAED(i){ return toAED(totals(i).base,i.currency,i.fxAED); }
 function invTotalAED(i){ return toAED(totals(i).total,i.currency,i.fxAED); }
-function expAED(e){ return toAED(e.amount,e.currency,e.fx); }
+function expAED(e){ const f=expFx(e); return f? num(e.amount)*f : null; }
+function expBalAED(e){ const f=expFx(e); return f? expBalance(e)*f : null; }
 function invLabel(i){ return `${i.number||"Sans numéro"}${i.client?.name||i.client?.company?" · "+(i.client.name||i.client.company):""}`; }
 
 /* cost lines of one sale (invoice): linked expenses + artwork purchase/commission fallbacks */
@@ -1556,11 +1586,11 @@ function opOf(inv){
   const cur=inv.currency||"USD", rate=inv.fxAED, rev=totals(inv).base, lines=[]; let missing=false;
   const push=(label,src,amount,c,r,expId)=>{ const v=convCur(amount,c,r,cur,rate); if(v===null) missing=true; lines.push({label,src,amount:num(amount),cur:c,conv:v,expId}); };
   const exps=sortedExpenses(), used=new Set();
-  exps.filter(e=>e.invoiceId===inv.id).forEach(e=>{ used.add(e.id); push(e.label||EXP_CAT[e.category]||"Dépense",(e.supplier?e.supplier+" · ":"")+(EXP_CAT[e.category]||""),e.amount,e.currency,e.fx,e.id); });
+  exps.filter(e=>e.invoiceId===inv.id).forEach(e=>{ used.add(e.id); push(e.label||EXP_CAT[e.category]||"Dépense",(e.supplier?e.supplier+" · ":"")+(EXP_CAT[e.category]||""),e.amount,e.currency,expFx(e),e.id); });
   (inv.items||[]).filter(t=>t.artworkId && state.artworks[t.artworkId]).forEach(t=>{
     const a=state.artworks[t.artworkId], q=num(t.qty||1)||1, forArt=exps.filter(e=>e.artworkId===a.id);
     const artE=forArt.filter(e=>e.category==="art"), comE=forArt.filter(e=>e.category==="commission");
-    forArt.filter(e=>!used.has(e.id)).forEach(e=>{ used.add(e.id); push(e.label||EXP_CAT[e.category],(e.supplier?e.supplier+" · ":"")+EXP_CAT[e.category]+" · œuvre",e.amount,e.currency,e.fx,e.id); });
+    forArt.filter(e=>!used.has(e.id)).forEach(e=>{ used.add(e.id); push(e.label||EXP_CAT[e.category],(e.supplier?e.supplier+" · ":"")+EXP_CAT[e.category]+" · œuvre",e.amount,e.currency,expFx(e),e.id); });
     if(!artE.length && num(a.cost)) push((isConsigned(a)?"Net propriétaire · ":"Prix d’achat · ")+(a.artist||"")+" "+(a.title||""),"Fiche œuvre",num(a.cost)*q,a.costCurrency||a.currency||cur,a.costCurrency==="EUR"||(!a.costCurrency&&a.currency==="EUR")?a.costFx:undefined);
     const bv=num(a.brokerValue);
     if(!comE.length && bv){ const amt=(a.brokerMode||"pct")==="pct"? num(t.price)*q*bv/100 : bv; push("Intermédiaire"+(brokerName(a)?" · "+brokerName(a):""),"Fiche œuvre",amt,(a.brokerMode||"pct")==="pct"?cur:(a.currency||cur),undefined); }
@@ -1582,10 +1612,10 @@ function renderAcct(){
   else if(state.acctTab==="expenses") body=acctExpenses(exps);
   else body=acctMargins(inv);
   el.innerHTML=`<div class="aw">
-    <div class="ahead"><div><h1>Comptabilité</h1><p class="asub">Montants convertis en AED · 1 USD = 3,6725 AED (taux fixe) · EUR au taux du jour de l’opération.</p></div>
+    <div class="ahead"><div><h1>Comptabilité</h1><p class="asub">Lecture des factures émises et des factures à payer · montants convertis en AED · 1 USD = 3,6725 AED (taux fixe) · autres devises au taux du jour de l’opération.</p></div>
       <select class="ayear" id="acctYear" aria-label="Année">${years.map(y=>`<option value="${y}" ${acctYear===y?"selected":""}>${y}</option>`).join("")}<option value="all" ${acctYear==="all"?"selected":""}>Toutes les années</option></select></div>
     <div class="seg aseg" role="tablist">${tabs.map(([k,v])=>`<button type="button" data-atab="${k}" class="${state.acctTab===k?"on":""}">${v}</button>`).join("")}</div>
-    ${noRate.length?`<p class="awarn">Taux EUR manquant pour ${noRate.length>2?noRate.length+" opérations":esc(noRate.join(", "))} : ${VIEWER?"Claude doit le renseigner.":"renseignez le taux AED de l’opération pour l’inclure."}</p>`:""}
+    ${noRate.length?`<p class="awarn">Taux de change manquant pour ${noRate.length>2?noRate.length+" opérations":esc(noRate.join(", "))} : ${VIEWER?"Claude doit le renseigner.":"renseignez le taux AED de l’opération pour l’inclure."}</p>`:""}
     ${body}</div>`;
   const ys=$("#acctYear"); if(ys) ys.onchange=e=>{ acctYear=e.target.value; renderAcct(); };
 }
@@ -1599,7 +1629,8 @@ function acctOverview(inv,exps){
       if(ps.length) return acc+ps.filter(x=>inYear(x.date)).reduce((a,x)=>a+num(x.amount)*rate(i),0);
       return acc+(i.status==="paid"&&inYear(i.paidDate||i.date)?(invTotalAED(i)||0):0); },0);
   const due=inv.filter(i=>["sent","late","partial"].includes(statusOf(i))), dueAED=due.reduce((a,i)=>a+balanceOf(i)*rate(i),0);
-  const toPay=exps.filter(e=>e.status==="due"), toPayAED=sum(toPay,expAED);
+  const toPay=exps.filter(e=>expStatus(e)!=="paid"), toPayAED=sum(toPay,expBalAED);
+  const paidOut=exps.reduce((acc,e)=>{ const f=expFx(e); if(!f) return acc; const ps=e.payments||[]; if(ps.length) return acc+ps.filter(x=>inYear(x.date)).reduce((a,x)=>a+num(x.amount)*f,0); return acc+(e.status==="paid"&&inYear(e.date)?num(e.amount)*f:0); },0);
   const cnt=(n,a,b)=>n+" "+(n>1?b:a);
   const byCat=EXP_CATS.map(([k,v])=>[k,v,sum(ex.filter(e=>e.category===k),expAED)]).filter(r=>r[2]).sort((a,b)=>b[2]-a[2]);
   const max=Math.max(1,...byCat.map(r=>r[2]));
@@ -1609,7 +1640,7 @@ function acctOverview(inv,exps){
   return `<h2><span>Résultat${y}</span></h2>
     <div class="acards a3">${acctCard("Chiffre d’affaires HT",ca,cnt(sales.length,"facture","factures"))}${acctCard("Dépenses",dep,cnt(ex.length,"dépense","dépenses"))}${acctCard("Résultat",res,res<0?"perte":"bénéfice avant impôt",true)}</div>
     <h2><span>Trésorerie</span></h2>
-    <div class="acards a3">${acctCard("Encaissé"+y,paid,"factures payées")}${acctCard("À encaisser",dueAED,cnt(due.length,"facture envoyée","factures envoyées"))}${acctCard("Dépenses à payer",toPayAED,cnt(toPay.length,"facture fournisseur","factures fournisseurs"))}</div>
+    <div class="acards">${acctCard("Encaissé"+y,paid,"paiements clients reçus")}${acctCard("À encaisser",dueAED,cnt(due.length,"facture client","factures clients"))}${acctCard("Payé"+y,paidOut,"paiements fournisseurs")}${acctCard("À payer",toPayAED,cnt(toPay.length,"facture fournisseur","factures fournisseurs"))}</div>
     <h2><span>Dépenses par catégorie${y}</span></h2>
     ${byCat.length?`<div class="bars">${byCat.map(([k,v,a])=>`<button type="button" class="bar" data-expcat="${k}"><span class="bl">${esc(v)}</span><span class="bt"><i style="width:${Math.max(2,a/max*100)}%"></i></span><span class="bv">${mAED(a)}</span></button>`).join("")}</div>`:`<div class="aempty">Aucune dépense enregistrée${y}.</div>`}
     ${period}`;
@@ -1628,9 +1659,9 @@ function acctExpenses(exps){
   const list=exps.filter(e=>inYear(e.date)&&(expCat==="all"||e.category===expCat));
   const tot=list.reduce((s,e)=>s+(expAED(e)||0),0);
   return `<div class="abar"><div class="filters">${[["all","Toutes"],...EXP_CATS].map(([k,v])=>`<button type="button" data-expcat="${k}" class="${expCat===k?"on":""}">${esc(v)}</button>`).join("")}</div>
-      ${VIEWER?"":`<button type="button" class="btn primary" id="expNew">+ Nouvelle dépense</button>`}</div>
+      <button type="button" class="btn" data-view="payables">Gérer dans Facturation → À payer</button></div>
     ${list.length?`<div class="tw"><table><thead><tr><th>Dépense</th><th class="hide-sm">Date</th><th class="hide-sm">Catégorie</th><th>Montant</th><th class="hide-sm">En AED</th><th class="hide-sm">Rattachée à</th></tr></thead><tbody>${list.map(e=>{ const a=expAED(e), i=state.invoices[e.invoiceId], w=state.artworks[e.artworkId];
-      return `<tr data-exp="${e.id}"><td><span class="ar">${esc(e.supplier||"Fournisseur")}${e.files?.length?` <span class="clip" title="${e.files.length} justificatif(s)"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:-1px"><path d="M20 11.5l-8 8a5 5 0 01-7-7l8.5-8.5a3.3 3.3 0 014.7 4.7L9.7 17.2a1.7 1.7 0 01-2.4-2.4L15 7"/></svg>${e.files.length>1?e.files.length:""}</span>`:""}${e.status==="due"?` <span class="chip late">À payer</span>`:""}</span><span class="cl">${esc(e.label||EXP_CAT[e.category]||"")}</span></td><td class="hide-sm">${esc(fdate(e.date,"fr"))}</td><td class="hide-sm">${esc(EXP_CAT[e.category]||"")}</td><td>${num(e.amount)?mC(num(e.amount),e.currency):"—"}${e.currency!=="AED"?`<small class="show-sm">${a===null?"taux ?":mAED(a)}</small>`:""}</td><td class="hide-sm">${a===null?"taux ?":mAED(a)}</td><td class="hide-sm lk">${i?esc(i.number||"Facture"):e.invoiceId?"Facture supprimée":""}${w?(i?"<br>":"")+esc(w.artist||"")+" · <i>"+esc(w.title||"")+"</i>":""}${!i&&!w&&!e.invoiceId?"<small>Frais généraux</small>":""}</td></tr>`; }).join("")}</tbody>
+      return `<tr data-exp="${e.id}"><td><span class="ar">${esc(e.supplier||"Fournisseur")}${e.files?.length?` <span class="clip" title="${e.files.length} justificatif(s)"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:-1px"><path d="M20 11.5l-8 8a5 5 0 01-7-7l8.5-8.5a3.3 3.3 0 014.7 4.7L9.7 17.2a1.7 1.7 0 01-2.4-2.4L15 7"/></svg>${e.files.length>1?e.files.length:""}</span>`:""}${expStatus(e)!=="paid"?` <span class="chip ${expStatus(e)==="late"?"late":"sent"}">${EXP_STATUS[expStatus(e)]}</span>`:""}</span><span class="cl">${esc(e.label||EXP_CAT[e.category]||"")}</span></td><td class="hide-sm">${esc(fdate(e.date,"fr"))}</td><td class="hide-sm">${esc(EXP_CAT[e.category]||"")}</td><td>${num(e.amount)?mC(num(e.amount),e.currency):"—"}${e.currency!=="AED"?`<small class="show-sm">${a===null?"taux ?":mAED(a)}</small>`:""}</td><td class="hide-sm">${a===null?"taux ?":mAED(a)}</td><td class="hide-sm lk">${i?esc(i.number||"Facture"):e.invoiceId?"Facture supprimée":""}${w?(i?"<br>":"")+esc(w.artist||"")+" · <i>"+esc(w.title||"")+"</i>":""}${!i&&!w&&!e.invoiceId?"<small>Frais généraux</small>":""}</td></tr>`; }).join("")}</tbody>
       <tfoot><tr><td>Total</td><td class="hide-sm"></td><td class="hide-sm"></td><td>${mAED(tot)}</td><td class="hide-sm">${mAED(tot)}</td><td class="hide-sm">≈ ${mUSD(tot)}</td></tr></tfoot></table></div>`
     :`<div class="aempty">${exps.length?"Aucune dépense dans ce filtre.":VIEWER?"Aucune dépense enregistrée pour l’instant.":"Aucune dépense pour l’instant. Ajoutez vos factures fournisseurs et notes de frais avec « Nouvelle dépense », ou envoyez-les à Claude."}</div>`}`;
 }
@@ -1665,6 +1696,46 @@ function openOp(id){
   if($("#opAdd")) $("#opAdd").onclick=()=>{ const e=newExpense(); e.invoiceId=i.id; e.currency=i.currency||"USD"; state.expenses[e.id]=e; flushDoc("expenses",e.id); openExp(e.id); };
 }
 
+
+/* ---------------- Facturation → À payer (supplier invoices) ---------------- */
+let payFilter="open", payCat="all";
+function facSeg(on){ return `<div class="seg fseg" role="tablist"><button type="button" data-fseg="invoices" class="${on==="invoices"?"on":""}">Émises · clients</button><button type="button" data-fseg="payables" class="${on==="payables"?"on":""}">À payer · fournisseurs</button></div>`; }
+function renderPay(){
+  const el=$("#pay"); if(!el) return;
+  const all=sortedExpenses(), y=String(new Date().getFullYear());
+  const open=all.filter(e=>expStatus(e)!=="paid"), late=all.filter(e=>expStatus(e)==="late");
+  const sumA=(l,f)=>l.reduce((a,e)=>a+(f(e)||0),0);
+  const paidY=all.reduce((acc,e)=>{ const f=expFx(e); if(!f) return acc; const ps=e.payments||[]; if(ps.length) return acc+ps.filter(x=>(x.date||"").startsWith(y)).reduce((a,x)=>a+num(x.amount)*f,0); return acc+(e.status==="paid"&&(e.date||"").startsWith(y)?num(e.amount)*f:0); },0);
+  const list=all.filter(e=>{ const st=expStatus(e); return (payFilter==="all"||(payFilter==="open"&&st!=="paid")||(payFilter==="late"&&st==="late")||(payFilter==="paid"&&st==="paid")) && (payCat==="all"||e.category===payCat); });
+  const clip='<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:-1px"><path d="M20 11.5l-8 8a5 5 0 01-7-7l8.5-8.5a3.3 3.3 0 014.7 4.7L9.7 17.2a1.7 1.7 0 01-2.4-2.4L15 7"/></svg>';
+  el.innerHTML=`<div class="aw">
+    ${facSeg("payables")}
+    <div class="ahead" style="margin-top:18px"><div><h1>Factures à payer</h1><p class="asub">Factures fournisseurs, achats d’œuvres, transport, stockage, notes de frais. Chacune n’est saisie qu’ici ; la Comptabilité les lit.</p></div>
+      ${VIEWER?"":`<button type="button" class="btn primary" id="payNew">+ Facture fournisseur</button>`}</div>
+    <div class="acards" style="margin-top:18px">${acctCard("À payer",sumA(open,expBalAED),open.length+" facture"+(open.length>1?"s":""),true)}${acctCard("Dont en retard",sumA(late,expBalAED),late.length+" facture"+(late.length>1?"s":""))}${acctCard("Payé en "+y,paidY,"paiements effectués")}</div>
+    <div class="abar"><div class="filters">${[["open","À payer"],["late","En retard"],["paid","Payées"],["all","Toutes"]].map(([k,v])=>`<button type="button" data-payf="${k}" class="${payFilter===k?"on":""}">${v}</button>`).join("")}</div>
+      <select class="ayear" id="payCat" aria-label="Catégorie"><option value="all">Toutes les catégories</option>${EXP_CATS.map(([k,v])=>`<option value="${k}" ${payCat===k?"selected":""}>${esc(v)}</option>`).join("")}</select></div>
+    ${list.length?`<div class="tw"><table><thead><tr><th>Fournisseur</th><th class="hide-sm">Date</th><th class="hide-sm">Échéance</th><th>Montant</th><th>Reste</th><th class="hide-sm">Liée à</th><th>Statut</th></tr></thead><tbody>${list.map(e=>{ const st=expStatus(e), i=state.invoices[e.invoiceId], w=state.artworks[e.artworkId];
+      return `<tr data-exp="${e.id}"><td><span class="ar">${esc(e.supplier||"Fournisseur")}${e.files?.length?` <span class="clip">${clip}</span>`:""}</span><span class="cl">${esc([e.ref,e.label||EXP_CAT[e.category]].filter(Boolean).join(" · "))}</span></td><td class="hide-sm">${esc(fdate(e.date,"fr"))}</td><td class="hide-sm">${e.due?esc(fdate(e.due,"fr")):"—"}</td><td>${num(e.amount)?mC(num(e.amount),e.currency):"—"}</td><td>${st==="paid"?"—":mC(expBalance(e),e.currency)}</td><td class="hide-sm lk">${i?esc(i.number||"Facture"):""}${w?(i?"<br>":"")+esc(w.artist||"")+" · <i>"+esc(w.title||"")+"</i>":""}${!i&&!w?"<small>Frais généraux</small>":""}</td><td><span class="chip ${st==="paid"?"paid":st==="late"?"late":"sent"}">${EXP_STATUS[st]}</span></td></tr>`; }).join("")}</tbody></table></div>`
+      :`<div class="aempty">${all.length?"Aucune facture dans ce filtre.":VIEWER?"Aucune facture fournisseur pour l’instant.":"Aucune facture fournisseur pour l’instant. Ajoutez-en avec « + Facture fournisseur », ou envoyez-les à Claude."}</div>`}
+  </div>`;
+  const pc=$("#payCat"); if(pc) pc.onchange=ev=>{ payCat=ev.target.value; renderPay(); };
+}
+function opBox(inv){
+  const op=opOf(inv); const cur=op.cur;
+  const rows=op.lines.map(l=>{ const e=l.expId?state.expenses[l.expId]:null, st=e?expStatus(e):null;
+    return `<div class="op-row" ${l.expId?`data-exp="${l.expId}"`:""}><span class="op-l">${esc(l.label)}<small>${esc(l.src)}${l.cur!==cur?" · "+mC(l.amount,l.cur):""}</small></span>${st?`<span class="chip ${st==="paid"?"paid":st==="late"?"late":"sent"}">${EXP_STATUS[st]}</span>`:"<span></span>"}<span class="op-v">${l.conv===null?"taux ?":"− "+mC(l.conv,cur)}</span></div>`; }).join("");
+  return `<div class="card opbox"><h2><span>Coûts de l’opération</span>${VIEWER?"":`<button type="button" class="btn" data-oplink="${inv.id}">+ Lier une facture fournisseur</button>`}</h2>
+    ${op.lines.length?`<div class="op-rows"><div class="op-row op-rev"><span class="op-l">Facturé au client (HT)</span><span></span><span class="op-v">${mC(op.rev,cur)}</span></div>${rows}<div class="op-row op-net ${op.net<0?"neg":""}"><span class="op-l">Marge réelle${op.missing?" <small>(taux manquant)</small>":""}</span><span class="op-pct">${pctTxt(op.net,op.rev)}</span><span class="op-v">${mC(op.net,cur)}</span></div></div>`
+      :`<p class="hint keep">Aucune facture fournisseur liée. Liez les factures de transport, stockage ou achat d’œuvre pour voir la marge réelle de cette opération.</p>`}</div>`;
+}
+function artLinks(a){
+  const ex=sortedExpenses().filter(e=>e.artworkId===a.id);
+  if(!ex.length) return "";
+  return `<div class="card"><h2>Factures fournisseurs liées</h2><div class="hist">${ex.map(e=>{ const st=expStatus(e); return `<button type="button" class="hrow" data-expopen="${e.id}"><span class="n">${esc(e.supplier||"Fournisseur")}</span><span class="c">${esc(fdate(e.date,"fr"))} · ${esc(EXP_CAT[e.category]||"")}${e.ref?" · "+esc(e.ref):""}</span><span class="a">${mC(num(e.amount),e.currency)}</span><span class="chip ${st==="paid"?"paid":st==="late"?"late":"sent"}">${EXP_STATUS[st]}</span></button>`; }).join("")}</div></div>`;
+}
+function refreshAfterExp(){ if(state.view==="payables") renderPay(); else if(state.view==="accounting") renderAcct(); else if(state.view==="invoices") renderEditor(); else renderAlt(); }
+
 /* ---------------- expense sheet ---------------- */
 function fileKind(f){ return (f.type||"").startsWith("image/")?"img":"pdf"; }
 function filesHTML(e){
@@ -1674,45 +1745,78 @@ function filesHTML(e){
     ${VIEWER?"":assetsCap?`<label class="btn addfile"><input type="file" id="expFile" accept="application/pdf,image/*" multiple hidden>+ Ajouter un justificatif (PDF ou photo)</label>`:`<p class="hint keep">Pour joindre un justificatif, envoyez-le à Claude dans la conversation.</p>`}
     <div class="msg" id="expFileMsg" hidden></div>`;
 }
+function rateLabel(c){ return c==="JPY"?"Taux du jour de paiement : 1 USD = … JPY":`Taux du jour de paiement : 1 ${c} = … USD`; }
+function expConvText(e){ const a=expAED(e); if(e.currency==="USD"||e.currency==="AED") return a===null?"":"= "+money(a,"AED","en")+" · ≈ "+money(a/PEG,"USD","en");
+  return a===null?"Renseignez le taux du jour de paiement pour convertir ce montant.":"≈ "+money(a/PEG,"USD","en")+" · "+money(a,"AED","en"); }
+function expPayHTML(e){
+  const cur=e.currency||"USD", st=expStatus(e), pays=expPays(e), m=v=>esc(money(v,cur,"en"));
+  return `<div class="pay-sum"><span>Montant <b>${m(num(e.amount))}</b></span><span>Payé <b>${m(expPaidOf(e))}</b></span><span class="${expBalance(e)>0?"due":"ok"}">Reste à payer <b>${m(expBalance(e))}</b></span><span class="chip ${st==="paid"?"paid":st==="late"?"late":"sent"}">${EXP_STATUS[st]}</span></div>
+    ${pays.length?`<div class="pay-list">${pays.map(x=>`<div class="pay-row"><span>${esc(fdate(x.date,"fr"))}</span><span>${m(num(x.amount))}</span><span class="pay-note">${esc(x.note||"")}</span>${VIEWER?"":`<button type="button" class="st-link pay-del" data-epaydel="${x.id}">Supprimer</button>`}</div>`).join("")}</div>`:""}
+    ${VIEWER?"":`<div class="st-act" style="margin-top:10px">${st!=="paid"?`<button type="button" class="btn" data-epayform>+ Paiement effectué</button><button type="button" class="btn primary" data-epayfull>Marquer comme payée</button>`:(pays.length?"":`<button type="button" class="st-link" data-epayundo>Annuler « payée »</button>`)}</div>
+    <div class="pay-form" id="ePayForm" hidden>
+      <div class="f"><label for="ePayDate">Date du paiement</label><input id="ePayDate" type="date" value="${today()}"></div>
+      <div class="f"><label for="ePayAmt">Montant payé (${esc(cur)})</label><input id="ePayAmt" class="num" inputmode="decimal" value="${expBalance(e)||""}"></div>
+      <div class="f pay-n"><label for="ePayNote">Note (facultatif)</label><input id="ePayNote" placeholder="Virement, acompte 50 %…"></div>
+      <div class="pay-btns"><button type="button" class="btn primary" data-epaysave>Enregistrer le paiement</button><button type="button" class="btn" data-epaycancel>Annuler</button></div>
+      <div class="pay-hint" id="ePayHint"></div></div>`}`;
+}
 function openExp(id){
   const e=state.expenses[id]; if(!e) return; state.curExp=id;
   const ro=VIEWER, dis=ro?"disabled":"";
   const F=(label,k,cls,inp)=>`<div class="f ${cls}"><label for="e_${k}">${label}</label>${inp}</div>`;
   const I=(k,o={})=>`<input id="e_${k}" data-e="${k}" type="${o.type||"text"}" value="${esc(e[k])}" ${o.num?'inputmode="decimal" class="num"':""} ${o.ph?`placeholder="${esc(o.ph)}"`:""} ${o.list?`list="${o.list}"`:""} ${dis}>`;
   const S=(k,opts)=>`<select id="e_${k}" data-e="${k}" ${dis}>${opts.map(([v,t])=>`<option value="${esc(v)}" ${String(e[k]||"")===String(v)?"selected":""}>${esc(t)}</option>`).join("")}</select>`;
-  const aed=expAED(e);
-  $("#modal").innerHTML=`<div class="ov" id="ovx"><div class="sheet expsheet" role="dialog" aria-label="Dépense">
-    <div class="shead"><div><h1>${esc(e.supplier||"Nouvelle dépense")}</h1><div class="sub">${esc(EXP_CAT[e.category]||"")}</div></div><button type="button" class="btn" id="expClose">Fermer</button></div>
-    <div class="card"><h2>Dépense</h2><div class="grid">
-      ${F("Fournisseur","supplier","s4",I("supplier",{ph:"Transporteur, galerie, hôtel…",list:"ctList"}))}${F("Statut","status","s2",S("status",[["paid","Payée"],["due","À payer"]]))}
-      ${F("Libellé","label","s6",I("label",{ph:"Transport Tokyo → New York, caisse…"}))}
-      ${F("Catégorie","category","s3",S("category",EXP_CATS))}${F("N° facture fournisseur","ref","s3",I("ref"))}
-      ${F("Date (paiement)","date","s2",I("date",{type:"date"}))}${F("Montant TTC","amount","s2",I("amount",{num:true,ph:"0.00"}))}${F("Devise","currency","s2",S("currency",CURRENCIES.map(c=>[c,c])))}
-      ${e.currency==="EUR"?F("Taux du jour : 1 EUR = … AED","fx","s3",I("fx",{num:true,ph:"ex. 4.31"})):""}
-      <div class="f s6"><span class="hint keep" id="eAed">${aed===null?"Renseignez le taux EUR → AED du jour de paiement (Banque centrale des Émirats).":"= "+mAED(aed)+" · ≈ "+mUSD(aed)}</span></div>
+  const cur=e.currency||"USD", fixed=cur==="USD"||cur==="AED";
+  $("#modal").innerHTML=`<div class="ov" id="ovx"><div class="sheet expsheet" role="dialog" aria-label="Facture fournisseur">
+    <div class="shead"><div><h1>${esc(e.supplier||"Nouvelle facture fournisseur")}</h1><div class="sub">${esc(EXP_CAT[e.category]||"")}${e.ref?" · "+esc(e.ref):""}</div></div><button type="button" class="btn" id="expClose">Fermer</button></div>
+    <div class="card"><h2>Facture fournisseur</h2><div class="grid">
+      ${F("Fournisseur","supplier","s4",I("supplier",{ph:"Transporteur, galerie, hôtel…",list:"ctList"}))}${F("N° de facture","ref","s2",I("ref"))}
+      ${F("Libellé","label","s6",I("label",{ph:"Stockage et release, Tokyo…"}))}
+      ${F("Catégorie","category","s3",S("category",EXP_CATS))}${F("Date de facture","date","s3 half",I("date",{type:"date"}))}
+      ${F("Échéance","due","s3 half",I("due",{type:"date"}))}
+      ${F("Montant TTC","amount","s2",I("amount",{num:true,ph:"0.00"}))}${F("Devise","currency","s2",S("currency",EXP_CURS.map(c=>[c,c])))}
+      ${fixed?"":F(rateLabel(cur),"fxUsd","s2",I("fxUsd",{num:true,ph:cur==="JPY"?"157.48":"1.1362"}))}
+      <div class="f s6"><span class="hint keep" id="eAed">${expConvText(e)}</span></div>
     </div></div>
-    <div class="card"><h2>Rattachement</h2><div class="grid">
-      ${F("Facture de vente (opération)","invoiceId","s6",S("invoiceId",[["","— Aucune (frais généraux) —"],...sortedInvoices().map(i=>[i.id,invLabel(i)])]))}
+    <div class="card"><h2>Paiements</h2><div id="ePay">${expPayHTML(e)}</div></div>
+    <div class="card"><h2>Liée à</h2><div class="grid">
+      ${F("Facture client (opération)","invoiceId","s6",S("invoiceId",[["","— Aucune (frais généraux) —"],...sortedInvoices().map(i=>[i.id,invLabel(i)])]))}
       ${F("Œuvre","artworkId","s6",S("artworkId",[["","— Aucune —"],...sortedArtworks().map(a=>[a.id,artLabel(a)])]))}
       ${F("Notes","notes","s6",`<textarea id="e_notes" data-e="notes" rows="2" ${dis}>${esc(e.notes)}</textarea>`)}
     </div></div>
     <div class="card"><h2>Justificatifs</h2><div id="expFiles">${filesHTML(e)}</div></div>
     <datalist id="ctList">${sortedContacts().map(c=>`<option value="${esc(c.company||c.name)}">`).join("")}</datalist>
-    <div class="sfoot">${ro?"":`<button type="button" class="btn danger" id="expDel">${ICON.trash}Supprimer la dépense</button>`}<button type="button" class="btn primary" id="expDone">${ro?"Fermer":"Terminé"}</button></div>
+    <div class="sfoot">${ro?"":`<button type="button" class="btn danger" id="expDel">${ICON.trash}Supprimer la facture</button>`}<button type="button" class="btn primary" id="expDone">${ro?"Fermer":"Terminé"}</button></div>
   </div></div>`;
-  const close=()=>{ $("#modal").innerHTML=""; state.curExp=null; renderAcct(); };
+  const close=()=>{ $("#modal").innerHTML=""; state.curExp=null; refreshAfterExp(); };
   $("#expClose").onclick=close; $("#expDone").onclick=close; $("#ovx").onclick=ev=>{ if(ev.target.id==="ovx") close(); };
   if(ro) return;
+  const repay=()=>{ const b=$("#ePay"); if(b) b.innerHTML=expPayHTML(e); };
   $("#ovx").addEventListener("input",ev=>{ const k=ev.target.dataset?.e; if(!k) return; e[k]=ev.target.value; schedDoc("expenses",e.id);
     if(k==="currency"){ openExp(e.id); return; }
-    const a=expAED(e), h=$("#eAed"); if(h) h.textContent=a===null?"Renseignez le taux EUR → AED du jour de paiement (Banque centrale des Émirats).":"= "+money(a,"AED","en")+" · ≈ "+money(a/PEG,"USD","en");
-    if(k==="supplier"){ const t=$(".expsheet h1"); if(t) t.textContent=e.supplier||"Nouvelle dépense"; }
-    if(k==="category"){ const t=$(".expsheet .sub"); if(t) t.textContent=EXP_CAT[e.category]||""; } });
+    const h=$("#eAed"); if(h) h.textContent=expConvText(e);
+    if(k==="amount"){ expSync(e); repay(); }
+    if(k==="supplier"){ const t=$(".expsheet h1"); if(t) t.textContent=e.supplier||"Nouvelle facture fournisseur"; }
+    if(k==="category"||k==="ref"){ const t=$(".expsheet .sub"); if(t) t.textContent=(EXP_CAT[e.category]||"")+(e.ref?" · "+e.ref:""); } });
+  let over=false;
+  $("#ovx").addEventListener("click",ev=>{ const b=ev.target.closest("button"); if(!b) return;
+    if(b.dataset.epayform!==undefined){ const f=$("#ePayForm"); if(f){ f.hidden=false; const a=$("#ePayAmt"); a&&a.focus(); } return; }
+    if(b.dataset.epaycancel!==undefined){ const f=$("#ePayForm"); if(f) f.hidden=true; return; }
+    if(b.dataset.epayfull!==undefined){ const bal=expBalance(e); e.payments=e.payments||[]; if(bal>0) e.payments.push({id:uid(),date:today(),amount:String(bal),note:(e.payments.length?"Solde":"")}); e.status="paid"; flushDoc("expenses",e.id); repay(); setSave("Facture fournisseur marquée payée"); return; }
+    if(b.dataset.epayundo!==undefined){ e.status="due"; flushDoc("expenses",e.id); repay(); return; }
+    if(b.dataset.epaysave!==undefined){ const amt=num($("#ePayAmt").value), d=$("#ePayDate").value||today(), note=($("#ePayNote").value||"").trim(), h=$("#ePayHint");
+      if(!(amt>0)){ h.textContent="Indiquez un montant."; return; }
+      if(amt>expBalance(e)+0.005 && !over){ h.textContent=`Ce montant dépasse le reste à payer (${money(expBalance(e),e.currency||"USD","en")}). Cliquez encore pour confirmer.`; over=true; return; }
+      over=false; e.payments=e.payments||[]; e.payments.push({id:uid(),date:d,amount:String(amt),note}); expSync(e); flushDoc("expenses",e.id); repay();
+      const left=expBalance(e); setSave(left>0?`Paiement enregistré · reste ${money(left,e.currency||"USD","en")}`:"Paiement enregistré · facture soldée"); return; }
+    if(b.dataset.epaydel){ if(!b.classList.contains("arm")){ b.classList.add("arm"); b.textContent="Confirmer"; return; }
+      e.payments=(e.payments||[]).filter(x=>x.id!==b.dataset.epaydel); expSync(e); flushDoc("expenses",e.id); repay(); setSave("Paiement supprimé"); return; }
+  });
   $("#expDel").onclick=async()=>{ const b=$("#expDel"); if(!b.classList.contains("arm")){ b.classList.add("arm"); b.lastChild.textContent="Confirmer la suppression"; return; }
     const ids=(e.files||[]).map(f=>f.id); $("#modal").innerHTML=""; state.curExp=null;
-    try{ await removeDoc("expenses",e.id); setSave("Dépense supprimée"); }catch(err){ setSave("Échec de la suppression",true); }
+    try{ await removeDoc("expenses",e.id); setSave("Facture fournisseur supprimée"); }catch(err){ setSave("Échec de la suppression",true); }
     if(assetsCap) for(const fid of ids){ try{ await assetsCap.delete(fid); }catch(err){} }
-    renderAcct(); };
+    refreshAfterExp(); };
   const fi=$("#expFile"); if(fi) fi.onchange=async ev=>{ const files=[...ev.target.files]; ev.target.value=""; const msg=$("#expFileMsg");
     for(const file of files){ msg.hidden=false; msg.textContent="Envoi de « "+file.name+" »…";
       try{ let blob=file, type=file.type, name=file.name;
@@ -1747,11 +1851,11 @@ async function delFile(fid,btn){ const x=findFile(fid); if(!x) return; if(!btn.c
   x.e.files=x.e.files.filter(f=>f.id!==fid); await flushDoc("expenses",x.e.id); openExp(x.e.id);
   if(assetsCap){ try{ await assetsCap.delete(fid); }catch(err){} } }
 
-function renderAlt(){ if(state.view==="accounting"){ renderAcct(); return; } renderSide(); renderDetail(); renderHome(); }
+function renderAlt(){ if(state.view==="accounting"){ renderAcct(); return; } if(state.view==="payables"){ renderPay(); return; } renderSide(); renderDetail(); renderHome(); }
 function switchView(v){
   state.view=v; document.body.dataset.view=v; document.body.classList.remove("alt-detail","show-list","inv-open");
-  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on",b.dataset.view===v));
-  $("#btnNewLbl").textContent = v==="accounting"?"Nouvelle facture": v==="contacts"?"Nouveau contact": v==="artworks"?"Nouvelle œuvre":"Nouvelle facture";
+  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on",b.dataset.view===v||(v==="payables"&&b.dataset.view==="invoices")));
+  $("#btnNewLbl").textContent = v==="payables"?"Facture fournisseur": v==="accounting"?"Nouvelle facture": v==="contacts"?"Nouveau contact": v==="artworks"?"Nouvelle œuvre":"Nouvelle facture";
   try{ localStorage.setItem("ls-view",v); }catch(e){}
   q2=""; if(v==="invoices") renderAll(); else renderAlt();
   window.scrollTo(0,0);
@@ -1767,7 +1871,7 @@ document.addEventListener("input",e=>{
   const h=document.querySelector("#detail .ehead h1"); if(h && ["name","company","artist","title","year"].includes(k)){ if(coll==="contacts") h.textContent=o.name||o.company||"Nouveau contact"; else h.innerHTML=`<span>${esc(o.artist||"Artiste")}</span><i>${esc(o.title||"Sans titre")}</i>${o.year?", "+esc(o.year):""}`; }
 });
 document.addEventListener("click",async e=>{
-  const tr=e.target.closest("input,select,textarea")?null:e.target.closest("#acct tr[data-art-open],#acct tr[data-openinv],#acct tr[data-exp],#acct tr[data-op],.oplink[data-exp]");
+  const tr=e.target.closest("input,select,textarea")?null:e.target.closest("#acct tr[data-art-open],#acct tr[data-openinv],#acct tr[data-exp],#acct tr[data-op],.oplink[data-exp],#pay tr[data-exp],.op-row[data-exp]");
   if(tr){ if(tr.dataset.artOpen){ state.curArt=tr.dataset.artOpen; switchView("artworks"); document.body.classList.add("alt-detail"); renderAlt(); window.scrollTo(0,0); return; }
     if(tr.dataset.openinv){ state.current=tr.dataset.openinv; switchView("invoices"); document.body.classList.add("inv-open"); requestAnimationFrame(fitPreview); invMobilePreview(); return; }
     if(tr.dataset.exp){ openExp(tr.dataset.exp); return; }
@@ -1775,6 +1879,11 @@ document.addEventListener("click",async e=>{
   const b=e.target.closest("button"); if(!b) return;
   if(b.dataset.view){ switchView(b.dataset.view); return; }
   if(b.dataset.atab){ state.acctTab=b.dataset.atab; renderAcct(); return; }
+  if(b.dataset.fseg){ switchView(b.dataset.fseg); return; }
+  if(b.dataset.payf){ payFilter=b.dataset.payf; renderPay(); return; }
+  if(b.id==="payNew"){ const x=newExpense(); state.expenses[x.id]=x; flushDoc("expenses",x.id); openExp(x.id); return; }
+  if(b.dataset.oplink){ const inv=state.invoices[b.dataset.oplink]; const x=newExpense(); x.invoiceId=b.dataset.oplink; if(inv&&EXP_CURS.includes(inv.currency)) x.currency=inv.currency; state.expenses[x.id]=x; flushDoc("expenses",x.id); openExp(x.id); return; }
+  if(b.dataset.expopen){ openExp(b.dataset.expopen); return; }
   if(b.dataset.expcat){ expCat=b.dataset.expcat; state.acctTab="expenses"; renderAcct(); return; }
   if(b.id==="expNew"){ const x=newExpense(); state.expenses[x.id]=x; flushDoc("expenses",x.id); openExp(x.id); return; }
   if(b.dataset.fview){ viewFile(b.dataset.fview); return; }
@@ -1857,6 +1966,8 @@ function subscribeColl(coll){
       state[coll][id]=d; if(id===curId) cur=true; });
     if(first){ first=false; if(state.view!=="invoices") renderAlt(); else renderEditor(); return; }
     if(state.view==="accounting"){ if(!state.curExp) renderAcct(); return; }
+    if(state.view==="payables"){ if(!state.curExp) renderPay(); return; }
+    if(coll==="expenses" && state.view==="invoices"){ if(!state.curExp){ const a=document.activeElement; if(!a||!a.dataset?.p) renderEditor(); } return; }
     if(coll==="expenses") return;
     if(state.view!=="invoices"){ renderSide(); const a=document.activeElement; if(cur && (!a||!a.dataset?.k)) renderDetail(); }
   },()=>setSave("Synchronisation interrompue, rechargez la page",true));
@@ -1909,7 +2020,7 @@ async function viewerSync(manual){
   try{ state.current=localStorage.getItem("ls-current"); }catch(e){}
   if(!state.invoices[state.current]) state.current=sortedInvoices()[0]?.id||null;
   let v0="invoices"; try{ v0=localStorage.getItem("ls-view")||"invoices"; }catch(e){}
-  switchView(["invoices","contacts","artworks","accounting"].includes(v0)?v0:"invoices");
+  switchView(["invoices","contacts","artworks","accounting","payables"].includes(v0)?v0:"invoices");
   $("#homeLogo").src=LOGO_GOLD; document.querySelectorAll("#home [data-go]").forEach(b=>b.onclick=()=>leaveHome(b.dataset.go));
   document.querySelector(".top .brand").onclick=goHome; goHome();
   const pdfLbl=()=>{ const b=$("#btnPdf"); if(b) b.lastChild.textContent=(STANDALONE && !(window.html2canvas && window.jspdf))?"Enregistrer en PDF":"Télécharger le PDF"; }; pdfLbl(); window.addEventListener("load",pdfLbl);
@@ -1953,6 +2064,6 @@ async function viewerSync(manual){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") r.update().catch(()=>{}); }); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">vd8dd1dd1</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">vefba4322</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>
