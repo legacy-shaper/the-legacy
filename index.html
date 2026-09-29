@@ -385,6 +385,17 @@ body[data-view="accounting"] .app,body[data-view="accounting"] .alt,body[data-vi
   .acct td{white-space:normal;font-size:12px}
   .acct th{white-space:normal}
 }
+.stbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:-4px 0 16px}
+.st-steps{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--faint)}
+.st-step{padding:4px 10px;border-radius:999px;border:1px solid var(--line)}
+.st-step.done{color:var(--muted);border-color:var(--line-2)}
+.st-step.on{background:var(--green);border-color:var(--green);color:#F3EEDF}
+.st-sep{width:14px;height:1px;background:var(--line-2)}
+.st-act{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.st-link{border:0;background:none;color:var(--muted);font-size:12px;text-decoration:underline;padding:4px}
+.st-late{font-size:12px;color:var(--danger)}
+.st-paid{font-size:12.5px;color:var(--ok);font-weight:500}
+body.viewer .stbar .st-act{display:none}
 .pdfstage{position:fixed;left:-12000px;top:0;pointer-events:none}
 
 /* ---------- responsive ---------- */
@@ -780,6 +791,7 @@ function renderEditor(){
       <button type="button" class="btn danger" id="btnDel">${ICON.trash}Supprimer</button>
     </div>
   </div>
+  ${stBar(inv)}
 
   <div class="card"><h2>Facture
       <span class="seg" role="group" aria-label="Langue du document">${["en","fr"].map(l=>`<button type="button" data-lang="${l}" class="${L===l?"on":""}">${l==="en"?"English":"Français"}</button>`).join("")}</span></h2>
@@ -840,6 +852,15 @@ function renderEdTotals(){
 function setPath(obj,path,val){ const k=path.split("."); let o=obj; for(let i=0;i<k.length-1;i++){ o=o[isNaN(k[i])?k[i]:+k[i]]; } o[k[k.length-1]]=val; }
 
 let pvRaf=0;
+function stBar(inv){
+  const s=statusOf(inv), step=s==="draft"?0:s==="paid"?2:1;
+  const steps=[["Brouillon"],["Envoyée"],["Payée"]].map(([l],i)=>`<span class="st-step ${i<step?"done":""} ${i===step?"on":""}">${l}</span>`).join('<i class="st-sep"></i>');
+  let act="";
+  if(s==="draft") act=`<button type="button" class="btn primary" data-setst="sent">Marquer comme envoyée</button>`;
+  else if(s==="sent"||s==="late") act=`${s==="late"?`<span class="st-late">En retard depuis le ${esc(fdate(inv.due,"fr"))}</span>`:""}<button type="button" class="btn primary" data-setst="paid">Marquer comme payée</button><button type="button" class="st-link" data-setst="draft">Repasser en brouillon</button>`;
+  else act=`<span class="st-paid">Payée le ${esc(fdate(inv.paidDate||today(),"fr"))}</span><button type="button" class="st-link" data-setst="sent">Annuler le paiement</button>`;
+  return `<div class="stbar"><div class="st-steps">${steps}</div><div class="st-act">${act}</div></div>`;
+}
 function touch(opts={}){
   const inv=state.invoices[state.current]; if(!inv) return;
   scheduleSave(inv.id);
@@ -880,6 +901,7 @@ document.addEventListener("click",async e=>{
   else if(a==="up" && i>0){ [inv.items[i-1],inv.items[i]]=[inv.items[i],inv.items[i-1]]; touch({editor:true}); }
   else if(a==="down" && i<inv.items.length-1){ [inv.items[i+1],inv.items[i]]=[inv.items[i],inv.items[i+1]]; touch({editor:true}); }
   else if(a==="rmphoto"){ inv.items[i].photo=""; touch({editor:true}); }
+  else if(b.dataset.setst){ const v=b.dataset.setst; inv.status=v; if(v==="paid"){ inv.paidDate=today(); } else inv.paidDate=""; touch({editor:true}); setSave(v==="paid"?"Facture marquée payée":v==="sent"?"Facture marquée envoyée":"Facture repassée en brouillon"); }
   else if(b.id==="btnDup"){ const d=clone(inv); d.id=uid(); d.number=nextNumber(); d.date=today(); d.due=addDays(d.date,state.company.payDays); d.status="draft"; d.paidDate=""; d.createdAt=new Date().toISOString(); d.items.forEach(x=>x.id=uid()); state.invoices[d.id]=d; state.current=d.id; flush(d.id); renderAll(); }
   else if(b.id==="btnDel"){
     if(!b.classList.contains("arm")){ b.classList.add("arm"); b.lastChild.textContent="Confirmer la suppression"; setTimeout(()=>{ if(b.isConnected){ b.classList.remove("arm"); b.lastChild.textContent="Supprimer"; } },4000); return; }
@@ -1874,6 +1896,6 @@ async function viewerSync(manual){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") r.update().catch(()=>{}); }); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v279d0fc6</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v5366d8c6</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>

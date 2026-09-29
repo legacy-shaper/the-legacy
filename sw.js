@@ -4,7 +4,7 @@
      background for the next opening. A new app version (new VERSION below)
      installs itself and reloads the page once when online.
    - Fonts and PDF libraries: saved copy, else network with a short limit, else skipped. */
-const VERSION = "the-legacy-279d0fc6";
+const VERSION = "the-legacy-5366d8c6";
 const APP = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png", "./apple-touch-icon.png"];
 const EXTERNAL = [
   "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
