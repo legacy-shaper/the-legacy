@@ -255,6 +255,27 @@ body.home-on{overflow:hidden}
 .pp-bank dd{margin:0}
 .pp-terms{color:#5E6660;white-space:pre-line;font-size:10.5px;line-height:1.55}
 .pp-spacer{flex:1;min-height:40px}
+.paper.compact .pp-band{height:112px}
+.paper.compact .pp-band img{height:74px}
+.paper.compact .pp-in{padding-top:26px}
+.paper.compact .pp-parties{margin-top:20px;padding-top:14px}
+.paper.compact .pp-table{margin-top:20px}
+.paper.compact .pp-row{padding:10px 0}
+.paper.compact .pp-th,.paper.compact .pp-row{grid-template-columns:1fr 34px 92px 92px;gap:12px}
+.paper.compact .pp-meta .pp-title{font-size:30px}
+.paper.compact .pp-parties{gap:32px}
+.paper.compact{line-height:1.42}
+.paper.compact .pp-terms{line-height:1.45}
+.paper.compact .pp-band{height:100px}
+.paper.compact .pp-band img{height:68px}
+.paper.compact .pp-no{margin-top:8px}
+.paper.compact .pp-tot{margin-top:8px}
+.paper.compact .pp-tot td{padding:3px 0}
+.paper.compact .pp-tot tr.g td{padding-top:8px}
+.paper.compact .pp-vatnote{margin-top:6px}
+.paper.compact .pp-foot{margin-top:18px;padding-top:14px;grid-template-columns:1fr 1.25fr;gap:28px}
+.paper.compact .pp-spacer{min-height:12px}
+.paper.compact .pp-bottom{padding:10px 0 16px}
 .pp-bottom{margin:0 56px;padding:16px 0 26px;border-top:1px solid #C4A052;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;color:#8A8F86;font-size:9.5px;letter-spacing:.1em;text-align:center}
 .pp-bottom span+span::before{content:"·";margin-right:10px;color:#C4A052}
 .fiche{width:794px;height:1123px;background:#fff;color:#000;display:flex;flex-direction:column;align-items:center;font:16px/1.22 "Carlito","Calibri","Helvetica Neue",Arial,sans-serif;text-align:center}
@@ -884,6 +905,12 @@ $("#fileIn").addEventListener("change",async e=>{
 });
 
 /* ---------------- document (paper) ---------------- */
+/* compact layout: only when the invoice would not fit on one A4 page */
+function paperFor(inv){
+  let h=paperHTML(inv); const st=$("#pdfstage"); if(!st) return h;
+  const keep=st.innerHTML; st.innerHTML=h; const tall=st.firstElementChild && st.firstElementChild.offsetHeight>1123; st.innerHTML=keep;
+  return tall? h.replace('<div class="paper ','<div class="paper compact ') : h;
+}
 function paperHTML(inv){
   const c=state.company, L=T[inv.lang||"en"], t=totals(inv), m=v=>esc(money(v,inv.currency,inv.lang));
   const vm=vatModeOf(inv); const isTax=c.vatRegistered && vm!=="none";
@@ -942,7 +969,7 @@ function paperHTML(inv){
 }
 function renderPreview(){
   const inv=state.invoices[state.current];
-  $("#pvscale").innerHTML = inv? paperHTML(inv) : "";
+  $("#pvscale").innerHTML = inv? paperFor(inv) : "";
   fitPreview();
 }
 function fitPreview(){
@@ -963,7 +990,7 @@ async function saveFile(name, blob){
 function printPdf(inv){
   const safe=s=>String(s||"").replace(/[\\/:*?"<>|]+/g," ").replace(/\s+/g," ").trim();
   const old=document.title; document.title=`${safe(inv.number)}${inv.client?.name?" - "+safe(inv.client.name):""}`;
-  $("#printArea").innerHTML=paperHTML(inv);
+  $("#printArea").innerHTML=paperFor(inv);
   const imgs=[...$("#printArea").querySelectorAll("img")];
   Promise.all(imgs.map(im=>im.complete?0:new Promise(r=>{im.onload=im.onerror=r;}))).then(()=>{ window.print(); setTimeout(()=>{ document.title=old; $("#printArea").innerHTML=""; },500); });
 }
@@ -975,7 +1002,7 @@ async function exportPdf(){
   if(!window.html2canvas||!window.jspdf){ say("Le module PDF n’a pas pu se charger. Rechargez la page.",true); return; }
   btn.disabled=true; say("Préparation du PDF…");
   try{
-    const stage=$("#pdfstage"); stage.innerHTML=paperHTML(inv);
+    const stage=$("#pdfstage"); stage.innerHTML=paperFor(inv);
     const paper=stage.firstElementChild;
     await document.fonts.ready;
     await Promise.all([...paper.querySelectorAll("img")].map(im=>im.complete?0:new Promise(r=>{im.onload=im.onerror=r;})));
@@ -1847,6 +1874,6 @@ async function viewerSync(manual){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") r.update().catch(()=>{}); }); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">ve7c3b33b</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v279d0fc6</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>
