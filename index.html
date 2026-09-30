@@ -132,7 +132,7 @@ body.home-on{overflow:hidden}
 .ehead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
 .ehead h1{font:500 32px/1.05 var(--serif);margin:0;letter-spacing:.01em;font-variant-numeric:tabular-nums}
 .ehead .sub{color:var(--muted);font-size:13px;margin-top:4px}
-.eacts{display:flex;gap:8px;flex-wrap:wrap}
+.eacts{display:flex;gap:8px;flex-wrap:wrap}.provck{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;padding:0 6px;user-select:none}.provck input{width:16px;height:16px;margin:0;accent-color:currentColor;cursor:pointer}
 .btn{border:1px solid var(--line-2);background:var(--surface);border-radius:999px;padding:7px 14px;font-size:13px;display:inline-flex;align-items:center;gap:7px}
 .btn:hover{border-color:var(--gold)}
 .btn.danger{color:var(--danger)}
@@ -285,7 +285,7 @@ body.home-on{overflow:hidden}
 .fiche .fbox{margin-top:62px;width:450px;height:460px;display:flex;align-items:center;justify-content:center;padding:0;background:transparent;border-radius:0;box-shadow:none}
 .fiche .fbox img{max-width:450px;max-height:460px;width:auto;height:auto;display:block;margin:0;border-radius:0;object-fit:initial}
 .fiche .ft{margin-top:34px;display:flex;flex-direction:column;gap:1px;max-width:560px}
-.fiche .ft b{font-weight:700}
+.fiche .ft b{font-weight:700}.fiche .ft .fprov{margin-top:6px}
 .fiche .fc{margin-top:12px;display:flex;flex-direction:column;gap:1px}
 #printArea .fiche{width:210mm;height:296mm}
 .fview{display:none}
@@ -1301,7 +1301,7 @@ async function flushDoc(coll,id){
 async function removeDoc(coll,id){ clearTimeout(dT[coll+"/"+id]); delete dT[coll+"/"+id]; delete state[coll][id]; if(db) await db.collection(coll).doc(id).delete(); else await local.write(); }
 
 const newContact=()=>({id:uid(),name:"",company:"",address:"",email:"",phone:"",trn:"",notes:"",createdAt:new Date().toISOString()});
-const newArtwork=()=>({id:uid(),photo:"",artist:"",title:"",year:"",medium:"",dimensions:"",ref:"",notes:"",location:"",owner:"",ownerContactId:"",price:"",currency:state.company.currency||"USD",status:"available",createdAt:new Date().toISOString()});
+const newArtwork=()=>({id:uid(),photo:"",artist:"",title:"",year:"",medium:"",dimensions:"",ref:"",notes:"",provenance:"",location:"",owner:"",ownerContactId:"",price:"",currency:state.company.currency||"USD",status:"available",createdAt:new Date().toISOString()});
 const sortedContacts=()=>Object.values(state.contacts).sort((a,b)=>(a.name||a.company||"").localeCompare(b.name||b.company||"","fr"));
 const sortedArtworks=()=>Object.values(state.artworks).sort((a,b)=>(a.artist||"").localeCompare(b.artist||"","fr")||(a.title||"").localeCompare(b.title||"","fr"));
 function contactInvoices(ct){ return sortedInvoices().filter(i=>i.contactId===ct.id || (!i.contactId && ct.name && (i.client?.name||"").trim().toLowerCase()===ct.name.trim().toLowerCase())); }
@@ -1325,7 +1325,7 @@ function renderSide(){
       ${!all.length && Object.keys(clientNames()).length?`<button type="button" class="btn" id="importClients" style="margin-top:10px">Importer les clients de mes factures</button>`:""}`;
   } else {
     const all=sortedArtworks();
-    const rows=all.filter(a=>(artFilter==="all"||artStatus(a)===artFilter) && (!locFilter||a.location===locFilter) && (!catFilter||a.category===catFilter) && (!f||[a.artist,a.title,a.year,a.ref,a.medium,a.location,a.owner,catLabel(a.category),editionText(a)].join(" ").toLowerCase().includes(f)));
+    const rows=all.filter(a=>(artFilter==="all"||artStatus(a)===artFilter) && (!locFilter||a.location===locFilter) && (!catFilter||a.category===catFilter) && (!f||[a.artist,a.title,a.year,a.ref,a.medium,a.location,a.owner,a.provenance,catLabel(a.category),editionText(a)].join(" ").toLowerCase().includes(f)));
     el.innerHTML=`<input class="search" id="q2" type="search" placeholder="Artiste, titre, référence…" value="${esc(q2)}">
       <div class="filters">${[["all","Toutes"],...Object.entries(ART_STATUS)].map(([k,v])=>`<button type="button" data-af="${k}" class="${artFilter===k?"on":""}">${v}</button>`).join("")}</div>
       <select id="catFilter" class="search" style="margin-bottom:8px" aria-label="Filtrer par catégorie"><option value="">Toutes les catégories</option>${CATEGORIES.map(c=>`<option value="${c[0]}" ${catFilter===c[0]?"selected":""}>${c[1]}</option>`).join("")}</select>
@@ -1369,7 +1369,7 @@ function renderDetail(){
     if(!a){ el.innerHTML=`<div class="card"><h2>Œuvres</h2><p class="msg">Enregistrez vos œuvres avec leur photo et leur fiche : vous les ajouterez ensuite à une facture en un clic, sans tout retaper.</p></div>`; return; }
     const invs=artworkInvoices(a);
     el.innerHTML=`${back}<div class="ehead"><div><h1 class="arth"><span>${esc(a.artist||"Artiste")}</span><i>${esc(a.title||"Sans titre")}</i>${a.year?", "+esc(a.year):""}</h1><div class="sub">${[catLabel(a.category),editionText(a)].filter(Boolean).map(esc).join(" · ")}${(a.category||a.editionType)?" · ":""}${ART_STATUS[artStatus(a)]}${ownerName(a)?" · "+esc(ownerName(a)):""}${a.price?" · "+esc(money(num(a.price),a.currency,"en")):""}</div></div>
-      <div class="eacts"><button type="button" class="btn" id="artFiche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>Fiche PDF</button><button type="button" class="btn" id="artFicheViews" title="Fiche en page 1, puis chaque vue supplémentaire en pleine page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>Fiche + additional views…</button><button type="button" class="btn primary" id="artInvoice">+ Facture avec cette œuvre</button><button type="button" class="btn danger" id="artDel">${ICON.trash}Supprimer</button></div></div>
+      <div class="eacts"><button type="button" class="btn" id="artFiche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>Fiche PDF</button><button type="button" class="btn" id="artFicheViews" title="Fiche en page 1, puis chaque vue supplémentaire en pleine page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>Fiche + additional views…</button><label class="provck" title="Ajouter la provenance sur la fiche PDF"><input type="checkbox" id="ficheProv" class="keepon" ${state.ficheProv?"checked":""}> Provenance sur la fiche</label><button type="button" class="btn primary" id="artInvoice">+ Facture avec cette œuvre</button><button type="button" class="btn danger" id="artDel">${ICON.trash}Supprimer</button></div></div>
       <div class="card artcard">
         <div class="phwrap"><button type="button" class="ph big" id="artPhoto" aria-label="${a.photo?"Changer la photo":"Ajouter une photo"}">${a.photo?`<img src="${a.photo}" alt="">`:`${ICON.img}<span>Ajouter<br>la photo</span>`}</button>${a.photo?`<button type="button" class="lnk" id="artReplace">Nouvelle photo principale</button>`:""}</div>
         <div class="grid">
@@ -1379,7 +1379,8 @@ function renderDetail(){
           ${kf("Pièce unique / édition","editionType",a.editionType||"","s2 half",{select:EDITIONS})}
           ${(a.editionType==="edition"||a.editionType==="ap")?kf(a.editionType==="ap"?"N° d’épreuve":"N° d’exemplaire","editionNumber",a.editionNumber||"","s2",{ph:a.editionType==="ap"?"1/2":"2/6"}):`<div class="s2"></div>`}
           ${kf("Dimensions","dimensions",a.dimensions,"s3",{ph:"100 × 81 cm"})}${kf("Réf. / n° d’archive","ref",a.ref,"s3")}
-          ${kf("Description (signature, provenance, certificat…)","notes",a.notes,"s6",{area:1,rows:3})}
+          ${kf("Description (signature, certificat…)","notes",a.notes,"s6",{area:1,rows:3})}
+          ${kf("Provenance","provenance",a.provenance||"","s6",{area:1,rows:3,ph:"Une ligne par étape, ex. : Chandigarh, Inde"})}
         </div>
       </div>
       <div class="card"><h2>Photos · additional views <span class="lock" id="viewsCount">${(()=>{ const n=galleryOf(a).length; return n+" photo"+(n>1?"s":""); })()}</span></h2><div class="views" id="viewsBox">${viewsHTML(a)}</div></div>
@@ -1490,24 +1491,26 @@ async function addViews(files){
     }catch(e){ setSave("Une photo n’a pas pu être ajoutée",true); }
   }
 }
+const provLines=a=>String(a.provenance||"").split("\n").map(x=>x.trim().replace(/^provenance\s*:\s*/i,"")).filter(Boolean);
 function inchesLine(dim){
   if(/\bin\b|inch|″|"/i.test(dim||"")) return "";
   const m=(dim||"").match(/(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)(?:\s*[x×]\s*(\d+(?:[.,]\d+)?))?\s*cm/i);
   if(!m) return ""; return [m[1],m[2],m[3]].filter(Boolean).map(v=>frac8(num(v))).join(" x ")+" in";
 }
-function ficheHTML(a, img){
+function ficheHTML(a, img, withProv){
   const lines=[`<b>${esc(a.artist||"")}</b>`, `<span><i>${esc(a.title||"Untitled")}</i>${a.year?", "+esc(a.year):""}</span>`];
   if(a.medium) lines.push(`<span>${esc(a.medium)}</span>`);
   if(a.dimensions){ lines.push(`<span>${esc(a.dimensions)}</span>`); const inl=inchesLine(a.dimensions); if(inl) lines.push(`<span>${esc(inl)}</span>`); }
   if(editionText(a)) lines.push(`<span>${esc(editionText(a))}</span>`);
   (a.notes||"").split("\n").map(x=>x.trim()).filter(Boolean).forEach(x=>lines.push(`<span>${esc(x)}</span>`));
+  if(withProv){ const pl=provLines(a); if(pl.length===1) lines.push(`<span class="fprov">Provenance : ${esc(pl[0])}</span>`); else if(pl.length) lines.push(`<span class="fprov">Provenance :</span>`,...pl.map(x=>`<span>${esc(x)}</span>`)); }
   return `<div class="fiche"><img class="fl" src="${LOGO_H}" alt="Legacy Shaper">
     <div class="fbox">${img?`<img src="${img}" alt="">`:""}</div>
     <div class="ft">${lines.join("")}</div>
     <div class="fc"><span>Copyright: Copyright The Artist</span><span>Courtesy of Legacy Shaper</span></div></div>`;
 }
 async function exportFiche(chosen){
-  const withViews=Array.isArray(chosen)&&chosen.length>0;
+  const withViews=Array.isArray(chosen)&&chosen.length>0; const withProv=!!state.ficheProv;
   const a=state.artworks[state.curArt]; if(!a) return; const btn=$(withViews?"#artFicheViews":"#artFiche"); if(btn) btn.disabled=true;
   try{
     await loadViews(a.id); const pv=a.primaryViewId && (state.views[a.id]||{})[a.primaryViewId]; const img=pv?pv.photo:(a.photo||"");
@@ -1516,12 +1519,12 @@ async function exportFiche(chosen){
     const u=s=>String(s||"").replace(/[\\/:*?"<>|]+/g," ").trim().replace(/\s+/g,"_");
     const base=`${u(a.artist)}_-_${u(a.title||"Untitled")}${a.year?"_"+u(a.year):""}_-_Legacy_Shaper${extra.length?"_-_views":""}`;
     if(STANDALONE && !(window.html2canvas && window.jspdf)){
-      const old=document.title; document.title=base; $("#printArea").innerHTML=ficheHTML(a,img)+extra.map((v,i)=>`<div class="fview"><img src="${v}" alt=""><span>${esc(cap)} · view ${i+2}</span></div>`).join("");
+      const old=document.title; document.title=base; $("#printArea").innerHTML=ficheHTML(a,img,withProv)+extra.map((v,i)=>`<div class="fview"><img src="${v}" alt=""><span>${esc(cap)} · view ${i+2}</span></div>`).join("");
       await Promise.all([...$("#printArea").querySelectorAll("img")].map(im=>im.complete?0:new Promise(r=>{im.onload=im.onerror=r;})));
       window.print(); setTimeout(()=>{ document.title=old; $("#printArea").innerHTML=""; },500); return;
     }
     if(!window.html2canvas||!window.jspdf){ setSave("Le module PDF n’a pas pu se charger",true); return; }
-    const stage=$("#pdfstage"); stage.innerHTML=ficheHTML(a,img); const el=stage.firstElementChild;
+    const stage=$("#pdfstage"); stage.innerHTML=ficheHTML(a,img,withProv); const el=stage.firstElementChild;
     await document.fonts.ready; await Promise.all([...el.querySelectorAll("img")].map(im=>im.complete?0:new Promise(r=>{im.onload=im.onerror=r;})));
     const canvas=await html2canvas(el,{scale:2,backgroundColor:"#ffffff",logging:false,width:794,windowWidth:794});
     const { jsPDF } = window.jspdf; const pdf=new jsPDF({unit:"pt",format:"a4",compress:true});
@@ -1977,6 +1980,7 @@ document.addEventListener("click",async e=>{
   }
 });
 document.addEventListener("change",e=>{
+  if(e.target.id==="ficheProv"){ state.ficheProv=e.target.checked; return; }
   if(e.target.id==="pickContact"){ const c=state.contacts[e.target.value], inv=state.invoices[state.current]; if(c&&inv){ inv.client=clientFromContact(c); inv.contactId=c.id; touch({editor:true}); } return; }
   if(e.target.dataset && e.target.dataset.brksel!==undefined){ const a=state.artworks[state.curArt]; if(!a) return; const v=e.target.value;
     window.__brkOther=(v==="__other");
@@ -2032,7 +2036,7 @@ function subscribeColl(coll){
 
 /* ---------------- viewer (read-only app) ---------------- */
 const b64d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
-function lockUI(){ if(!VIEWER) return; document.querySelectorAll("#editor input,#editor select,#editor textarea,#detail input,#detail select,#detail textarea").forEach(el=>{ el.disabled=true; if(el.type==="date"&&!el.value) el.type="text"; }); }
+function lockUI(){ if(!VIEWER) return; document.querySelectorAll("#editor input,#editor select,#editor textarea,#detail input:not(.keepon),#detail select,#detail textarea").forEach(el=>{ el.disabled=true; if(el.type==="date"&&!el.value) el.type="text"; }); }
 async function unlockWithCode(code){
   const r=await fetch("key.enc?t="+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error("nokey"); const k=await r.json();
   const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(code),"PBKDF2",false,["deriveKey"]);
@@ -2121,6 +2125,6 @@ async function viewerSync(manual){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") r.update().catch(()=>{}); }); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v17b49133</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v49bbe191</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>
