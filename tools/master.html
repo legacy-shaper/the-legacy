@@ -376,14 +376,17 @@ body[data-view="accounting"] .app,body[data-view="accounting"] .alt,body[data-vi
 .pay-sum b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
 .pay-sum .due b{color:var(--danger)} .pay-sum .ok b{color:var(--ok)}
 .pay-list{display:flex;flex-direction:column;gap:4px}
-.pay-row{display:grid;grid-template-columns:130px 120px 1fr auto;gap:10px;align-items:center;font-size:12.5px;font-variant-numeric:tabular-nums;padding:6px 10px;background:var(--surface-2);border-radius:8px}
+.pay-row{display:flex;gap:10px;align-items:center;font-size:12.5px;font-variant-numeric:tabular-nums;padding:6px 10px;background:var(--surface-2);border-radius:8px}
+.pay-main{display:grid;grid-template-columns:130px 120px 1fr;gap:10px;align-items:center;flex:1}
+.pay-actions{display:flex;gap:6px;align-items:center}
+.pay-proof{white-space:nowrap}
 .pay-note{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pay-del.arm{color:var(--danger)}
 .pay-form{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:10px;align-items:end;padding-top:10px;border-top:1px solid var(--line)}
 .pay-form[hidden]{display:none}
 .pay-btns{grid-column:1/-1;display:flex;gap:8px}
 .pay-hint{grid-column:1/-1;font-size:12px;color:var(--warn);min-height:0}
-@media (max-width:700px){ .pay-form{grid-template-columns:1fr 1fr} .pay-n{grid-column:1/-1} .pay-row{grid-template-columns:1fr auto;} .pay-note{grid-column:1/-1;order:3} }
+@media (max-width:700px){ .pay-form{grid-template-columns:1fr 1fr} .pay-n{grid-column:1/-1} .pay-row{flex-direction:column;align-items:flex-start;gap:6px} .pay-main{grid-template-columns:auto 1fr;width:100%} .pay-note{grid-column:1/-1} .pay-actions{width:100%;gap:4px} }
 .st-steps{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--faint)}
 .st-step{padding:4px 10px;border-radius:999px;border:1px solid var(--line)}
 .st-step.done{color:var(--muted);border-color:var(--line-2)}
@@ -588,6 +591,7 @@ body[data-view="contacts"] .listbtn,body[data-view="artworks"] .listbtn{display:
 <div id="printArea" aria-hidden="true"></div>
 <input type="file" id="fileIn" accept="image/*" hidden>
 <input type="file" id="viewsIn" accept="image/*" multiple hidden>
+<input type="file" id="payProofInput" accept="application/pdf,image/*" hidden>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -885,7 +889,7 @@ function stBar(inv){
   if(s==="draft") act=`<button type="button" class="btn primary" data-setst="sent">Marquer comme envoyée</button>`;
   else if(s!=="paid") act=`${overdue?`<span class="st-late">En retard depuis le ${esc(fdate(inv.due,"fr"))}</span>`:""}<button type="button" class="btn" data-payform>+ Paiement reçu</button><button type="button" class="btn primary" data-setst="paid">Marquer comme payée</button>${pays.length?"":`<button type="button" class="st-link" data-setst="draft">Repasser en brouillon</button>`}`;
   else act=`<span class="st-paid">Payée le ${esc(fdate(inv.paidDate||today(),"fr"))}</span>${pays.length?"":`<button type="button" class="st-link" data-setst="sent">Annuler le paiement</button>`}`;
-  const list=pays.length?`<div class="pay-list">${pays.map(x=>`<div class="pay-row"><span>${esc(fdate(x.date,"fr"))}</span><span>${m(num(x.amount))}</span><span class="pay-note">${esc(x.note||"")}</span>${VIEWER?"":`<button type="button" class="st-link pay-del" data-paydel="${x.id}" aria-label="Supprimer ce paiement">Supprimer</button>`}</div>`).join("")}</div>`:"";
+  const list=pays.length?`<div class="pay-list">${pays.map(x=>`<div class="pay-row"><div class="pay-main"><span>${esc(fdate(x.date,"fr"))}</span><span>${m(num(x.amount))}</span><span class="pay-note">${esc(x.note||"")}</span></div><div class="pay-actions">${VIEWER?"":`<button type="button" class="st-link pay-proof" data-payadd="${x.id}" aria-label="Ajouter preuve">📎 ${x.proofId?"✓":""}</button><button type="button" class="st-link pay-del" data-paydel="${x.id}" aria-label="Supprimer ce paiement">Supprimer</button>`}</div></div>`).join("")}</div>`:"";
   const sum=(s!=="draft" && (pays.length||s==="partial"))?`<div class="pay-sum"><span>Total <b>${m(tot)}</b></span><span>Reçu <b>${m(paid)}</b></span><span class="${bal>0?"due":"ok"}">Reste à payer <b>${m(bal)}</b></span></div>`:"";
   const form=`<div class="pay-form" id="payForm" hidden>
       <div class="f"><label for="payDate">Date de réception</label><input id="payDate" type="date" value="${today()}"></div>
@@ -954,6 +958,7 @@ document.addEventListener("click",async e=>{
     const left=balanceOf(inv); setSave(left>0?`Paiement enregistré · reste ${money(left,inv.currency||"USD","en")}`:"Paiement enregistré · facture soldée"); }
   else if(b.dataset.paydel){ if(!b.classList.contains("arm")){ b.classList.add("arm"); b.textContent="Confirmer"; return; }
     inv.payments=(inv.payments||[]).filter(x=>x.id!==b.dataset.paydel); syncPaidStatus(inv); touch({editor:true}); setSave("Paiement supprimé"); }
+  else if(b.dataset.payadd){ if(!assetsCap){ setSave("Upload de preuves non disponible",true); return; } payProofTarget=b.dataset.payadd; $("#payProofInput").value=""; $("#payProofInput").click(); return; }
   else if(b.id==="btnDup"){ const d=clone(inv); d.id=uid(); d.number=nextNumber(); d.date=today(); d.due=addDays(d.date,state.company.payDays); d.status="draft"; d.paidDate=""; d.createdAt=new Date().toISOString(); d.items.forEach(x=>x.id=uid()); state.invoices[d.id]=d; state.current=d.id; flush(d.id); renderAll(); }
   else if(b.id==="btnDel"){
     if(!b.classList.contains("arm")){ b.classList.add("arm"); b.lastChild.textContent="Confirmer la suppression"; setTimeout(()=>{ if(b.isConnected){ b.classList.remove("arm"); b.lastChild.textContent="Supprimer"; } },4000); return; }
@@ -965,6 +970,8 @@ document.addEventListener("click",async e=>{
 
 /* photo upload → small square-ish JPEG */
 let photoTarget=-1;
+let payProofTarget=null;
+let expProofMode=false;
 $("#fileIn").addEventListener("change",async e=>{
   const f=e.target.files?.[0]; const inv=state.invoices[state.current]; const artT=photoTarget==="art"?state.artworks[state.curArt]:null; if(!f||(!artT&&(!inv||photoTarget<0))) return;
   try{
@@ -976,6 +983,27 @@ $("#fileIn").addEventListener("change",async e=>{
     const durl=cv.toDataURL("image/jpeg",0.82);
     if(artT){ artT.photo=durl; try{ await loadViews(artT.id); const full=await resizeImage(f,900); const v={id:uid(),photo:full,createdAt:new Date().toISOString()}; await saveView(artT,v); artT.primaryViewId=v.id; }catch(e){} schedDoc("artworks",artT.id); renderAlt(); } else { inv.items[photoTarget].photo=durl; touch({editor:true}); }
   }catch(err){ setSave("Image illisible, essayez un JPEG ou un PNG",true); }
+});
+
+/* payment proof upload → PDF or image */
+$("#payProofInput").addEventListener("change",async e=>{
+  const f=e.target.files?.[0]; if(!f||!payProofTarget) return;
+  try{
+    const blob=new Blob([await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsArrayBuffer(f); })],{type:f.type});
+    const assetId=await assetsCap.upload(blob,{name:f.name,type:f.type});
+    if(expProofMode){
+      const exp=state.expenses[state.curExp]; if(!exp) return;
+      exp.payments=exp.payments||[];
+      const pay=exp.payments.find(p=>p.id===payProofTarget);
+      if(pay){ pay.proofId=assetId; flushDoc("expenses",exp.id); repay(); setSave("Preuve de paiement ajoutée"); }
+    } else {
+      const inv=state.invoices[state.current]; if(!inv) return;
+      inv.payments=inv.payments||[];
+      const pay=inv.payments.find(p=>p.id===payProofTarget);
+      if(pay){ pay.proofId=assetId; touch({editor:true}); setSave("Preuve de paiement ajoutée"); }
+    }
+    payProofTarget=null; expProofMode=false;
+  }catch(err){ setSave("Erreur lors de l'upload de la preuve",true); }
 });
 
 /* ---------------- document (paper) ---------------- */
@@ -1738,7 +1766,7 @@ function expPayHTML(e){
   if(st!=="paid") act=`${st==="late"?`<span class="st-late">En retard depuis le ${esc(fdate(e.due,"fr"))}</span>`:""}<button type="button" class="btn" data-epayform>+ Paiement effectué</button><button type="button" class="btn primary" data-epayfull>Marquer comme payée</button>`;
   else act=`<span class="st-paid">Payée${lastDate?" le "+esc(fdate(lastDate,"fr")):""}</span>${pays.length?"":`<button type="button" class="st-link" data-epayundo>Annuler « payée »</button>`}`;
   const sum=`<div class="pay-sum"><span>Total <b>${m(num(e.amount))}</b></span><span>Payé <b>${m(paid)}</b></span><span class="${bal>0?"due":"ok"}">Reste à payer <b>${m(bal)}</b></span></div>`;
-  const list=pays.length?`<div class="pay-list">${pays.map(x=>`<div class="pay-row"><span>${esc(fdate(x.date,"fr"))}</span><span>${m(num(x.amount))}</span><span class="pay-note">${esc(x.note||"")}</span>${VIEWER?"":`<button type="button" class="st-link pay-del" data-epaydel="${x.id}" aria-label="Supprimer ce paiement">Supprimer</button>`}</div>`).join("")}</div>`:"";
+  const list=pays.length?`<div class="pay-list">${pays.map(x=>`<div class="pay-row"><div class="pay-main"><span>${esc(fdate(x.date,"fr"))}</span><span>${m(num(x.amount))}</span><span class="pay-note">${esc(x.note||"")}</span></div><div class="pay-actions">${VIEWER?"":`<button type="button" class="st-link pay-proof" data-epayadd="${x.id}" aria-label="Ajouter preuve">📎 ${x.proofId?"✓":""}</button><button type="button" class="st-link pay-del" data-epaydel="${x.id}" aria-label="Supprimer ce paiement">Supprimer</button>`}</div></div>`).join("")}</div>`:"";
   const form=`<div class="pay-form" id="ePayForm" hidden>
       <div class="f"><label for="ePayDate">Date du paiement</label><input id="ePayDate" type="date" value="${today()}"></div>
       <div class="f"><label for="ePayAmt">Montant payé (${esc(cur)})</label><input id="ePayAmt" class="num" inputmode="decimal" value="${bal||""}"></div>
@@ -1797,6 +1825,7 @@ function openExp(id){
       if(amt>expBalance(e)+0.005 && !over){ h.textContent=`Ce montant dépasse le reste à payer (${money(expBalance(e),e.currency||"USD","en")}). Cliquez encore pour confirmer.`; over=true; return; }
       over=false; e.payments=e.payments||[]; e.payments.push({id:uid(),date:d,amount:String(amt),note}); expSync(e); flushDoc("expenses",e.id); repay();
       const left=expBalance(e); setSave(left>0?`Paiement enregistré · reste ${money(left,e.currency||"USD","en")}`:"Paiement enregistré · facture soldée"); return; }
+    if(b.dataset.epayadd){ if(!assetsCap){ setSave("Upload de preuves non disponible",true); return; } payProofTarget=b.dataset.epayadd; expProofMode=true; $("#payProofInput").value=""; $("#payProofInput").click(); return; }
     if(b.dataset.epaydel){ if(!b.classList.contains("arm")){ b.classList.add("arm"); b.textContent="Confirmer"; return; }
       e.payments=(e.payments||[]).filter(x=>x.id!==b.dataset.epaydel); expSync(e); flushDoc("expenses",e.id); repay(); setSave("Paiement supprimé"); return; }
   });
