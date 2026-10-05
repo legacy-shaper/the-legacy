@@ -1334,6 +1334,34 @@ async function exportData(){
     if(z) z.textContent=`Sauvegarde téléchargée : ${Object.keys(state.invoices).length} factures, ${Object.keys(state.contacts).length} contacts, ${Object.keys(state.artworks).length} œuvres.`; }
   catch(err){ if(z && err?.code!=="declined") z.textContent="Le téléchargement n’a pas abouti. Réessayez."; }
 }
+async function fullBackupZip(onStep){
+  if(!window.JSZip) throw new Error("zip");
+  for(const id of Object.keys(state.artworks)) await loadViews(id);
+  const zip=new JSZip(), j=o=>JSON.stringify(o,null,1);
+  zip.file("settings/company.json", j(state.company));
+  for(const coll of ["invoices","contacts","artworks","expenses"]) for(const [id,o] of Object.entries(state[coll]||{})) zip.file(`${coll}/${id}.json`, j(o));
+  for(const [aid,vs] of Object.entries(state.views||{})) for(const [vid,v] of Object.entries(vs||{})) zip.file(`artworks/${aid}/views/${vid}.json`, j(v));
+  const files={}; for(const coll of ["invoices","expenses"]) for(const o of Object.values(state[coll]||{})) for(const f of [...(o.files||[]),...(o.proofs||[])]) files[f.id]=f;
+  let n=0; const ext=t=>t==="application/pdf"?"pdf":t==="image/png"?"png":t==="image/jpeg"?"jpg":"bin";
+  for(const f of Object.values(files)){ n++; onStep&&onStep(`Justificatifs ${n}/${Object.keys(files).length}…`); try{ zip.file(`assets/${f.id}.${ext(f.type)}`, await fileBlob(f)); }catch(e){} }
+  return await zip.generateAsync({type:"blob",compression:"DEFLATE"});
+}
+async function downloadFullBackup(z){
+  const d=new Date().toISOString().slice(0,10); const say=t=>{ if(z) z.textContent=t; };
+  say("Préparation de la sauvegarde complète…");
+  const blob=await fullBackupZip(say);
+  await saveFile(`The Legacy - sauvegarde ${d}.zip`, blob);
+  if(db) await db.doc("settings/backup").set({lastAt:new Date().toISOString()});
+  say(`Sauvegarde complète téléchargée : ${Object.keys(state.invoices).length} factures, ${Object.keys(state.contacts).length} contacts, ${Object.keys(state.artworks).length} œuvres, photos et justificatifs.`);
+}
+async function weeklyBackup(){
+  if(!window.LEGACY_SB || !db || window.matchMedia("(max-width:900px)").matches || /iPhone|iPad/.test(navigator.userAgent)) return;
+  if(!Object.keys(state.artworks||{}).length && !Object.keys(state.invoices||{}).length) return;
+  try{ const s=await db.doc("settings/backup").get(); const last=s.exists&&s.data()&&s.data().lastAt;
+    if(last && Date.now()-new Date(last).getTime() < 7*864e5) return;
+    setSave("Sauvegarde hebdomadaire…"); await downloadFullBackup(null); setSave("Sauvegarde hebdomadaire téléchargée");
+  }catch(e){ console.error(e); setSave("Sauvegarde hebdomadaire impossible : réessayez depuis Société",true); }
+}
 async function zipToBackup(file, z){
   if(!window.JSZip) throw new Error("zip");
   const zip=await JSZip.loadAsync(file); const d={app:"legacy-shaper-invoicing",version:2,exportedAt:new Date().toISOString(),invoices:{},contacts:{},artworks:{},expenses:{},views:{},assets:{}};
@@ -1441,7 +1469,7 @@ function openSettings(){
   $("#saveSet").onclick=async()=>{ const b=$("#saveSet"); b.disabled=true; b.textContent="Enregistrement…";
     try{ state.company.locations=(state.company.locations||[]).filter(l=>(l.name||"").trim()); await putCompany(); setSave("Réglages enregistrés"); renderAll(); close(); }
     catch(err){ b.disabled=false; b.textContent="Enregistrer"; const m=$("#setMsg"); m.textContent="L’enregistrement a échoué. Vérifiez votre connexion et réessayez."; m.classList.add("err"); } };
-  $("#expBtn").onclick=exportData; $("#impBtn").onclick=()=>{ $("#impIn").value=""; $("#impIn").click(); };
+  $("#expBtn").onclick=()=>{ if(window.LEGACY_SB) downloadFullBackup($("#impZone")).catch(()=>{ const z=$("#impZone"); if(z) z.textContent="La sauvegarde n’a pas abouti. Réessayez."; }); else exportData(); }; $("#impBtn").onclick=()=>{ $("#impIn").value=""; $("#impIn").click(); };
   $("#impIn").onchange=e=>readImport(e.target.files?.[0], ()=>{ original=clone(state.company); dirty=false; close(); });
   $("#modal").onclick=(e=>{ const la=e.target.closest("#locAdd,[data-locdel]");
     if(la){ state.company.locations=state.company.locations||[]; if(la.id==="locAdd") state.company.locations.push({name:"",address:""}); else state.company.locations.splice(+la.dataset.locdel,1);
@@ -2306,7 +2334,7 @@ async function viewerSync(manual){
         if(JSON.stringify(state.invoices[id])===JSON.stringify(data)) return;
         state.invoices[id]=data; if(id===state.current) curChanged=true;
       });
-      if(first){ first=false; if(!state.invoices[state.current]) state.current=sortedInvoices()[0]?.id||null; if(state.view==="invoices") renderAll(); else renderAlt(); setSave("Enregistré"); return; }
+      if(first){ first=false; if(!state.invoices[state.current]) state.current=sortedInvoices()[0]?.id||null; if(state.view==="invoices") renderAll(); else renderAlt(); setSave("Enregistré"); if(window.LEGACY_SB) setTimeout(weeklyBackup,4000); return; }
       if(state.view!=="invoices"){ renderAlt(); return; }
       renderList();
       if(curChanged){ if(!state.invoices[state.current]) state.current=sortedInvoices()[0]?.id||null; const a=document.activeElement; if(!a||!a.dataset?.p){ renderEditor(); } renderPreview(); }
@@ -2323,6 +2351,6 @@ if("serviceWorker" in navigator){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v875eb3cb</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">vb9a2e615</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>
