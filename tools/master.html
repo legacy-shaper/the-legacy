@@ -2023,6 +2023,7 @@ function openArtPicker(target){ pickTarget=(typeof target==="number")?target:-1;
 function subscribeColl(coll){
   let first=true;
   db.collection(coll).onSnapshot(snap=>{
+    if(first && window.LEGACY_SB) state[coll]={};
     let cur=false; const curId=coll==="contacts"?state.curContact:state.curArt;
     snap.docChanges().forEach(ch=>{ const id=ch.doc.id;
       if(pendingDoc(coll,id)) return;
@@ -2107,10 +2108,11 @@ async function viewerSync(manual){
   }
   dbP.then(d=>{
     if(!d){ setSave("Enregistré sur cet appareil"); return; }
-    db=d; state.invoices={}; state.contacts={}; state.artworks={}; state.expenses={}; let first=true;
+    db=d; if(!window.LEGACY_SB){ state.invoices={}; state.contacts={}; state.artworks={}; state.expenses={}; } let first=true;
     subscribeColl("contacts"); subscribeColl("artworks"); subscribeColl("expenses");
     db.doc("settings/company").onSnapshot(s=>{ if(s.exists && !window.__cancelSettings){ state.company=mergeCompany(clone(s.data())); renderPreview(); const a=document.activeElement; if(!first && (!a||!a.dataset?.p)) renderEditor(); } },()=>{});
     db.collection("invoices").onSnapshot(snap=>{
+      if(first && window.LEGACY_SB) state.invoices={};
       let curChanged=false;
       snap.docChanges().forEach(ch=>{
         const id=ch.doc.id;

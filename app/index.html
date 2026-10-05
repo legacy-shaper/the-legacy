@@ -18,6 +18,7 @@
 .list{top:calc(59px + env(safe-area-inset-top,0px))}
 @media (max-width:900px){.list{top:calc(100px + env(safe-area-inset-top,0px))}}
 body{padding-bottom:env(safe-area-inset-bottom,0px)}
+body.sb-offline #btnNew,body.sb-offline #btnSettings,body.sb-offline #btnDup,body.sb-offline #btnDel,body.sb-offline [data-add],body.sb-offline [data-pickart],body.sb-offline [data-pickfor],body.sb-offline .itools,body.sb-offline #saveContact,body.sb-offline #ctInvoice,body.sb-offline #ctDel,body.sb-offline #artInvoice,body.sb-offline #artDel,body.sb-offline #viewAdd,body.sb-offline #artReplace,body.sb-offline .lnk,body.sb-offline #importClients,body.sb-offline #vwMain,body.sb-offline #vwDel,body.sb-offline .linked,body.sb-offline .warn,body.sb-offline .hint:not(.keep){display:none!important}
 #sbGate{position:fixed;inset:0;z-index:9999;background:#1B3924;display:flex;align-items:center;justify-content:center;padding:24px;font-family:"Hanken Grotesk",-apple-system,sans-serif;color:#F4F0E6}
 #sbGate .box{width:100%;max-width:360px;display:flex;flex-direction:column;gap:14px;text-align:center}
 #sbGate h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:30px;margin:6px 0 0;letter-spacing:.5px}
@@ -104,7 +105,8 @@ body{padding-bottom:env(safe-area-inset-bottom,0px)}
   function gate(step, extra){
     let g=$g(); if(!g){ g=document.createElement("div"); g.id="sbGate"; document.body.appendChild(g); }
     const LG=(typeof LOGO_GOLD!=="undefined")?LOGO_GOLD:""; const logo=LG?`<img class="gl" src="${LG}" alt="Legacy Shaper">`:"";
-    if(step==="offline"){ g.innerHTML=`<div class="box">${logo}<h1>The Legacy</h1><p>Connexion impossible pour le moment. Vérifiez la connexion internet, puis réessayez.</p><button id="gRetry">Réessayer</button></div>`; g.querySelector("#gRetry").onclick=()=>location.reload(); return; }
+    if(step==="offline"){ const can=hasLocal(); g.innerHTML=`<div class="box">${logo}<h1>The Legacy</h1><p>Connexion impossible pour le moment. Vérifiez la connexion internet, puis réessayez.</p><button id="gRetry">Réessayer</button>${can?`<button type="button" class="ghost" id="gOff">Consulter hors ligne</button>`:""}</div>`;
+      g.querySelector("#gRetry").onclick=()=>location.reload(); if(can) g.querySelector("#gOff").onclick=offlineMode; return; }
     if(step==="login"){ g.innerHTML=`<form class="box" id="gForm" autocomplete="on">${logo}<h1>The Legacy</h1><p>Connexion sécurisée</p>
       <input type="email" id="gEmail" autocomplete="username" placeholder="E-mail" required><input type="password" id="gPass" autocomplete="current-password" placeholder="Mot de passe" required>
       <div class="err" id="gErr"></div><button type="submit">Se connecter</button></form>`;
@@ -130,7 +132,7 @@ body{padding-bottom:env(safe-area-inset-bottom,0px)}
   }
   async function afterLogin(){
     const {data:aal}=await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-    if(aal && aal.currentLevel==="aal2"){ const g=$g(); if(g) g.remove(); resolveReady({db,assets,client:sb}); return; }
+    if(aal && aal.currentLevel==="aal2"){ const g=$g(); if(g) g.remove(); try{ localStorage.setItem("legacy-offline-ok","1"); }catch(e){} resolveReady({db,assets,client:sb}); return; }
     const {data:f}=await sb.auth.mfa.listFactors();
     const totp=(f&&f.totp||[]).find(x=>x.status==="verified");
     if(totp){ gate("code",{factorId:totp.id}); return; }
@@ -139,12 +141,22 @@ body{padding-bottom:env(safe-area-inset-bottom,0px)}
     if(error){ gate("offline"); return; }
     gate("enroll",{factorId:en.id, qr:en.totp.qr_code, secret:en.totp.secret});
   }
+  function hasLocal(){ try{ return !!localStorage.getItem("legacy-auth") && localStorage.getItem("legacy-offline-ok")==="1"; }catch(e){ return false; } }
+  function offlineMode(){ const g=$g(); if(g) g.remove(); window.LEGACY_SB.offline=true; document.body.classList.add("sb-offline");
+    const say=()=>{ const el=document.getElementById("saveState"); if(el) el.textContent="Hors ligne · consultation"; const hs=document.getElementById("homeStat"); if(hs) hs.textContent="Hors ligne · consultation"; }; say(); setTimeout(say,300);
+    const lock=()=>document.querySelectorAll("#editor input,#editor select,#editor textarea,#detail input,#detail select,#detail textarea,#modal input,#modal select,#modal textarea").forEach(el=>{ el.disabled=true; });
+    const start=()=>{ lock(); new MutationObserver(lock).observe(document.body,{childList:true,subtree:true}); }; if(document.body) start(); else document.addEventListener("DOMContentLoaded",start);
+    window.addEventListener("online",()=>location.reload(),{once:true}); }
   async function start(){
+    if(!navigator.onLine && hasLocal()){ offlineMode(); return; }
     try{ const {data}=await sb.auth.getSession(); if(data && data.session){ await afterLogin(); return; } }catch(e){ gate("offline"); return; }
     gate("login");
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",start); else start();
-  window.LEGACY_SB.signOut=async()=>{ await sb.auth.signOut(); location.reload(); };
+  window.LEGACY_SB.signOut=async()=>{
+    try{ localStorage.removeItem("legacy-offline-ok"); localStorage.removeItem("ls-invoicing"); }catch(e){}
+    try{ await new Promise(r=>{ const q=indexedDB.deleteDatabase("ls-invoicing"); q.onsuccess=q.onerror=q.onblocked=()=>r(); }); }catch(e){}
+    try{ await sb.auth.signOut(); }catch(e){} location.reload(); };
 })();
 </script>
 </head><body>
@@ -2173,6 +2185,7 @@ function openArtPicker(target){ pickTarget=(typeof target==="number")?target:-1;
 function subscribeColl(coll){
   let first=true;
   db.collection(coll).onSnapshot(snap=>{
+    if(first && window.LEGACY_SB) state[coll]={};
     let cur=false; const curId=coll==="contacts"?state.curContact:state.curArt;
     snap.docChanges().forEach(ch=>{ const id=ch.doc.id;
       if(pendingDoc(coll,id)) return;
@@ -2257,10 +2270,11 @@ async function viewerSync(manual){
   }
   dbP.then(d=>{
     if(!d){ setSave("Enregistré sur cet appareil"); return; }
-    db=d; state.invoices={}; state.contacts={}; state.artworks={}; state.expenses={}; let first=true;
+    db=d; if(!window.LEGACY_SB){ state.invoices={}; state.contacts={}; state.artworks={}; state.expenses={}; } let first=true;
     subscribeColl("contacts"); subscribeColl("artworks"); subscribeColl("expenses");
     db.doc("settings/company").onSnapshot(s=>{ if(s.exists && !window.__cancelSettings){ state.company=mergeCompany(clone(s.data())); renderPreview(); const a=document.activeElement; if(!first && (!a||!a.dataset?.p)) renderEditor(); } },()=>{});
     db.collection("invoices").onSnapshot(snap=>{
+      if(first && window.LEGACY_SB) state.invoices={};
       let curChanged=false;
       snap.docChanges().forEach(ch=>{
         const id=ch.doc.id;
@@ -2287,6 +2301,6 @@ if("serviceWorker" in navigator){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">vc9f02da5</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v77c2db0a</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>
