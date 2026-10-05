@@ -1,0 +1,10 @@
+
+<button type="button" id="sbOut" style="position:fixed;left:12px;bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:61;font:11px/1 -apple-system,sans-serif;background:transparent;border:0;color:rgba(243,238,223,.45);cursor:pointer;padding:6px">Se déconnecter</button>
+<style>body:not(.home-on) #sbOut{display:none}</style>
+<script>document.getElementById("sbOut").onclick=()=>{ if(window.LEGACY_SB&&window.LEGACY_SB.signOut) window.LEGACY_SB.signOut(); };
+if("serviceWorker" in navigator){
+  const hadCtl=!!navigator.serviceWorker.controller; let reloaded=false;
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
+  window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); }).catch(()=>{}); });
+}</script>
+</body></html>

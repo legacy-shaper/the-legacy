@@ -1,3 +1,153 @@
+<!doctype html>
+<html lang="fr"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#244A30">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="The Legacy">
+<meta name="robots" content="noindex,nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="icon" href="../icon-192.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" async></script>
+<style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}
+.top{top:0!important;padding-top:calc(10px + env(safe-area-inset-top,0px))!important}
+.list{top:calc(59px + env(safe-area-inset-top,0px))}
+@media (max-width:900px){.list{top:calc(100px + env(safe-area-inset-top,0px))}}
+body{padding-bottom:env(safe-area-inset-bottom,0px)}
+#sbGate{position:fixed;inset:0;z-index:9999;background:#1B3924;display:flex;align-items:center;justify-content:center;padding:24px;font-family:"Hanken Grotesk",-apple-system,sans-serif;color:#F4F0E6}
+#sbGate .box{width:100%;max-width:360px;display:flex;flex-direction:column;gap:14px;text-align:center}
+#sbGate h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:30px;margin:6px 0 0;letter-spacing:.5px}
+#sbGate p{margin:0;font-size:13.5px;line-height:1.55;color:#DDD5C3}
+#sbGate input{font:inherit;font-size:16px;padding:12px 14px;border-radius:10px;border:1px solid rgba(196,160,82,.55);background:rgba(244,240,230,.06);color:#F4F0E6;outline:none;text-align:center}
+#sbGate input:focus{border-color:#C4A052}
+#sbGate button{font:inherit;font-size:15px;font-weight:500;padding:12px;border-radius:10px;border:0;background:#C4A052;color:#1B3924;cursor:pointer}
+#sbGate button.ghost{background:transparent;color:#C4A052;border:1px solid rgba(196,160,82,.55)}
+#sbGate .err{color:#F0A898;min-height:18px;font-size:13px}
+#sbGate .qr{background:#fff;border-radius:12px;padding:12px;width:200px;height:200px;margin:0 auto}
+#sbGate code{font-size:12px;word-break:break-all;color:#E9DDBE}
+#sbGate .gl{width:220px;margin:0 auto 4px}
+</style>
+<script>
+/* ===== The Legacy — Supabase connection (auth + document store + files) ===== */
+(function(){
+  const CFG = { url:"https://uinwjwooodacuahqaowf.supabase.co", key:"sb_publishable_cgnIJdHGS2Xwq-lqHC_6Qw_r6zb5iRM", bucket:"legacy-files", table:"master_docs" };
+  let resolveReady; const ready = new Promise(r=>resolveReady=r);
+  window.LEGACY_SB = { ready, cfg:CFG };
+  if(!window.supabase){ document.addEventListener("DOMContentLoaded",()=>gate("offline")); return; }
+  const sb = window.supabase.createClient(CFG.url, CFG.key, { auth:{ persistSession:true, autoRefreshToken:true, storageKey:"legacy-auth" } });
+  window.LEGACY_SB.client = sb;
+
+  /* ---------- document store with the same API as the Claude database ---------- */
+  function err(e){ const x=new Error(e&&e.message||"error"); x.code=(e&&(e.code==="413"||/too large|payload/i.test(e.message||"")))?"invalid_argument":(e&&e.code)||"error"; return x; }
+  async function fetchAll(coll, ids){
+    let out=[], from=0;
+    for(;;){ let q=sb.from(CFG.table).select("id,data").eq("coll",coll).order("id").range(from,from+499);
+      if(ids) q=q.in("id",ids);
+      const {data,error}=await q; if(error) throw err(error); out=out.concat(data); if(data.length<500) break; from+=500; }
+    return out;
+  }
+  const subs = {}; let channel=null;
+  function emitDiff(coll, rows){
+    const s=subs[coll]; if(!s) return;
+    const now={}; rows.forEach(r=>now[r.id]=r.data);
+    const ch=[];
+    for(const id in now){ const j=JSON.stringify(now[id]); if(!(id in s.cache)) ch.push({type:"added",id,data:now[id]}); else if(s.cache[id]!==j) ch.push({type:"modified",id,data:now[id]}); s.cache[id]=j; }
+    for(const id in s.cache) if(!(id in now)){ ch.push({type:"removed",id}); delete s.cache[id]; }
+    if(ch.length || !s.fired){ s.fired=true; deliver(coll, ch); }
+  }
+  function deliver(coll, ch){
+    const s=subs[coll]; if(!s) return;
+    const docs=ch.map(c=>({type:c.type,doc:{id:c.id,exists:c.type!=="removed",data:()=>c.data}}));
+    s.cbs.forEach(cb=>{ try{ cb({docChanges:()=>docs, docs:docs.map(d=>d.doc)}); }catch(e){ console.error(e); } });
+  }
+  async function refetch(coll){ try{ emitDiff(coll, await fetchAll(coll)); }catch(e){ (subs[coll]?.errs||[]).forEach(f=>f(e)); } }
+  function ensureChannel(){
+    if(channel) return;
+    channel = sb.channel("master-docs").on("postgres_changes",{event:"*",schema:"public",table:CFG.table},p=>{
+      const row=p.new&&p.new.coll?p.new:p.old; if(!row) return; const coll=row.coll; const s=subs[coll]; if(!s) return;
+      if(p.eventType==="DELETE"){ if(row.id in s.cache){ delete s.cache[row.id]; deliver(coll,[{type:"removed",id:row.id}]); } return; }
+      if(p.new.data===undefined){ refetch(coll); return; }
+      const j=JSON.stringify(p.new.data); if(s.cache[p.new.id]===j) return; const t=(p.new.id in s.cache)?"modified":"added"; s.cache[p.new.id]=j; deliver(coll,[{type:t,id:p.new.id,data:p.new.data}]);
+    }).subscribe(st=>{ if(st==="SUBSCRIBED") Object.keys(subs).forEach(refetch); });
+  }
+  document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") Object.keys(subs).forEach(refetch); });
+  window.addEventListener("online",()=>Object.keys(subs).forEach(refetch));
+  function docRef(coll,id){ return {
+    async set(obj){ const {error}=await sb.from(CFG.table).upsert({coll,id,data:obj}); if(error) throw err(error); },
+    async delete(){ const {error}=await sb.from(CFG.table).delete().eq("coll",coll).eq("id",id); if(error) throw err(error); },
+    async get(){ const r=await fetchAll(coll,[id]); return {exists:!!r.length, id, data:()=>r[0]&&r[0].data}; },
+    onSnapshot(cb,onErr){ return collRef(coll).onSnapshot(snap=>{ snap.docChanges().forEach(c=>{ if(c.doc.id===id) cb({exists:c.type!=="removed",id,data:c.doc.data}); }); },onErr); }
+  }; }
+  function collRef(coll){ return {
+    doc:id=>docRef(coll,id),
+    async get(){ const rows=await fetchAll(coll); return {docs:rows.map(r=>({id:r.id,exists:true,data:()=>r.data}))}; },
+    onSnapshot(cb,onErr){ const s=subs[coll]||(subs[coll]={cbs:[],errs:[],cache:{},fired:false}); s.cbs.push(cb); if(onErr) s.errs.push(onErr); ensureChannel(); refetch(coll); return ()=>{ s.cbs=s.cbs.filter(f=>f!==cb); }; }
+  }; }
+  const db = { collection:collRef, doc:p=>{ const k=p.lastIndexOf("/"); return docRef(p.slice(0,k),p.slice(k+1)); } };
+
+  /* ---------- private files ---------- */
+  const hex=n=>[...crypto.getRandomValues(new Uint8Array(n))].map(b=>b.toString(16).padStart(2,"0")).join("");
+  const assets = {
+    async upload(blob,opts){ const type=(opts&&opts.type)||blob.type||"application/octet-stream"; if(blob.size>50*1024*1024){ const e=new Error("too large"); e.code="too_large"; throw e; }
+      const id=(opts&&opts.id)||hex(16); const {error}=await sb.storage.from(CFG.bucket).upload("files/"+id, blob, {contentType:type, upsert:!!(opts&&opts.id)}); if(error) throw err(error);
+      return {id, contentType:type, sizeBytes:blob.size}; },
+    async delete(id){ await sb.storage.from(CFG.bucket).remove(["files/"+id]); },
+    async blob(id){ const {data,error}=await sb.storage.from(CFG.bucket).download("files/"+id); if(error) throw err(error); return data; }
+  };
+
+  /* ---------- sign-in gate: email + password, then authenticator code ---------- */
+  const $g=()=>document.getElementById("sbGate");
+  function gate(step, extra){
+    let g=$g(); if(!g){ g=document.createElement("div"); g.id="sbGate"; document.body.appendChild(g); }
+    const LG=(typeof LOGO_GOLD!=="undefined")?LOGO_GOLD:""; const logo=LG?`<img class="gl" src="${LG}" alt="Legacy Shaper">`:"";
+    if(step==="offline"){ g.innerHTML=`<div class="box">${logo}<h1>The Legacy</h1><p>Connexion impossible pour le moment. Vérifiez la connexion internet, puis réessayez.</p><button id="gRetry">Réessayer</button></div>`; g.querySelector("#gRetry").onclick=()=>location.reload(); return; }
+    if(step==="login"){ g.innerHTML=`<form class="box" id="gForm" autocomplete="on">${logo}<h1>The Legacy</h1><p>Connexion sécurisée</p>
+      <input type="email" id="gEmail" autocomplete="username" placeholder="E-mail" required><input type="password" id="gPass" autocomplete="current-password" placeholder="Mot de passe" required>
+      <div class="err" id="gErr"></div><button type="submit">Se connecter</button></form>`;
+      g.querySelector("#gForm").onsubmit=async e=>{ e.preventDefault(); const b=e.target.querySelector("button"); b.disabled=true; b.textContent="Connexion…";
+        const {error}=await sb.auth.signInWithPassword({email:g.querySelector("#gEmail").value.trim(), password:g.querySelector("#gPass").value});
+        if(error){ b.disabled=false; b.textContent="Se connecter"; g.querySelector("#gErr").textContent=/invalid/i.test(error.message)?"E-mail ou mot de passe incorrect.":"Connexion impossible : réessayez."; return; }
+        afterLogin(); };
+      return; }
+    if(step==="code"||step==="enroll"){
+      const enroll=step==="enroll";
+      g.innerHTML=`<form class="box" id="gForm">${logo}<h1>${enroll?"Double authentification":"Code de sécurité"}</h1>
+        ${enroll?`<p>Scannez ce code avec votre application d’authentification, puis saisissez le code à 6 chiffres.</p><img class="qr" src="${extra.qr}" alt="QR code"><p>Ou saisissez la clé :<br><code>${extra.secret}</code></p>`:`<p>Saisissez le code à 6 chiffres de votre application d’authentification.</p>`}
+        <input id="gCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" required>
+        <div class="err" id="gErr"></div><button type="submit">Valider</button><button type="button" class="ghost" id="gOut">Changer de compte</button></form>`;
+      g.querySelector("#gOut").onclick=async()=>{ await sb.auth.signOut(); gate("login"); };
+      g.querySelector("#gCode").focus();
+      g.querySelector("#gForm").onsubmit=async e=>{ e.preventDefault(); const b=e.target.querySelector("button[type=submit]"); b.disabled=true;
+        const code=g.querySelector("#gCode").value.replace(/\D/g,"");
+        const {error}=await sb.auth.mfa.challengeAndVerify({factorId:extra.factorId, code});
+        if(error){ b.disabled=false; g.querySelector("#gErr").textContent="Code incorrect ou expiré. Réessayez."; return; }
+        afterLogin(); };
+      return; }
+  }
+  async function afterLogin(){
+    const {data:aal}=await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+    if(aal && aal.currentLevel==="aal2"){ const g=$g(); if(g) g.remove(); resolveReady({db,assets,client:sb}); return; }
+    const {data:f}=await sb.auth.mfa.listFactors();
+    const totp=(f&&f.totp||[]).find(x=>x.status==="verified");
+    if(totp){ gate("code",{factorId:totp.id}); return; }
+    for(const u of (f&&f.all||[]).filter(x=>x.status!=="verified")) await sb.auth.mfa.unenroll({factorId:u.id}).catch(()=>{});
+    const {data:en,error}=await sb.auth.mfa.enroll({factorType:"totp", friendlyName:"The Legacy "+new Date().toISOString().slice(0,10)});
+    if(error){ gate("offline"); return; }
+    gate("enroll",{factorId:en.id, qr:en.totp.qr_code, secret:en.totp.secret});
+  }
+  async function start(){
+    try{ const {data}=await sb.auth.getSession(); if(data && data.session){ await afterLogin(); return; } }catch(e){ gate("offline"); return; }
+    gate("login");
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",start); else start();
+  window.LEGACY_SB.signOut=async()=>{ await sb.auth.signOut(); location.reload(); };
+})();
+</script>
+</head><body>
 <title>The Legacy</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2128,3 +2278,15 @@ async function viewerSync(manual){
   }).catch(()=>setSave("Enregistré sur cet appareil"));
 })();
 </script>
+
+<button type="button" id="sbOut" style="position:fixed;left:12px;bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:61;font:11px/1 -apple-system,sans-serif;background:transparent;border:0;color:rgba(243,238,223,.45);cursor:pointer;padding:6px">Se déconnecter</button>
+<style>body:not(.home-on) #sbOut{display:none}</style>
+<script>document.getElementById("sbOut").onclick=()=>{ if(window.LEGACY_SB&&window.LEGACY_SB.signOut) window.LEGACY_SB.signOut(); };
+if("serviceWorker" in navigator){
+  const hadCtl=!!navigator.serviceWorker.controller; let reloaded=false;
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
+  window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); }).catch(()=>{}); });
+}</script>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">vc9f02da5</div>
+<style>body:not(.home-on) #buildTag{display:none}</style>
+</body></html>
