@@ -44,9 +44,9 @@ body.sb-offline #btnNew,body.sb-offline #btnSettings,body.sb-offline #btnDup,bod
 
   /* ---------- document store with the same API as the Claude database ---------- */
   function err(e){ const x=new Error(e&&e.message||"error"); x.code=(e&&(e.code==="413"||/too large|payload/i.test(e.message||"")))?"invalid_argument":(e&&e.code)||"error"; return x; }
-  async function fetchAll(coll, ids){
+  async function fetchAll(coll, ids, withTs){
     let out=[], from=0;
-    for(;;){ let q=sb.from(CFG.table).select("id,data").eq("coll",coll).order("id").range(from,from+499);
+    for(;;){ let q=sb.from(CFG.table).select(withTs?"id,data,updated_at":"id,data").eq("coll",coll).order("id").range(from,from+499);
       if(ids) q=q.in("id",ids);
       const {data,error}=await q; if(error) throw err(error); out=out.concat(data); if(data.length<500) break; from+=500; }
     return out;
@@ -65,17 +65,39 @@ body.sb-offline #btnNew,body.sb-offline #btnSettings,body.sb-offline #btnDup,bod
     const docs=ch.map(c=>({type:c.type,doc:{id:c.id,exists:c.type!=="removed",data:()=>c.data}}));
     s.cbs.forEach(cb=>{ try{ cb({docChanges:()=>docs, docs:docs.map(d=>d.doc)}); }catch(e){ console.error(e); } });
   }
-  async function refetch(coll){ try{ emitDiff(coll, await fetchAll(coll)); }catch(e){ (subs[coll]?.errs||[]).forEach(f=>f(e)); } }
+  async function fetchMeta(coll){
+    let out=[], from=0;
+    for(;;){ const {data,error}=await sb.from(CFG.table).select("id,updated_at").eq("coll",coll).order("id").range(from,from+999); if(error) throw err(error); out=out.concat(data); if(data.length<1000) break; from+=1000; }
+    return out;
+  }
+  const busy={};
+  async function refetch(coll){
+    const s=subs[coll]; if(!s || busy[coll]) return; busy[coll]=true;
+    try{
+      if(!s.fired){ const rows=await fetchAll(coll,null,true); rows.forEach(r=>s.ts[r.id]=r.updated_at); emitDiff(coll, rows); return; }
+      const meta=await fetchMeta(coll); const now={}; meta.forEach(m=>now[m.id]=m.updated_at);
+      const changed=meta.filter(m=>s.ts[m.id]!==m.updated_at).map(m=>m.id);
+      const ch=[];
+      for(let i=0;i<changed.length;i+=100){ const rows=await fetchAll(coll, changed.slice(i,i+100), true);
+        rows.forEach(r=>{ s.ts[r.id]=r.updated_at; const j=JSON.stringify(r.data); if(s.cache[r.id]===j) return; ch.push({type:(r.id in s.cache)?"modified":"added",id:r.id,data:r.data}); s.cache[r.id]=j; }); }
+      for(const id in s.cache) if(!(id in now)){ ch.push({type:"removed",id}); delete s.cache[id]; delete s.ts[id]; }
+      if(ch.length) deliver(coll, ch);
+    }catch(e){ (s.errs||[]).forEach(f=>f(e)); }
+    finally{ busy[coll]=false; }
+  }
   function ensureChannel(){
     if(channel) return;
     channel = sb.channel("master-docs").on("postgres_changes",{event:"*",schema:"public",table:CFG.table},p=>{
       const row=p.new&&p.new.coll?p.new:p.old; if(!row) return; const coll=row.coll; const s=subs[coll]; if(!s) return;
-      if(p.eventType==="DELETE"){ if(row.id in s.cache){ delete s.cache[row.id]; deliver(coll,[{type:"removed",id:row.id}]); } return; }
+      if(p.eventType==="DELETE"){ if(row.id in s.cache){ delete s.cache[row.id]; delete s.ts[row.id]; deliver(coll,[{type:"removed",id:row.id}]); } return; }
       if(p.new.data===undefined){ refetch(coll); return; }
-      const j=JSON.stringify(p.new.data); if(s.cache[p.new.id]===j) return; const t=(p.new.id in s.cache)?"modified":"added"; s.cache[p.new.id]=j; deliver(coll,[{type:t,id:p.new.id,data:p.new.data}]);
+      if(p.new.updated_at) s.ts[p.new.id]=p.new.updated_at; const j=JSON.stringify(p.new.data); if(s.cache[p.new.id]===j) return; const t=(p.new.id in s.cache)?"modified":"added"; s.cache[p.new.id]=j; deliver(coll,[{type:t,id:p.new.id,data:p.new.data}]);
     }).subscribe(st=>{ if(st==="SUBSCRIBED") Object.keys(subs).forEach(refetch); });
   }
-  document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") Object.keys(subs).forEach(refetch); });
+  const refetchAll=()=>{ if(navigator.onLine!==false) Object.keys(subs).forEach(refetch); };
+  document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") refetchAll(); });
+  window.addEventListener("focus",refetchAll);
+  setInterval(()=>{ if(document.visibilityState==="visible") refetchAll(); }, window.LEGACY_POLL_MS||30000);
   window.addEventListener("online",()=>Object.keys(subs).forEach(refetch));
   function docRef(coll,id){ return {
     async set(obj){ const {error}=await sb.from(CFG.table).upsert({coll,id,data:obj}); if(error) throw err(error); },
@@ -86,7 +108,7 @@ body.sb-offline #btnNew,body.sb-offline #btnSettings,body.sb-offline #btnDup,bod
   function collRef(coll){ return {
     doc:id=>docRef(coll,id),
     async get(){ const rows=await fetchAll(coll); return {docs:rows.map(r=>({id:r.id,exists:true,data:()=>r.data}))}; },
-    onSnapshot(cb,onErr){ const s=subs[coll]||(subs[coll]={cbs:[],errs:[],cache:{},fired:false}); s.cbs.push(cb); if(onErr) s.errs.push(onErr); ensureChannel(); refetch(coll); return ()=>{ s.cbs=s.cbs.filter(f=>f!==cb); }; }
+    onSnapshot(cb,onErr){ const s=subs[coll]||(subs[coll]={cbs:[],errs:[],cache:{},ts:{},fired:false}); s.cbs.push(cb); if(onErr) s.errs.push(onErr); ensureChannel(); refetch(coll); return ()=>{ s.cbs=s.cbs.filter(f=>f!==cb); }; }
   }; }
   const db = { collection:collRef, doc:p=>{ const k=p.lastIndexOf("/"); return docRef(p.slice(0,k),p.slice(k+1)); } };
 
