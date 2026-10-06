@@ -31,6 +31,12 @@ with sync_playwright() as pw:
     p.fill("#gEmail", "client@example.com"); p.click("#gForm .btn"); p.wait_for_selector("#gCode"); p.fill("#gCode", "42424242")
     p.wait_for_selector("#app:not([hidden])"); time.sleep(3)
     check(p.evaluate("!!navigator.serviceWorker.controller"), "service worker in control after the first visit")
+    imgs = "new Promise(res=>{const q=indexedDB.open('ls-client');q.onsuccess=()=>{const st=q.result.transaction('kv').objectStore('kv');const out=[];st.openCursor().onsuccess=e=>{const c=e.target.result;if(!c){res(out);return}if(String(c.key).startsWith('img:'))out.push(String(c.value).slice(0,5));c.continue()}}})"
+    for _ in range(50):
+        got = p.evaluate(imgs)
+        if len(got) == 15 and all(x == "data:" for x in got): break
+        time.sleep(0.2)
+    check(len(got) == 15 and all(x == "data:" for x in got), f"the 15 photographs themselves are kept on the device ({len(got)})")
     cached = p.evaluate("caches.keys().then(async ks=>{let n=[];for(const k of ks){n=n.concat((await (await caches.open(k)).keys()).map(r=>r.url))}return n})")
     check(any(u.endswith("/index.html") for u in cached) and any("supabase-js" in u for u in cached), "page and libraries kept on the device")
     ctx.set_offline(True)
@@ -40,6 +46,12 @@ with sync_playwright() as pw:
     check(p.inner_text("#collName") == "The Aurelian Collection", "no network: cold start opens the collection")
     p.click("[data-t=works]"); p.wait_for_selector("#grid")
     check(p.locator("#grid .card").count() == 12, "no network: all 12 works listed")
+    p.click("#grid .card[data-w=aur-05]"); p.wait_for_selector("#dImg"); time.sleep(0.8)
+    check(p.evaluate("(()=>{const i=document.getElementById('dImg'); return i && i.complete && i.naturalWidth>200})()"), "no network: the work opens with its photograph")
+    tn = p.evaluate("[...document.querySelectorAll('[data-vt]')].map(i=>i.complete&&i.naturalWidth>0)")
+    check(len(tn) >= 2 and all(tn), f"no network: every view of the work is shown ({len(tn)})")
+    th = p.evaluate("(()=>{document.getElementById('dBack').click(); return [...document.querySelectorAll('#grid .card img')].map(i=>i.complete&&i.naturalWidth>0)})()")
+    check(len(th) == 12 and all(th), "no network: all 12 thumbnails shown")
     b.close()
 check(not errors, "no script error" + (": " + " | ".join(errors[:3]) if errors else ""))
 srv.shutdown(); print(f"\nALL {ok} CHECKS PASSED")

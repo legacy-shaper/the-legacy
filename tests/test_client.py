@@ -123,8 +123,10 @@ with sync_playwright() as pw:
     check("$420,000" in det and "14 June 2019" in det, "acquisition date and price")
     check("$520,000" in det, "insured value")
     check(p.locator("#detail .thumbs button").count() == 2, "two views available")
-    p.wait_for_function("document.querySelector('#dImg') && document.querySelector('#dImg').src.includes('demo/aur-01.jpg')")
-    p.click("#detail .thumbs button >> nth=1"); p.wait_for_function("document.querySelector('#dImg').src.includes('aur-01-d.jpg')")
+    import base64
+    b64 = lambda f: base64.b64encode(open(os.path.join(CLIENT, "demo", f), "rb").read()).decode()[:200]
+    p.wait_for_function(f"document.querySelector('#dImg') && document.querySelector('#dImg').src.startsWith('data:image') && document.querySelector('#dImg').src.includes('{b64('aur-01.jpg')}')")
+    p.click("#detail .thumbs button >> nth=1"); p.wait_for_function(f"document.querySelector('#dImg').src.includes('{b64('aur-01-d.jpg')}')")
     check(True, "switching views shows the detail photograph")
     check("Condition report" in det, "expenses of the work are listed on its page")
     p.click("#dNext"); p.wait_for_function("document.querySelector('#detail .title').innerText.includes('Nocturne')")
@@ -195,8 +197,8 @@ with sync_playwright() as pw:
     check("Offline" in p.inner_text("#status"), "offline: collection opens from the device copy")
     p.click("[data-t=works]"); p.click("[data-w=aur-11]"); p.wait_for_selector("#detail .dh")
     check("Figura en reposo" in p.inner_text("#detail") and "3/6" in p.inner_text("#detail"), "offline: detail with edition")
-    p.wait_for_function("document.querySelector('#dImg') && document.querySelector('#dImg').src.includes('aur-11.jpg')")
-    check(True, "offline: photograph available")
+    p.wait_for_function(f"document.querySelector('#dImg') && document.querySelector('#dImg').src.includes('{b64('aur-11.jpg')}')")
+    check(True, "offline: photograph available (kept on the device itself)")
     p.close()
     # ---------- 11. sign out wipes the device ----------
     p = new_page(ctx); p.goto(URL); app_ready(p)

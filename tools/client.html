@@ -431,14 +431,23 @@ async function refresh(silent){
 }
 async function viewPhoto(vid){
   if(S.viewPhotos[vid]) return S.viewPhotos[vid];
-  const c=await idb.get("img:"+vid); if(c){ S.viewPhotos[vid]=c; return c; }
+  const c=await idb.get("img:"+vid); if(c&&(/^data:/.test(c)||navigator.onLine===false)){ S.viewPhotos[vid]=c; return c; }
   if(!sb||navigator.onLine===false) return null;
   try{ const {data,error}=await sb.from("artwork_views").select("id,photo").eq("id",vid); if(error||!data||!data[0]) return null;
-    S.viewPhotos[vid]=data[0].photo; idb.set("img:"+vid,data[0].photo); return data[0].photo; }catch(e){ return null; }
+    let ph=data[0].photo; if(ph&&!/^data:/.test(ph)) ph=await asDataUrl(ph)||ph;   // keep the image itself on the device, not just its address
+    S.viewPhotos[vid]=ph; if(!SHARED()) idb.set("img:"+vid,ph); return ph; }catch(e){ return null; }
+}
+async function asDataUrl(url){
+  try{ const r=await fetch(url); if(!r.ok) return null; const b=await r.blob();
+    return await new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=()=>res(null); fr.readAsDataURL(b); }); }catch(e){ return null; }
 }
 let prefetching=false;
 async function prefetchPhotos(){ if(prefetching||SHARED()) return; prefetching=true;
-  try{ for(const v of (S.data&&S.data.views)||[]){ if(S.viewPhotos[v.id]) continue; const c=await idb.get("img:"+v.id); if(c) continue; await viewPhoto(v.id); } } finally{ prefetching=false; } }
+  try{ for(const v of (S.data&&S.data.views)||[]){ if(S.viewPhotos[v.id]) continue; const c=await idb.get("img:"+v.id);
+      if(c&&/^data:/.test(c)) continue; await viewPhoto(v.id); }
+    // thumbnails given as an address: load them once so the device keeps them too
+    for(const w of (S.data&&S.data.works)||[]){ const th=w.thumb; if(th&&!/^data:/.test(th)){ try{ await fetch(th); }catch(e){} } }
+  } finally{ prefetching=false; } }
 async function lastCopy(){ let uid=null; try{ uid=localStorage.getItem("ls-last-user"); }catch(e){} if(!uid) return null;
   let cid=null; try{ cid=localStorage.getItem("ls-coll:"+uid); }catch(e){} const colls=await idb.get("colls:"+uid)||[];
   cid=cid||(colls[0]&&colls[0].id); if(!cid) return null; const snap=await idb.get(`snap:${uid}:${cid}`); return snap?{uid,cid,colls,snap}:null; }
