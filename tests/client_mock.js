@@ -4,7 +4,7 @@
    storage downloads, and network loss (window.__NET === false). */
 (function () {
   const SEED = window.__SEED;
-  const CODE = "424242", TOTP = "123456";
+  const CODE = "42424242", TOTP = "123456";
   const net = () => window.__NET !== false;
   const fail = () => Promise.reject(new TypeError("Failed to fetch"));
   window.__calls = window.__calls || [];

@@ -42,7 +42,7 @@ img{display:block;max-width:100%}
 #gate p{margin:0;font-size:14px;line-height:1.6;color:#DDD5C3}
 #gate .rule{width:56px;height:1px;background:var(--gold);margin:6px auto}
 #gate input[type=email],#gate input.code{font:inherit;font-size:16px;padding:13px 14px;border-radius:10px;border:1px solid rgba(196,160,82,.55);background:rgba(244,240,230,.06);color:var(--ivory);outline:none;text-align:center;width:100%}
-#gate input.code{font-size:24px;letter-spacing:10px;font-family:var(--serif)}
+#gate input.code{font-size:24px;letter-spacing:8px;font-family:var(--serif)}
 #gate input:focus{border-color:var(--gold)}
 #gate .btn{font-size:15px;font-weight:500;padding:13px;border-radius:10px;border:0;background:var(--gold);color:var(--deep)}
 #gate .btn[disabled]{opacity:.6}
@@ -210,8 +210,8 @@ const CFG={ url:"https://uinwjwooodacuahqaowf.supabase.co", key:"sb_publishable_
 
 /* ---------------- i18n ---------------- */
 const I18N={
- en:{access:"Private access",intro:"Enter the email address registered with Legacy Shaper. A six-digit code will be sent to you.",email:"Email address",getCode:"Receive my code",
-   sending:"Sending…",codeTitle:"Your code",codeIntro:"A six-digit code has been sent to",verify:"Open my collection",verifying:"Opening…",resend:"Send a new code",other:"Use another address",
+ en:{access:"Private access",intro:"Enter the email address registered with Legacy Shaper. An access code will be sent to you.",email:"Email address",getCode:"Receive my code",
+   sending:"Sending…",codeTitle:"Your code",codeIntro:"An access code has been sent to",verify:"Open my collection",verifying:"Opening…",resend:"Send a new code",other:"Use another address",
    shared:"Computer shared with others: keep nothing on this device after I sign out.",codeSent:"A new code is on its way.",badCode:"This code does not match. Please check the latest email and try again.",
    unknown:"We could not send a code to this address. Please use the address registered with Legacy Shaper, or write to office@legacy-shaper.com.",wait:"Please wait a moment before requesting a new code.",
    neterr:"The connection is not available at the moment. Please try again shortly.",mfaTitle:"Security code",mfaIntro:"Enter the six-digit code from your authenticator app.",
@@ -237,8 +237,8 @@ const I18N={
    installOther:"In your browser menu, choose “Install app” or “Add to Home screen”.",
    pick:"Your collections",latest:"Latest acquisitions",seeAll:"All works",shareOf:"share",ok:"Close",
    foot:"Legacy Shaper Collection · Dubai",sheetFoot:"Inventory sheet · Legacy Shaper Collection Office"},
- fr:{access:"Accès privé",intro:"Saisissez l’adresse e-mail enregistrée chez Legacy Shaper. Un code à six chiffres vous sera envoyé.",email:"Adresse e-mail",getCode:"Recevoir mon code",
-   sending:"Envoi…",codeTitle:"Votre code",codeIntro:"Un code à six chiffres a été envoyé à",verify:"Ouvrir ma collection",verifying:"Ouverture…",resend:"Recevoir un nouveau code",other:"Utiliser une autre adresse",
+ fr:{access:"Accès privé",intro:"Saisissez l’adresse e-mail enregistrée chez Legacy Shaper. Un code d’accès vous sera envoyé.",email:"Adresse e-mail",getCode:"Recevoir mon code",
+   sending:"Envoi…",codeTitle:"Votre code",codeIntro:"Un code d’accès a été envoyé à",verify:"Ouvrir ma collection",verifying:"Ouverture…",resend:"Recevoir un nouveau code",other:"Utiliser une autre adresse",
    shared:"Ordinateur partagé : ne rien conserver sur cet appareil après ma déconnexion.",codeSent:"Un nouveau code vous a été envoyé.",badCode:"Ce code ne correspond pas. Vérifiez le dernier e-mail reçu et réessayez.",
    unknown:"Nous n’avons pas pu envoyer de code à cette adresse. Utilisez l’adresse enregistrée chez Legacy Shaper, ou écrivez à office@legacy-shaper.com.",wait:"Patientez un instant avant de demander un nouveau code.",
    neterr:"La connexion n’est pas disponible pour le moment. Réessayez dans quelques instants.",mfaTitle:"Code de sécurité",mfaIntro:"Saisissez le code à six chiffres de votre application d’authentification.",
@@ -330,13 +330,13 @@ function gateCode(email,msg){
   gate._redraw=()=>gateCode(email,msg);
   gateShell(`<div class="rule"></div><h1>${esc(t("codeTitle"))}</h1><p>${esc(t("codeIntro"))}<br><b style="color:#F4F0E6">${esc(email)}</b></p>
     <form id="gForm" style="display:flex;flex-direction:column;gap:12px;margin-top:6px">
-      <input class="code" id="gCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="······" required>
+      <input class="code" id="gCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="········" required>
       <div class="msg" id="gMsg">${esc(msg||"")}</div>
       <button class="btn" type="submit">${esc(t("verify"))}</button>
       <button class="ghost" type="button" id="gResend">${esc(t("resend"))}</button>
       <button class="link" type="button" id="gOther">${esc(t("other"))}</button></form>`);
   const inp=$("#gCode"); inp.focus();
-  inp.oninput=()=>{ inp.value=inp.value.replace(/\D/g,"").slice(0,6); if(inp.value.length===6) $("#gForm").requestSubmit(); };
+  inp.oninput=()=>{ inp.value=inp.value.replace(/\D/g,"").slice(0,8); if(inp.value.length===8) $("#gForm").requestSubmit(); };
   $("#gOther").onclick=()=>gateEmail(email);
   $("#gResend").onclick=async()=>{ const r=await sendCode(email); $("#gMsg").textContent=r.ok?t("codeSent"):t(r.msg); };
   $("#gForm").onsubmit=async e=>{ e.preventDefault(); const b=e.target.querySelector(".btn"); if(b.disabled) return; b.disabled=true; b.textContent=t("verifying");

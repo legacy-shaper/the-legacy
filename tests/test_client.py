@@ -61,7 +61,7 @@ def route(ctx):
     ctx.route("**/jszip.min.js", lambda r: r.fulfill(status=200, content_type="application/javascript", body=JSZIP))
     ctx.route(re.compile(r"https://fonts\.(googleapis|gstatic)\.com/.*"), lambda r: r.fulfill(status=200, content_type="text/css", body=""))
 
-def login(p, email, code="424242", shared=False):
+def login(p, email, code="42424242", shared=False):
     p.goto(URL); p.wait_for_selector("#gEmail")
     p.fill("#gEmail", email)
     if shared: p.check("#gShared")
@@ -80,9 +80,9 @@ with sync_playwright() as pw:
     check("registered with Legacy Shaper" in p.inner_text("#gMsg"), "unknown address gets a courteous message, no account created")
     p.fill("#gEmail", "client@example.com"); p.click("#gForm .btn"); p.wait_for_selector("#gCode")
     check("client@example.com" in p.inner_text("#gate"), "code screen names the address")
-    p.fill("#gCode", "000000"); p.wait_for_timeout(400)
+    p.fill("#gCode", "00000000"); p.wait_for_timeout(400)
     check("does not match" in p.inner_text("#gMsg"), "wrong code is refused")
-    p.fill("#gCode", "424242"); p.wait_for_selector("#app:not([hidden])")
+    p.fill("#gCode", "42424242"); p.wait_for_selector("#app:not([hidden])")
     check(p.inner_text("#collName") == "The Aurelian Collection", "client opens their collection after the code")
     check("12" in p.inner_text(".kpis"), "overview counts 12 works")
     check("Secret Work" not in p.content(), "a work from another collection never appears")
