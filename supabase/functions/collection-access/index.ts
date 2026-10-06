@@ -33,7 +33,10 @@ Deno.serve(async (req) => {
   const caller = createClient(URL_, ANON, { global: { headers: { Authorization: auth } }, auth: { persistSession: false } });
   const { data: u } = await caller.auth.getUser(jwt);
   if (!u?.user) return json(req, 401, { error: "auth" });
+  // Tables are read and written with Dylan's own session (database rule "admin_all");
+  // the service key is used only to create the collector's sign-in account.
   const admin = createClient(URL_, SERVICE, { auth: { persistSession: false } });
+  const db = caller;
   // Same rule as the database (private.is_admin(): admin profile + authenticator-verified session):
   // company_settings is readable only by such a session.
   const { data: gate, error: gateErr } = await caller.from("company_settings").select("id").limit(1);
@@ -42,19 +45,21 @@ Deno.serve(async (req) => {
   let body: any = {};
   try { body = await req.json(); } catch { return json(req, 400, { error: "body" }); }
   const cid = String(body.collectionId || "");
-  const { data: coll, error: collErr } = await admin.from("collections").select("id,name").eq("id", cid).maybeSingle();
+  const { data: coll, error: collErr } = await db.from("collections").select("id,name").eq("id", cid).maybeSingle();
   if (!coll) { console.error("collection", cid, collErr?.message || "not found"); return json(req, 404, { error: "collection" }); }
 
   if (body.action === "list") {
-    const { data: m } = await admin.from("collection_members").select("user_id,label,created_at").eq("collection_id", cid);
+    const { data: m, error: lErr } = await db.from("collection_members").select("user_id,label,created_at").eq("collection_id", cid);
+    if (lErr) console.error("list", lErr.message);
     const ids = (m || []).map((x) => x.user_id);
-    const { data: p } = ids.length ? await admin.from("profiles").select("id,email,full_name").in("id", ids) : { data: [] as any[] };
+    const { data: p } = ids.length ? await db.from("profiles").select("id,email,full_name").in("id", ids) : { data: [] as any[] };
     return json(req, 200, { members: (m || []).map((x) => ({ ...x, email: p?.find((y) => y.id === x.user_id)?.email || "" })) });
   }
 
   if (body.action === "revoke") {
     const uid = String(body.userId || "");
-    await admin.from("collection_members").delete().eq("collection_id", cid).eq("user_id", uid);
+    const { error: delErr } = await db.from("collection_members").delete().eq("collection_id", cid).eq("user_id", uid);
+    if (delErr) { console.error("revoke", delErr.message); return json(req, 500, { error: "revoke" }); }
     return json(req, 200, { ok: true });
   }
 
@@ -62,7 +67,7 @@ Deno.serve(async (req) => {
     const email = String(body.email || "").trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json(req, 400, { error: "email" });
     let userId = "";
-    const { data: existing } = await admin.from("profiles").select("id").eq("email", email).maybeSingle();
+    const { data: existing } = await db.from("profiles").select("id").eq("email", email).maybeSingle();
     if (existing) userId = existing.id;
     else {
       const { data: created, error } = await admin.auth.admin.createUser({ email, email_confirm: true, user_metadata: { source: "legacy-shaper" } });
@@ -75,12 +80,17 @@ Deno.serve(async (req) => {
           if (hit) userId = hit.id;
           if (!list || list.users.length < 200) break;
         }
+        if (!userId) { console.error("create", error?.message || "unknown"); }
         if (!userId) return json(req, 500, { error: error?.message || "create" });
       }
     }
-    const { data: p } = await admin.from("profiles").select("id,role").eq("id", userId).maybeSingle();
-    if (!p) await admin.from("profiles").insert({ id: userId, email, role: "client", full_name: body.label || null });
-    await admin.from("collection_members").upsert({ collection_id: cid, user_id: userId, label: body.label || null }, { onConflict: "collection_id,user_id" });
+    const { data: p } = await db.from("profiles").select("id,role").eq("id", userId).maybeSingle();
+    if (!p) {
+      const { error: pErr } = await db.from("profiles").insert({ id: userId, email, role: "client", full_name: body.label || null });
+      if (pErr) { console.error("profile", pErr.message); return json(req, 500, { error: "profile" }); }
+    }
+    const { error: mErr } = await db.from("collection_members").upsert({ collection_id: cid, user_id: userId, label: body.label || null }, { onConflict: "collection_id,user_id" });
+    if (mErr) { console.error("member", mErr.message); return json(req, 500, { error: "member" }); }
     return json(req, 200, { ok: true, userId, email });
   }
   return json(req, 400, { error: "action" });
