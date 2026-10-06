@@ -23,10 +23,6 @@ function cors(req: Request) {
 const json = (req: Request, status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors(req), "Content-Type": "application/json" } });
 
-function aalOf(jwt: string): string {
-  try { return JSON.parse(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).aal || ""; } catch { return ""; }
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors(req) });
   if (req.method !== "POST") return json(req, 405, { error: "method" });
@@ -38,14 +34,16 @@ Deno.serve(async (req) => {
   const { data: u } = await caller.auth.getUser(jwt);
   if (!u?.user) return json(req, 401, { error: "auth" });
   const admin = createClient(URL_, SERVICE, { auth: { persistSession: false } });
-  const { data: prof } = await admin.from("profiles").select("role").eq("id", u.user.id).maybeSingle();
-  if (prof?.role !== "admin" || aalOf(jwt) !== "aal2") return json(req, 403, { error: "forbidden" });
+  // Same rule as the database (private.is_admin(): admin profile + authenticator-verified session):
+  // company_settings is readable only by such a session.
+  const { data: gate, error: gateErr } = await caller.from("company_settings").select("id").limit(1);
+  if (!gate || gate.length !== 1) { console.error("forbidden", gateErr?.message || "no admin session"); return json(req, 403, { error: "forbidden" }); }
 
   let body: any = {};
   try { body = await req.json(); } catch { return json(req, 400, { error: "body" }); }
   const cid = String(body.collectionId || "");
-  const { data: coll } = await admin.from("collections").select("id,name").eq("id", cid).maybeSingle();
-  if (!coll) return json(req, 404, { error: "collection" });
+  const { data: coll, error: collErr } = await admin.from("collections").select("id,name").eq("id", cid).maybeSingle();
+  if (!coll) { console.error("collection", cid, collErr?.message || "not found"); return json(req, 404, { error: "collection" }); }
 
   if (body.action === "list") {
     const { data: m } = await admin.from("collection_members").select("user_id,label,created_at").eq("collection_id", cid);
