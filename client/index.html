@@ -445,8 +445,33 @@ async function openFromCache(){ const c=await lastCopy(); if(!c){ gateOffline(fa
 /* ---------------- shell ---------------- */
 const TABS=["overview","works","locations","expenses","documents"];
 function showApp(){ gate.hidden=true; gate.innerHTML=""; $("#app").hidden=false; $("#topLogo").src=LOGO_H; render(); }
+/* The home-screen / Dock name follows the open collection: the icon carries the Legacy Shaper logo,
+   the label underneath carries the collection ("The Example Collection" -> "Example"). */
+function homeLabel(name){
+  const s=String(name||"").trim().replace(/^(the|la|le|les)\s+/i,"").replace(/^l[’']/i,"")
+    .replace(/^collection\s+/i,"").replace(/\s+collection$/i,"").trim();
+  return s||"Legacy Shaper";
+}
+let _brandFor="";
+function brandCollection(coll){
+  const name=(coll&&coll.name)||""; if(name===_brandFor) return; _brandFor=name;
+  const label=homeLabel(name), full=name?`Legacy Shaper · ${name}`:"Legacy Shaper";
+  document.title=full;
+  const meta=document.querySelector('meta[name="apple-mobile-web-app-title"]'); if(meta) meta.setAttribute("content",label);
+  try{
+    const base=new URL("./",location.href).href;
+    const m={name:full,short_name:label,description:"Legacy Shaper — Collection Office",lang:"en",start_url:base,scope:base,display:"standalone",
+      orientation:"any",background_color:"#1B3924",theme_color:"#1B3924",
+      icons:[{src:base+"icon-192.png",sizes:"192x192",type:"image/png"},{src:base+"icon-512.png",sizes:"512x512",type:"image/png"},
+             {src:base+"icon-maskable-512.png",sizes:"512x512",type:"image/png",purpose:"maskable"}]};
+    const link=document.querySelector('link[rel="manifest"]');
+    if(link){ const old=link.href; link.href=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:"application/manifest+json"}));
+      if(old.startsWith("blob:")) URL.revokeObjectURL(old); }
+  }catch(e){}
+}
 function render(){
   const d=S.data; if(!d) return;
+  brandCollection(d.coll);
   $("#collName").textContent=d.coll.name||"";
   $("#collSub").textContent=d.coll.subtitle||"Collection Office";
   $("#tabs").innerHTML=TABS.map(k=>`<button data-t="${k}" class="${S.tab===k?"on":""}">${esc(t(k))}</button>`).join("");
@@ -661,5 +686,5 @@ async function start(){
 if("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
 start();
 </script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v01a11d31</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v7ee88488</div>
 </body></html>

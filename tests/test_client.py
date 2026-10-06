@@ -84,6 +84,10 @@ with sync_playwright() as pw:
     check("does not match" in p.inner_text("#gMsg"), "wrong code is refused")
     p.fill("#gCode", "42424242"); p.wait_for_selector("#app:not([hidden])")
     check(p.inner_text("#collName") == "The Aurelian Collection", "client opens their collection after the code")
+    check(p.get_attribute('meta[name="apple-mobile-web-app-title"]', "content") == "Aurelian", "home-screen label is the collection name (Aurelian)")
+    check(p.title() == "Legacy Shaper · The Aurelian Collection", "page title carries Legacy Shaper and the collection")
+    man = p.evaluate("fetch(document.querySelector('link[rel=manifest]').href).then(r=>r.json())")
+    check(man["short_name"] == "Aurelian" and man["name"] == "Legacy Shaper · The Aurelian Collection" and man["icons"][0]["src"].startswith("http"), "installed-app manifest named after the collection")
     check("12" in p.inner_text(".kpis"), "overview counts 12 works")
     check("Secret Work" not in p.content(), "a work from another collection never appears")
     # ---------- 2. works, search, location filter ----------
@@ -191,6 +195,7 @@ with sync_playwright() as pw:
     ctx = b.new_context(service_workers="block", locale="en-GB"); route(ctx)
     p = new_page(ctx); login(p, "other@example.com"); p.wait_for_selector("#app:not([hidden])")
     check(p.inner_text("#collName") == "Collection B" and "Aurelian" not in p.content(), "second client sees only Collection B")
+    check(p.get_attribute('meta[name="apple-mobile-web-app-title"]', "content") == "B" and "Collection B" in p.title(), "second client: label follows their own collection")
     ctx.close()
     # ---------- 14. Dylan (admin): email code + authenticator, then collection choice ----------
     ctx = b.new_context(service_workers="block", locale="en-GB"); route(ctx)
