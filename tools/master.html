@@ -1237,6 +1237,72 @@ function bankFields(){
   const B=(label,k,cls,ph)=>`<div class="f ${cls}"><label for="b_${k}">${label}</label><input id="b_${k}" data-b="${k}" value="${esc(b[k]||"")}" placeholder="${esc(ph||"")}"></div>`;
   return B("Banque","bankName","s3","Wio Bank PJSC")+B("Titulaire du compte","accountName","s3",state.company.name)+B("N° de compte","accountNo","s3","Facultatif")+B("SWIFT / BIC","swift","s3","À compléter")+B("IBAN ("+bankTab+")","iban","s6","AE…");
 }
+/* ===== Client collections (Collection Office · application Legacy Shaper) ===== */
+state.collections=state.collections||[];
+async function loadCollections(){ const sb=window.LEGACY_SB&&window.LEGACY_SB.client; if(!sb) return;
+  try{ const {data,error}=await sb.from("collections").select("id,slug,name,subtitle,display_currency").order("name"); if(error) return;
+    state.collections=data||[]; if(state.view==="artworks"&&state.curArt&&!document.querySelector("#detail input:focus,#detail textarea:focus")) renderAlt(); const b=$("#collBox"); if(b){ b.innerHTML=collBoxHTML(); fillMembers(); } }catch(e){} }
+if(window.LEGACY_SB) window.LEGACY_SB.ready.then(()=>loadCollections());
+const COLL_CURS=["USD","EUR","GBP","CHF","AED","JPY"].map(x=>[x,x]);
+function collCard(a){
+  if(!window.LEGACY_SB) return "";
+  const cs=state.collections||[]; const opts=[["","— Aucune (inventaire Legacy Shaper) —"],...cs.map(c=>[c.id,c.name])];
+  if(a.collectionId && !cs.some(c=>c.id===a.collectionId)) opts.push([a.collectionId,"Collection (chargement…)"]);
+  const on=!!a.collectionId;
+  return `<div class="card"><h2>Collection client <span class="lock">${on?"Visible par le collectionneur":"Non partagée"}</span></h2><div class="grid">
+    ${kf("Collection","collectionId",a.collectionId||"","s6",{select:opts})}
+    ${on?`${kf("Localisation affichée au client","clientLocation",a.clientLocation||"","s4",{ph:a.location||"Ex. Résidence · Genève"})}${kf("Depuis le","locationSince",a.locationSince||"","s2",{type:"date"})}
+    ${kf("Part de propriété (%)","ownershipShare",a.ownershipShare||"","s2",{num:1,ph:"100"})}${kf("Précision sur la propriété","ownershipNote",a.ownershipNote||"","s4",{ph:"Ex. en indivision avec la fondation familiale"})}
+    ${kf("Date d’acquisition","acqDate",a.acqDate||"","s2",{type:"date"})}${kf("Prix d’acquisition","acqPrice",a.acqPrice||"","s2",{num:1,ph:"0"})}${kf("Devise","acqCurrency",a.acqCurrency||"USD","s2",{select:COLL_CURS})}
+    ${kf("Acquise auprès de / lors de","acqSource",a.acqSource||"","s6",{ph:"Ex. vente du soir, Londres · galerie · vente privée"})}
+    ${kf("Valeur d’assurance","insuredValue",a.insuredValue||"","s3",{num:1,ph:"0"})}${kf("Devise","insuredCurrency",a.insuredCurrency||"USD","s3",{select:COLL_CURS})}
+    ${kf("État (constat)","condition",a.condition||"","s6",{area:1,rows:2})}
+    ${kf("Expositions","exhibitions",a.exhibitions||"","s6",{area:1,rows:2})}${kf("Bibliographie","literature",a.literature||"","s6",{area:1,rows:2})}
+    ${kf("Notes visibles par le client","clientNotes",a.clientNotes||"","s6",{area:1,rows:2,ph:"La « Description » de l’œuvre reste interne : seules ces notes sont montrées au client."})}`
+    :`<div class="f s6"><span class="hint keep">Rattachez l’œuvre à la collection d’un client pour qu’elle apparaisse dans son application Legacy Shaper. Le prix de vente, la marge et l’intermédiaire ne sont jamais montrés au client.</span></div>`}
+  </div></div>`;
+}
+const collSlug=n=>(String(n||"collection").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40)||"collection")+"-"+Math.random().toString(36).slice(2,6);
+function collBoxHTML(){
+  const cs=state.collections||[];
+  return `${cs.map(c=>`<div class="collrow" data-cid="${esc(c.id)}" style="border-top:1px solid var(--line);padding:12px 0">
+      <div class="grid"><div class="f s3"><label>Nom de la collection</label><input data-collf="name" data-cid="${esc(c.id)}" value="${esc(c.name)}"></div>
+      <div class="f s3"><label>Sous-titre (facultatif)</label><input data-collf="subtitle" data-cid="${esc(c.id)}" value="${esc(c.subtitle||"")}" placeholder="Collection Office"></div></div>
+      <div class="hint keep" style="margin:8px 0 4px">${Object.values(state.artworks).filter(a=>a.collectionId===c.id).length} œuvre(s) rattachée(s)</div>
+      <div id="mem_${esc(c.id)}" class="hint keep">Chargement des accès…</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><input type="email" id="inv_${esc(c.id)}" placeholder="E-mail du collectionneur" style="flex:1;min-width:200px">
+        <button type="button" class="btn" data-collgrant="${esc(c.id)}">Donner l’accès</button></div></div>`).join("")}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:12px;margin-top:4px">
+      <input id="collNewName" placeholder="Nom de la nouvelle collection, ex. Collection Aurelia" style="flex:1;min-width:200px">
+      <button type="button" class="btn primary" id="collNew">+ Créer la collection</button></div>
+    <div class="hint keep" id="collMsg" style="margin-top:8px">Le collectionneur se connecte sur app.legacy-shaper.com avec son adresse e-mail : il reçoit à chaque fois un code à six chiffres, sans mot de passe à retenir. Il ne voit que sa collection.</div>`;
+}
+async function collApi(body){ const {data,error}=await window.LEGACY_SB.client.functions.invoke("collection-access",{body}); if(error) throw error; return data; }
+async function fillMembers(){
+  for(const c of (state.collections||[])){ const el=$("#mem_"+CSS.escape(c.id)); if(!el) continue;
+    try{ const r=await collApi({action:"list",collectionId:c.id}); const m=(r&&r.members)||[];
+      el.innerHTML=m.length?m.map(x=>`<span style="display:inline-flex;gap:6px;align-items:center;margin:2px 10px 2px 0">${esc(x.email||"—")}<button type="button" class="btn" style="padding:2px 8px;font-size:12px" data-collrevoke="${esc(c.id)}|${esc(x.user_id)}">Retirer</button></span>`).join(""):"Aucun accès pour le moment.";
+    }catch(e){ el.textContent="Accès indisponibles hors connexion."; } }
+}
+function wireCollBox(){
+  const box=$("#collBox"); if(!box) return; fillMembers();
+  const say=(t,bad)=>{ const m=$("#collMsg"); if(m){ m.textContent=t; m.style.color=bad?"var(--danger)":"var(--ok)"; } };
+  box.addEventListener("click",async e=>{ e.stopPropagation(); const b=e.target.closest("button"); if(!b) return; const sb=window.LEGACY_SB.client;
+    if(b.id==="collNew"){ const n=($("#collNewName").value||"").trim(); if(!n){ say("Indiquez le nom de la collection.",true); return; }
+      b.disabled=true; const {error}=await sb.from("collections").insert({name:n,slug:collSlug(n)}); b.disabled=false;
+      if(error){ say("La collection n’a pas pu être créée. Réessayez.",true); return; } await loadCollections(); say("Collection créée : rattachez-y les œuvres depuis leur fiche."); return; }
+    if(b.dataset.collgrant){ const cid=b.dataset.collgrant, inp=$("#inv_"+CSS.escape(cid)), email=(inp.value||"").trim().toLowerCase();
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ say("Adresse e-mail à vérifier.",true); return; }
+      b.disabled=true; b.textContent="…"; try{ await collApi({action:"grant",collectionId:cid,email}); inp.value=""; say(`Accès ouvert pour ${email}. Il se connecte sur app.legacy-shaper.com avec un code reçu par e-mail.`); fillMembers(); }
+      catch(err){ say("L’accès n’a pas pu être ouvert. Vérifiez la connexion et réessayez.",true); } b.disabled=false; b.textContent="Donner l’accès"; return; }
+    if(b.dataset.collrevoke){ if(!b.classList.contains("arm")){ b.classList.add("arm"); b.textContent="Confirmer"; return; }
+      const [cid,uid]=b.dataset.collrevoke.split("|"); try{ await collApi({action:"revoke",collectionId:cid,userId:uid}); say("Accès retiré."); fillMembers(); }catch(err){ say("Le retrait n’a pas abouti. Réessayez.",true); } return; }
+  });
+  box.addEventListener("input",e=>e.stopPropagation());
+  box.addEventListener("change",async e=>{ e.stopPropagation(); const f=e.target.dataset.collf; if(!f) return; const v=e.target.value.trim(); if(f==="name"&&!v) return;
+    const {error}=await window.LEGACY_SB.client.from("collections").update({[f]:v||null}).eq("id",e.target.dataset.cid);
+    if(error) say("Modification non enregistrée. Réessayez.",true); else { const c=state.collections.find(x=>x.id===e.target.dataset.cid); if(c) c[f]=v||null; say("Collection mise à jour."); } });
+}
 function openSettings(){
   const c=state.company;
   const F=(label,k,cls="s3",o={})=>{ const id="c_"+k; let inp;
@@ -1268,6 +1334,7 @@ function openSettings(){
     <div class="card"><h2>Emplacements de stockage</h2><div id="locRows">${locRows()}</div>
       <button type="button" class="btn" id="locAdd" style="margin-top:10px">+ Ajouter un emplacement</button>
       <div class="hint">Proposés dans chaque fiche d’œuvre, dans cet ordre.</div></div>
+    ${window.LEGACY_SB?`<div class="card"><h2>Collections clients <span class="lock">Application Legacy Shaper</span></h2><div id="collBox">${collBoxHTML()}</div></div>`:""}
     <div class="card"><h2>Par défaut</h2><div class="grid">
       ${F("Préfixe de numérotation","prefix","s2")}
       ${F("Devise","currency","s2",{select:CURRENCIES.map(x=>[x,x])})}
@@ -1279,6 +1346,7 @@ function openSettings(){
     <div class="sfoot"><span class="msg" id="setMsg">Les modifications s’affichent dans l’aperçu. Enregistrez pour les conserver.</span>
       <div class="eacts"><button type="button" class="btn" id="cancelSet">Annuler</button><button type="button" class="btn primary" id="saveSet">Enregistrer</button></div></div>
   </div></div>`;
+  if(window.LEGACY_SB) wireCollBox();
   let original=clone(state.company); let dirty=false;
   const close=()=>{ $("#modal").innerHTML=""; window.__cancelSettings=null; };
   const cancel=()=>{ if(dirty){ state.company=original; renderAll(); setSave("Modifications annulées"); } close(); };
@@ -1422,6 +1490,7 @@ function renderDetail(){
         ${kf("Disponibilité","status",artStatus(a),"s2 half",{select:Object.entries(ART_STATUS)})}
         ${ownerField(a)}${locField(a)}
       </div></div>
+      ${collCard(a)}
       <div class="card private"><h2>Financials <span class="lock">Privé · jamais sur les factures</span></h2><div class="grid">
         ${kf("Prix de vente","price",a.price,"s3 half",{num:1,ph:"0.00"})}
         ${kf("Devise","currency",a.currency,"s3 half",{select:CURRENCIES.map(x=>[x,x])})}
@@ -1876,6 +1945,7 @@ function openExp(id){
     <div class="card"><h2>Liée à</h2><div class="grid">
       ${F("Facture client (opération)","invoiceId","s6",S("invoiceId",[["","— Aucune (frais généraux) —"],...sortedInvoices().map(i=>[i.id,invLabel(i)])]))}
       ${F("Œuvre","artworkId","s6",S("artworkId",[["","— Aucune —"],...sortedArtworks().map(a=>[a.id,artLabel(a)])]))}
+      ${window.LEGACY_SB?F("Collection client","collectionId","s3",S("collectionId",[["","— Selon l’œuvre liée —"],...(state.collections||[]).map(c=>[c.id,c.name])]))+F("Visible par le client","visibleToClient","s3",S("visibleToClient",[["","Non"],["true","Oui, dans son application"]]))+`<div class="f s6"><span class="hint keep">Le client ne voit cette dépense, et ses justificatifs, que si « Oui » est choisi. Une dépense liée à une œuvre suit la collection de l’œuvre.</span></div>`:""}
       ${F("Notes","notes","s6",`<textarea id="e_notes" data-e="notes" rows="2" ${dis}>${esc(e.notes)}</textarea>`)}
     </div></div>
     <div class="card"><h2>Justificatifs</h2><div id="expFiles">${filesHTML(e)}</div></div>
@@ -2066,7 +2136,7 @@ document.addEventListener("change",e=>{
     schedDoc("artworks",a.id); renderAlt(); if(v==="__other"){ const f=$("#k_location"); if(f) f.focus(); } return; }
   if(e.target.id==="locFilter"){ locFilter=e.target.value; renderSide(); return; }
   if(e.target.id==="catFilter"){ catFilter=e.target.value; renderSide(); return; }
-  const k=e.target.dataset?.k; if(k==="status"||k==="currency"||k==="costCurrency"||k==="brokerMode"||k==="discMode"||k==="editionType"||k==="category"){ renderAlt(); }
+  const k=e.target.dataset?.k; if(k==="status"||k==="currency"||k==="costCurrency"||k==="brokerMode"||k==="discMode"||k==="editionType"||k==="category"||k==="collectionId"){ renderAlt(); }
 });
 let pickTarget=-1;
 function openArtPicker(target){ pickTarget=(typeof target==="number")?target:-1;
