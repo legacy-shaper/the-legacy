@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1B3924">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Legacy Shaper">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Legacy Shaper</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Hanken+Grotesk:wght@300;400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+<style>
+:root{
+  --deep:#1B3924;--green:#244A30;--ink:#16241A;--gold:#C4A052;--gold-soft:#E9DDBE;--ivory:#F4F0E6;--gold-text:#7A6332;
+  --bg:#F4F0E6;--surface:#FBF8F1;--surface-2:#EFE9DC;--line:#E2D9C6;--muted:#6A6656;--faint:#9A9483;
+  --serif:"Cormorant Garamond","Cormorant",Garamond,"Times New Roman",serif;
+  --sans:"Hanken Grotesk","Helvetica Neue","Avenir Next",Helvetica,Arial,sans-serif;
+  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;cursor:pointer}
+img{display:block;max-width:100%}
+.lbl{font-size:10.5px;letter-spacing:3px;text-transform:uppercase;color:var(--gold-text);font-weight:500}
+.serif{font-family:var(--serif)}
+
+/* ---------- gate ---------- */
+#gate{position:fixed;inset:0;z-index:50;background:var(--deep);color:var(--ivory);display:flex;align-items:center;justify-content:center;padding:calc(24px + var(--safe-t)) 24px calc(24px + var(--safe-b));overflow:auto}
+#gate .box{width:100%;max-width:380px;display:flex;flex-direction:column;gap:14px;text-align:center}
+#gate .logo{width:210px;margin:0 auto 6px}
+#gate h1{font-family:var(--serif);font-weight:500;font-size:30px;margin:4px 0 0;letter-spacing:.4px}
+#gate p{margin:0;font-size:14px;line-height:1.6;color:#DDD5C3}
+#gate .rule{width:56px;height:1px;background:var(--gold);margin:6px auto}
+#gate input[type=email],#gate input.code{font:inherit;font-size:16px;padding:13px 14px;border-radius:10px;border:1px solid rgba(196,160,82,.55);background:rgba(244,240,230,.06);color:var(--ivory);outline:none;text-align:center;width:100%}
+#gate input.code{font-size:24px;letter-spacing:10px;font-family:var(--serif)}
+#gate input:focus{border-color:var(--gold)}
+#gate .btn{font-size:15px;font-weight:500;padding:13px;border-radius:10px;border:0;background:var(--gold);color:var(--deep)}
+#gate .btn[disabled]{opacity:.6}
+#gate .ghost{background:transparent;color:var(--gold);border:1px solid rgba(196,160,82,.5);padding:11px;border-radius:10px;font-size:14px}
+#gate .link{background:none;border:0;color:#CDBF9D;font-size:13px;text-decoration:underline;text-underline-offset:3px}
+#gate .msg{min-height:20px;font-size:13px;color:#E9C9A0}
+#gate label.chk{display:flex;gap:10px;align-items:flex-start;text-align:left;font-size:13px;color:#DDD5C3;cursor:pointer}
+#gate label.chk input{margin-top:3px;accent-color:var(--gold)}
+#gate .langs{display:flex;gap:14px;justify-content:center;margin-top:8px}
+#gate .langs button{background:none;border:0;color:#B9AF95;font-size:12px;letter-spacing:2px}
+#gate .langs button.on{color:var(--gold)}
+#gate .foot{font-size:11.5px;color:#9FB0A3;margin-top:10px}
+
+/* ---------- app shell ---------- */
+#app{min-height:100vh}
+.top{position:sticky;top:0;z-index:20;background:var(--deep);color:var(--ivory);padding:calc(12px + var(--safe-t)) 18px 0}
+.top .row{display:flex;align-items:center;gap:12px;max-width:1180px;margin:0 auto}
+.top .logo{height:30px;width:auto}
+.top .coll{flex:1;min-width:0;text-align:right}
+.top .coll b{display:block;font-family:var(--serif);font-weight:500;font-size:19px;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .coll span{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#C9BD9C}
+.top .menu{background:none;border:1px solid rgba(196,160,82,.45);color:var(--gold);border-radius:999px;width:36px;height:36px;display:grid;place-items:center;flex:none}
+.tabs{display:flex;gap:4px;max-width:1180px;margin:10px auto 0;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{background:none;border:0;color:#CFC6AE;padding:10px 12px 12px;font-size:12px;letter-spacing:2.4px;text-transform:uppercase;border-bottom:1px solid transparent;white-space:nowrap}
+.tabs button.on{color:var(--gold);border-bottom-color:var(--gold)}
+.status{max-width:1180px;margin:0 auto;padding:10px 18px 0;font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center}
+.status i{width:7px;height:7px;border-radius:50%;background:#7FA88A;display:inline-block}
+.status.off i{background:var(--gold)}
+main{max-width:1180px;margin:0 auto;padding:14px 18px calc(40px + var(--safe-b))}
+
+/* ---------- overview ---------- */
+.hero{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 22px 20px;margin-bottom:16px}
+.hero h2{font-family:var(--serif);font-weight:500;font-size:28px;margin:6px 0 2px}
+.hero .sub{color:var(--muted);font-size:13.5px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:18px}
+.kpi{border-top:1px solid var(--gold);padding-top:10px}
+.kpi b{display:block;font-family:var(--serif);font-weight:500;font-size:26px;line-height:1.15}
+.kpi .cur{display:block;font-family:var(--serif);font-size:19px;line-height:1.3;font-variant-numeric:tabular-nums}
+.sect{display:flex;justify-content:space-between;align-items:baseline;margin:22px 2px 12px}
+.sect h3{font-family:var(--serif);font-weight:500;font-size:22px;margin:0}
+.sect button{background:none;border:0;color:var(--gold-text);font-size:12px;letter-spacing:2px;text-transform:uppercase}
+@media(max-width:620px){.top .coll{display:none}.top .row{justify-content:space-between}.top .logo{height:26px}}
+.kpi span{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold-text)}
+@media(max-width:700px){.kpis{grid-template-columns:repeat(2,1fr)}}
+
+.tools{display:flex;gap:10px;align-items:center;margin:4px 0 14px;flex-wrap:wrap}
+.search{flex:1;min-width:180px;font:inherit;font-size:15px;padding:11px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);outline:none}
+.search:focus{border-color:var(--gold)}
+select.sel{font:inherit;font-size:14px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);max-width:100%}
+
+/* ---------- works grid ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}
+@media(max-width:520px){.grid{grid-template-columns:repeat(2,1fr);gap:12px}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;text-align:left;padding:0;display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s}
+.card:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(27,57,36,.10)}
+.card .ph{aspect-ratio:1/1;background:var(--surface-2);display:grid;place-items:center;overflow:hidden}
+.card .ph img{width:100%;height:100%;object-fit:cover}
+.card .tx{padding:11px 12px 13px}
+.card .ar{font-weight:600;font-size:13.5px}
+.card .ti{font-family:var(--serif);font-style:italic;font-size:16px;line-height:1.3}
+.card .lo{font-size:11.5px;color:var(--muted);margin-top:4px}
+.empty{color:var(--muted);padding:40px 10px;text-align:center;font-family:var(--serif);font-size:19px}
+
+/* ---------- lists ---------- */
+.block{background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-bottom:16px;overflow:hidden}
+.block h3{font-family:var(--serif);font-weight:500;font-size:21px;margin:0;padding:16px 18px 10px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.block h3 small{font-family:var(--sans);font-size:12px;color:var(--muted);font-weight:400}
+.line{display:flex;gap:12px;align-items:center;padding:11px 18px;border-top:1px solid var(--line);text-align:left;width:100%;background:none;border-left:0;border-right:0;border-bottom:0}
+.line .th{width:46px;height:46px;border-radius:8px;object-fit:cover;flex:none;background:var(--surface-2)}
+.line .mid{flex:1;min-width:0}
+.line .mid b{font-weight:500}
+.line .mid div{font-size:12.5px;color:var(--muted)}
+.line .amt{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;font-size:14px}
+.line .amt div{font-size:11.5px;color:var(--muted)}
+.tot{display:flex;justify-content:space-between;padding:12px 18px;border-top:1px solid var(--gold);font-weight:500;gap:10px;flex-wrap:wrap}
+.chipline{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 13px;font-size:13px}
+.chip.on{background:var(--deep);border-color:var(--deep);color:var(--ivory)}
+
+/* ---------- detail ---------- */
+#detail{position:fixed;inset:0;z-index:30;background:var(--bg);overflow:auto;-webkit-overflow-scrolling:touch}
+.dtop{position:sticky;top:0;z-index:2;background:rgba(244,240,230,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:flex;align-items:center;gap:10px;padding:calc(10px + var(--safe-t)) 14px 10px;border-bottom:1px solid var(--line)}
+.dtop button{background:none;border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:13px}
+.dtop .sp{flex:1}
+.dwrap{max-width:1100px;margin:0 auto;padding:18px 18px calc(50px + var(--safe-b));display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:30px}
+@media(max-width:820px){.dwrap{grid-template-columns:1fr;gap:18px}}
+.stage{background:var(--surface-2);border-radius:14px;min-height:280px;display:grid;place-items:center;overflow:hidden;position:relative}
+.stage img{max-height:72vh;width:auto;margin:0 auto;object-fit:contain}
+.thumbs{display:flex;gap:8px;margin-top:10px;overflow-x:auto}
+.thumbs button{border:1px solid var(--line);padding:0;border-radius:8px;overflow:hidden;width:62px;height:62px;flex:none;background:var(--surface-2)}
+.thumbs button.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.thumbs img{width:100%;height:100%;object-fit:cover}
+.dh .artist{font-weight:600;font-size:19px}
+.dh .title{font-family:var(--serif);font-size:30px;line-height:1.15;margin:2px 0 8px}
+.dh .title i{font-style:italic}
+.facts{margin:14px 0 0;border-top:1px solid var(--gold)}
+.fact{display:grid;grid-template-columns:150px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.fact dt{font-size:10.5px;letter-spacing:2.4px;text-transform:uppercase;color:var(--gold-text);padding-top:3px}
+.fact dd{margin:0;white-space:pre-line}
+@media(max-width:520px){.fact{grid-template-columns:1fr;gap:2px}}
+.acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.acts button{border:1px solid var(--deep);background:var(--deep);color:var(--ivory);border-radius:10px;padding:10px 14px;font-size:13.5px}
+.acts button.alt{background:transparent;color:var(--deep)}
+.sec{margin-top:22px}
+.sec h4{font-family:var(--serif);font-weight:500;font-size:20px;margin:0 0 6px}
+.doc{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--surface);width:100%;text-align:left}
+.doc span{font-size:12px;color:var(--muted)}
+
+/* ---------- sheet ---------- */
+#sheet{position:fixed;inset:0;z-index:40;background:rgba(10,20,13,.45);display:flex;justify-content:flex-end}
+#sheet .pane{width:min(380px,100%);height:100%;background:var(--surface);padding:calc(20px + var(--safe-t)) 20px calc(20px + var(--safe-b));overflow:auto;display:flex;flex-direction:column;gap:12px}
+#sheet .pane h3{font-family:var(--serif);font-weight:500;font-size:24px;margin:0}
+#sheet .opt{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:12px 14px;text-align:left;font-size:14px}
+#sheet .opt small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+#sheet .who{font-size:13px;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(24px + var(--safe-b));transform:translateX(-50%);background:var(--deep);color:var(--ivory);padding:11px 16px;border-radius:10px;font-size:13.5px;z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.2);max-width:90vw;text-align:center}
+.install{background:var(--surface);border:1px solid var(--gold);border-radius:14px;padding:14px 16px;margin-bottom:16px;font-size:13.5px;display:flex;gap:12px;align-items:flex-start}
+.install b{font-family:var(--serif);font-size:18px;font-weight:500;display:block}
+.install button{background:none;border:0;color:var(--muted);font-size:20px;line-height:1;padding:0 4px}
+
+/* ---------- print: inventory sheet ---------- */
+#print{display:none}
+@media print{
+  @page{size:A4;margin:16mm 16mm 14mm}
+  body{background:#fff}
+  body>*:not(#print){display:none!important}
+  #print{display:block;color:#16241A;font-family:var(--sans);font-size:10.5pt}
+  #print .pl{width:52mm;margin:0 auto 6mm}
+  #print .pimg{max-height:108mm;max-width:100%;margin:0 auto 7mm;object-fit:contain}
+  #print .pa{font-weight:600;font-size:13pt}
+  #print .pt{font-family:var(--serif);font-size:17pt;margin:1mm 0 3mm}
+  #print .pt i{font-style:italic}
+  #print table{width:100%;border-collapse:collapse;margin-top:3mm;border-top:.6pt solid #C4A052}
+  #print td{padding:2.2mm 0;border-bottom:.4pt solid #E2D9C6;vertical-align:top}
+  #print td:first-child{width:44mm;font-size:7.5pt;letter-spacing:1.6pt;text-transform:uppercase;color:#7A6332}
+  #print .pf{margin-top:6mm;font-size:7.5pt;color:#6A6656;text-align:center}
+}
+</style>
+</head><body>
+<div id="gate" hidden></div>
+<div id="app" hidden>
+  <header class="top">
+    <div class="row">
+      <img class="logo" id="topLogo" alt="Legacy Shaper">
+      <div class="coll"><b id="collName"></b><span id="collSub"></span></div>
+      <button class="menu" id="btnMenu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 4h12M2 8h12M2 12h12"/></svg></button>
+    </div>
+    <nav class="tabs" id="tabs"></nav>
+  </header>
+  <div class="status" id="status"><i></i><span></span></div>
+  <main id="main"></main>
+</div>
+<div id="detail" hidden></div>
+<div id="sheet" hidden></div>
+<div id="print"></div>
+
+<script>
+/* =========================================================
+   Legacy Shaper — client collection (read-only, offline)
+   Data: Supabase (RLS: a member reads only their collection)
+   ========================================================= */
+const LOGO_GOLD="__LOGO_GOLD__", LOGO_GREEN="__LOGO_GREEN__", LOGO_H="__LOGO_H__";
+const CFG={ url:"https://uinwjwooodacuahqaowf.supabase.co", key:"sb_publishable_cgnIJdHGS2Xwq-lqHC_6Qw_r6zb5iRM", bucket:"legacy-files" };
+
+/* ---------------- i18n ---------------- */
+const I18N={
+ en:{access:"Private access",intro:"Enter the email address registered with Legacy Shaper. A six-digit code will be sent to you.",email:"Email address",getCode:"Receive my code",
+   sending:"Sending…",codeTitle:"Your code",codeIntro:"A six-digit code has been sent to",verify:"Open my collection",verifying:"Opening…",resend:"Send a new code",other:"Use another address",
+   shared:"Computer shared with others: keep nothing on this device after I sign out.",codeSent:"A new code is on its way.",badCode:"This code does not match. Please check the latest email and try again.",
+   unknown:"We could not send a code to this address. Please use the address registered with Legacy Shaper, or write to office@legacy-shaper.com.",wait:"Please wait a moment before requesting a new code.",
+   neterr:"The connection is not available at the moment. Please try again shortly.",mfaTitle:"Security code",mfaIntro:"Enter the six-digit code from your authenticator app.",
+   offlineTitle:"Legacy Shaper",offlineIntro:"Your collection is available on this device. The connection will refresh it as soon as possible.",openOffline:"Open my collection",retry:"Try again",
+   overview:"Overview",works:"Works",locations:"Locations",expenses:"Expenses",documents:"Documents",
+   nWorks:"Works",nLoc:"Locations",insured:"Insured value",acq:"Acquisitions",
+   search:"Search an artist, a title…",allLoc:"All locations",noWorks:"No work matches this search.",
+   live:"Up to date",offline:"Offline · copy of",updated:"Updated",
+   artist:"Artist",title:"Title",date:"Date",medium:"Medium",dims:"Dimensions",edition:"Edition",unique:"Unique work",ap:"Artist's proof",
+   ownership:"Ownership",location:"Location",since:"since",acquisition:"Acquisition",insurance:"Insurance",condition:"Condition",provenance:"Provenance",
+   exhibitions:"Exhibitions",literature:"Literature",notes:"Notes",ref:"Inventory no.",
+   back:"Back",sheetPdf:"Inventory sheet (PDF)",image:"Download image",prev:"Previous",next:"Next",
+   linkedExp:"Expenses for this work",linkedDocs:"Documents",none:"—",
+   byYear:"By year",general:"Collection",perWork:"Per work",total:"Total",allYears:"All years",noExp:"No expenses shared for this period.",
+   noDocs:"No documents shared yet.",download:"Download",
+   cat:{art:"Acquisition",transport:"Transport",insurance:"Insurance & storage",commission:"Commission",travel:"Travel",meals:"Hospitality",overhead:"Collection management",other:"Other services"},
+   menu:"Menu",signedAs:"Signed in as",refresh:"Refresh now",exportAll:"Download my collection",exportSub:"Inventory spreadsheet and images, in one file",
+   install:"Install on this device",installSub:"Open Legacy Shaper like an app, also without connection",lang:"Français",signOut:"Sign out",
+   switchColl:"Change collection",preparing:"Preparing the file…",ready:"Your file is ready.",docErr:"This document will be available once the connection is back.",
+   installTitle:"Legacy Shaper on your Home Screen",
+   installIOS:"In Safari, tap the Share button, then “Add to Home Screen”. Legacy Shaper then opens like an app, including without connection.",
+   installMac:"In Safari, choose File › Add to Dock. In Chrome, use the install icon at the end of the address bar.",
+   installOther:"In your browser menu, choose “Install app” or “Add to Home screen”.",
+   pick:"Your collections",latest:"Latest acquisitions",seeAll:"All works",shareOf:"share",ok:"Close",
+   foot:"Legacy Shaper Collection · Dubai",sheetFoot:"Inventory sheet · Legacy Shaper Collection Office"},
+ fr:{access:"Accès privé",intro:"Saisissez l’adresse e-mail enregistrée chez Legacy Shaper. Un code à six chiffres vous sera envoyé.",email:"Adresse e-mail",getCode:"Recevoir mon code",
+   sending:"Envoi…",codeTitle:"Votre code",codeIntro:"Un code à six chiffres a été envoyé à",verify:"Ouvrir ma collection",verifying:"Ouverture…",resend:"Recevoir un nouveau code",other:"Utiliser une autre adresse",
+   shared:"Ordinateur partagé : ne rien conserver sur cet appareil après ma déconnexion.",codeSent:"Un nouveau code vous a été envoyé.",badCode:"Ce code ne correspond pas. Vérifiez le dernier e-mail reçu et réessayez.",
+   unknown:"Nous n’avons pas pu envoyer de code à cette adresse. Utilisez l’adresse enregistrée chez Legacy Shaper, ou écrivez à office@legacy-shaper.com.",wait:"Patientez un instant avant de demander un nouveau code.",
+   neterr:"La connexion n’est pas disponible pour le moment. Réessayez dans quelques instants.",mfaTitle:"Code de sécurité",mfaIntro:"Saisissez le code à six chiffres de votre application d’authentification.",
+   offlineTitle:"Legacy Shaper",offlineIntro:"Votre collection est disponible sur cet appareil. Elle se mettra à jour dès que la connexion reviendra.",openOffline:"Ouvrir ma collection",retry:"Réessayer",
+   overview:"Vue d’ensemble",works:"Œuvres",locations:"Localisations",expenses:"Dépenses",documents:"Documents",
+   nWorks:"Œuvres",nLoc:"Localisations",insured:"Valeur assurée",acq:"Acquisitions",
+   search:"Rechercher un artiste, un titre…",allLoc:"Toutes les localisations",noWorks:"Aucune œuvre ne correspond à cette recherche.",
+   live:"À jour",offline:"Hors ligne · copie du",updated:"Mise à jour",
+   artist:"Artiste",title:"Titre",date:"Date",medium:"Technique",dims:"Dimensions",edition:"Édition",unique:"Œuvre unique",ap:"Épreuve d’artiste",
+   ownership:"Propriété",location:"Localisation",since:"depuis le",acquisition:"Acquisition",insurance:"Assurance",condition:"État",provenance:"Provenance",
+   exhibitions:"Expositions",literature:"Bibliographie",notes:"Notes",ref:"N° d’inventaire",
+   back:"Retour",sheetPdf:"Fiche d’inventaire (PDF)",image:"Télécharger l’image",prev:"Précédente",next:"Suivante",
+   linkedExp:"Dépenses de cette œuvre",linkedDocs:"Documents",none:"—",
+   byYear:"Par année",general:"Collection",perWork:"Par œuvre",total:"Total",allYears:"Toutes les années",noExp:"Aucune dépense partagée sur cette période.",
+   noDocs:"Aucun document partagé pour le moment.",download:"Télécharger",
+   cat:{art:"Acquisition",transport:"Transport",insurance:"Assurance et stockage",commission:"Commission",travel:"Déplacements",meals:"Réception",overhead:"Gestion de la collection",other:"Autres prestations"},
+   menu:"Menu",signedAs:"Connecté en tant que",refresh:"Mettre à jour",exportAll:"Télécharger ma collection",exportSub:"Inventaire au format tableur et images, en un seul fichier",
+   install:"Installer sur cet appareil",installSub:"Ouvrir Legacy Shaper comme une application, même sans connexion",lang:"English",signOut:"Se déconnecter",
+   switchColl:"Changer de collection",preparing:"Préparation du fichier…",ready:"Votre fichier est prêt.",docErr:"Ce document sera disponible dès le retour de la connexion.",
+   installTitle:"Legacy Shaper sur votre écran d’accueil",
+   installIOS:"Dans Safari, touchez le bouton Partager, puis « Sur l’écran d’accueil ». Legacy Shaper s’ouvre alors comme une application, même sans connexion.",
+   installMac:"Dans Safari, choisissez Fichier › Ajouter au Dock. Dans Chrome, utilisez l’icône d’installation au bout de la barre d’adresse.",
+   installOther:"Dans le menu de votre navigateur, choisissez « Installer l’application » ou « Ajouter à l’écran d’accueil ».",
+   pick:"Vos collections",latest:"Dernières acquisitions",seeAll:"Toutes les œuvres",shareOf:"de la propriété",ok:"Fermer",
+   foot:"Legacy Shaper Collection · Dubaï",sheetFoot:"Fiche d’inventaire · Legacy Shaper Collection Office"}
+};
+let LANG=(()=>{ try{ const s=localStorage.getItem("ls-lang"); if(s) return s; }catch(e){} return /^fr/i.test(navigator.language||"")?"fr":"en"; })();
+const t=k=>(I18N[LANG]&&I18N[LANG][k]!==undefined)?I18N[LANG][k]:(I18N.en[k]!==undefined?I18N.en[k]:k);
+const setLang=l=>{ LANG=l; document.documentElement.lang=l; try{ localStorage.setItem("ls-lang",l); }catch(e){} };
+document.documentElement.lang=LANG;
+
+/* ---------------- helpers ---------------- */
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtMoney=(v,cur)=>{ if(v==null||v===""||isNaN(+v)) return ""; try{ return new Intl.NumberFormat(LANG==="fr"?"fr-FR":"en-GB",{style:"currency",currency:cur||"USD",maximumFractionDigits:0}).format(+v); }catch(e){ return (+v).toLocaleString()+" "+(cur||""); } };
+const fmtDate=d=>{ if(!d) return ""; const x=new Date(String(d).slice(0,10)+"T12:00:00"); if(isNaN(x)) return String(d); return x.toLocaleDateString(LANG==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"long",year:"numeric"}); };
+const fmtStamp=ms=>new Date(ms).toLocaleString(LANG==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+const inches=dim=>{ const nums=String(dim||"").replace(/,/g,".").match(/\d+(\.\d+)?/g); if(!nums||!/cm/i.test(dim||"")) return ""; return nums.map(n=>(Math.round(+n/2.54*10)/10).toLocaleString(LANG==="fr"?"fr-FR":"en-GB",{maximumFractionDigits:1})).join(" × ")+" in"; };
+const dimsLine=d=>{ if(!d) return ""; const i=inches(d); return i?`${d}\n${i}`:d; };
+const editionLine=a=>{ const ty=(a.edition_type||"").toLowerCase(); if(ty==="unique") return t("unique"); if(ty==="ap") return t("ap")+(a.edition_number?` · ${a.edition_number}`:""); if(ty==="edition") return a.edition_number||""; return a.edition_number||""; };
+const sumByCur=(rows,val,cur)=>{ const m={}; rows.forEach(r=>{ const v=+r[val]; if(!isFinite(v)||r[val]==null||r[val]==="") return; const c=r[cur]||"USD"; m[c]=(m[c]||0)+v; }); return m; };
+const curStack=m=>{ const k=Object.keys(m).sort((a,b)=>m[b]-m[a]); return k.length?k.map(c=>`<span class="cur">${esc(fmtMoney(m[c],c))}</span>`).join(""):`<b>—</b>`; };
+const curLine=m=>Object.keys(m).sort().map(c=>fmtMoney(m[c],c)).join(" · ")||"—";
+function toast(msg,ms){ const d=document.createElement("div"); d.className="toast"; d.textContent=msg; document.body.appendChild(d); setTimeout(()=>d.remove(),ms||2600); }
+function haptic(){ try{ navigator.vibrate&&navigator.vibrate(8); }catch(e){} }
+
+/* ---------------- device storage (IndexedDB) ---------------- */
+const SHARED=()=>{ try{ return sessionStorage.getItem("ls-shared")==="1"; }catch(e){ return false; } };
+const idb=(()=>{ let p; const open=()=>p||(p=new Promise((res,rej)=>{ const r=indexedDB.open("ls-client",1); r.onupgradeneeded=()=>r.result.createObjectStore("kv"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }));
+  const op=async(mode,fn)=>{ const db=await open(); return new Promise((res,rej)=>{ const tx=db.transaction("kv",mode); const q=fn(tx.objectStore("kv")); tx.oncomplete=()=>res(q&&q.result); tx.onerror=()=>rej(tx.error); }); };
+  return { get:k=>op("readonly",s=>s.get(k)).catch(()=>undefined), set:(k,v)=>SHARED()?Promise.resolve():op("readwrite",s=>s.put(v,k)).catch(()=>{}), clear:()=>op("readwrite",s=>s.clear()).catch(()=>{}) };
+})();
+const authStore={ getItem:k=>{ try{ return (SHARED()?sessionStorage:localStorage).getItem(k); }catch(e){ return null; } },
+  setItem:(k,v)=>{ try{ (SHARED()?sessionStorage:localStorage).setItem(k,v); }catch(e){} },
+  removeItem:k=>{ try{ localStorage.removeItem(k); sessionStorage.removeItem(k); }catch(e){} } };
+
+/* ---------------- state ---------------- */
+const S={ user:null, isAdmin:false, collections:[], cid:null, data:null, tab:"overview", q:"", loc:"", year:"", online:false, stamp:0, viewPhotos:{} };
+let sb=null;
+
+/* ---------------- gate ---------------- */
+const gate=$("#gate");
+function gateShell(inner){ gate.hidden=false; $("#app").hidden=true; gate.innerHTML=`<div class="box"><img class="logo" src="${LOGO_GOLD}" alt="Legacy Shaper">${inner}
+  <div class="langs"><button data-l="en" class="${LANG==="en"?"on":""}">ENGLISH</button><button data-l="fr" class="${LANG==="fr"?"on":""}">FRANÇAIS</button></div>
+  <div class="foot">${esc(t("foot"))}</div></div>`;
+  gate.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{ setLang(b.dataset.l); (gate._redraw||(()=>{}))(); }); }
+function gateEmail(prefill,msg){
+  gate._redraw=()=>gateEmail(($("#gEmail")||{}).value||prefill,msg);
+  gateShell(`<div class="rule"></div><h1>${esc(t("access"))}</h1><p>${esc(t("intro"))}</p>
+    <form id="gForm" style="display:flex;flex-direction:column;gap:12px;margin-top:6px">
+      <input type="email" id="gEmail" autocomplete="username email" inputmode="email" placeholder="${esc(t("email"))}" required value="${esc(prefill||"")}">
+      <label class="chk"><input type="checkbox" id="gShared" ${SHARED()?"checked":""}><span>${esc(t("shared"))}</span></label>
+      <div class="msg" id="gMsg">${esc(msg||"")}</div>
+      <button class="btn" type="submit">${esc(t("getCode"))}</button></form>`);
+  $("#gForm").onsubmit=async e=>{ e.preventDefault(); const email=$("#gEmail").value.trim().toLowerCase(); const b=e.target.querySelector(".btn");
+    try{ sessionStorage.setItem("ls-shared",$("#gShared").checked?"1":"0"); }catch(x){}
+    b.disabled=true; b.textContent=t("sending"); $("#gMsg").textContent="";
+    const r=await sendCode(email); if(r.ok) gateCode(email); else { b.disabled=false; b.textContent=t("getCode"); $("#gMsg").textContent=t(r.msg); } };
+}
+async function sendCode(email){
+  try{ const {error}=await sb.auth.signInWithOtp({email, options:{shouldCreateUser:false}});
+    if(!error) return {ok:true};
+    if(/rate|seconds|too many/i.test(error.message||"")||error.status===429) return {ok:false,msg:"wait"};
+    if(/fetch|network/i.test(error.message||"")) return {ok:false,msg:"neterr"};
+    return {ok:false,msg:"unknown"};
+  }catch(e){ return {ok:false,msg:"neterr"}; }
+}
+function gateCode(email,msg){
+  gate._redraw=()=>gateCode(email,msg);
+  gateShell(`<div class="rule"></div><h1>${esc(t("codeTitle"))}</h1><p>${esc(t("codeIntro"))}<br><b style="color:#F4F0E6">${esc(email)}</b></p>
+    <form id="gForm" style="display:flex;flex-direction:column;gap:12px;margin-top:6px">
+      <input class="code" id="gCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="······" required>
+      <div class="msg" id="gMsg">${esc(msg||"")}</div>
+      <button class="btn" type="submit">${esc(t("verify"))}</button>
+      <button class="ghost" type="button" id="gResend">${esc(t("resend"))}</button>
+      <button class="link" type="button" id="gOther">${esc(t("other"))}</button></form>`);
+  const inp=$("#gCode"); inp.focus();
+  inp.oninput=()=>{ inp.value=inp.value.replace(/\D/g,"").slice(0,6); if(inp.value.length===6) $("#gForm").requestSubmit(); };
+  $("#gOther").onclick=()=>gateEmail(email);
+  $("#gResend").onclick=async()=>{ const r=await sendCode(email); $("#gMsg").textContent=r.ok?t("codeSent"):t(r.msg); };
+  $("#gForm").onsubmit=async e=>{ e.preventDefault(); const b=e.target.querySelector(".btn"); if(b.disabled) return; b.disabled=true; b.textContent=t("verifying");
+    try{ const {error}=await sb.auth.verifyOtp({email, token:inp.value, type:"email"});
+      if(error){ b.disabled=false; b.textContent=t("verify"); $("#gMsg").textContent=/fetch|network/i.test(error.message||"")?t("neterr"):t("badCode"); inp.select(); return; }
+      haptic(); afterSignIn();
+    }catch(x){ b.disabled=false; b.textContent=t("verify"); $("#gMsg").textContent=t("neterr"); } };
+}
+function gateMfa(factorId,msg){
+  gate._redraw=()=>gateMfa(factorId,msg);
+  gateShell(`<div class="rule"></div><h1>${esc(t("mfaTitle"))}</h1><p>${esc(t("mfaIntro"))}</p>
+    <form id="gForm" style="display:flex;flex-direction:column;gap:12px;margin-top:6px"><input class="code" id="gCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="······" required>
+    <div class="msg" id="gMsg">${esc(msg||"")}</div><button class="btn" type="submit">${esc(t("verify"))}</button><button class="link" type="button" id="gOut">${esc(t("other"))}</button></form>`);
+  const inp=$("#gCode"); inp.focus(); inp.oninput=()=>{ inp.value=inp.value.replace(/\D/g,"").slice(0,6); };
+  $("#gOut").onclick=()=>signOut();
+  $("#gForm").onsubmit=async e=>{ e.preventDefault(); const {error}=await sb.auth.mfa.challengeAndVerify({factorId, code:inp.value});
+    if(error){ $("#gMsg").textContent=t("badCode"); return; } afterSignIn(); };
+}
+function gateOffline(hasCopy){
+  gate._redraw=()=>gateOffline(hasCopy);
+  gateShell(`<div class="rule"></div><h1>${esc(t("offlineTitle"))}</h1><p>${esc(hasCopy?t("offlineIntro"):t("neterr"))}</p>
+    ${hasCopy?`<button class="btn" id="gOpen">${esc(t("openOffline"))}</button>`:""}<button class="ghost" id="gRetry">${esc(t("retry"))}</button>`);
+  if(hasCopy) $("#gOpen").onclick=()=>openFromCache();
+  $("#gRetry").onclick=()=>location.reload();
+}
+
+/* ---------------- sign-in flow ---------------- */
+async function afterSignIn(){
+  try{
+    const {data:{user}}=await sb.auth.getUser(); if(!user){ gateEmail(); return; }
+    S.user={id:user.id,email:user.email};
+    const {data:aal}=await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+    if(aal && aal.nextLevel==="aal2" && aal.currentLevel!=="aal2"){
+      const {data:f}=await sb.auth.mfa.listFactors(); const totp=(f&&f.totp||[]).find(x=>x.status==="verified");
+      if(totp){ gateMfa(totp.id); return; }
+    }
+    try{ localStorage.setItem("ls-last-user",user.id); }catch(e){}
+    await loadCollections();
+  }catch(e){ console.error(e); const c=await lastCopy(); if(c) openFromCache(); else gateOffline(false); }
+}
+async function loadCollections(){
+  const {data:prof}=await sb.from("profiles").select("role").eq("id",S.user.id).maybeSingle();
+  S.isAdmin=!!(prof&&prof.role==="admin");
+  const {data,error}=await sb.from("collections").select("id,slug,name,subtitle,display_currency,cover_artwork_id").order("name");
+  if(error) throw error;
+  S.collections=data||[];
+  await idb.set("colls:"+S.user.id,S.collections);
+  let want=null; try{ want=localStorage.getItem("ls-coll:"+S.user.id); }catch(e){}
+  const pick=S.collections.find(c=>c.id===want)||(S.collections.length===1?S.collections[0]:null);
+  if(pick) await openCollection(pick.id); else if(S.collections.length) showPicker(); else { gate.hidden=false; gateShell(`<div class="rule"></div><h1>${esc(t("access"))}</h1><p>${esc(t("unknown"))}</p><button class="ghost" id="gOut">${esc(t("signOut"))}</button>`); $("#gOut").onclick=signOut; }
+}
+function showPicker(){
+  gate._redraw=showPicker;
+  gateShell(`<div class="rule"></div><h1>${esc(t("pick"))}</h1>${S.collections.map(c=>`<button class="ghost" data-c="${esc(c.id)}">${esc(c.name)}</button>`).join("")}
+    <button class="link" id="gOut">${esc(t("signOut"))}</button>`);
+  gate.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>openCollection(b.dataset.c));
+  $("#gOut").onclick=signOut;
+}
+
+/* ---------------- data ---------------- */
+const ART_COLS="id,collection_id,ref,artist,title,year,medium,dimensions,category,edition_type,edition_number,owner_name,ownership_share,ownership_note,location_text,location_since,provenance,exhibitions,literature,condition,insured_value,insured_currency,acquisition_date,acquisition_price,acquisition_currency,acquisition_source,notes,thumb,updated_at";
+const EXP_COLS="id,supplier,label,category,date,amount,currency,artwork_id,collection_id,status,notes";
+const DOC_COLS="id,kind,name,mime,size,storage_path,artwork_id,expense_id,created_at";
+async function fetchCollection(cid){
+  const q=async p=>{ const {data,error}=await p; if(error) throw error; return data||[]; };
+  const [coll]=await q(sb.from("collections").select("id,slug,name,subtitle,display_currency,cover_artwork_id").eq("id",cid));
+  const works=await q(sb.from("artworks").select(ART_COLS).eq("collection_id",cid).order("artist"));
+  const ids=works.map(w=>w.id);
+  let views=[]; for(let i=0;i<ids.length;i+=80) views=views.concat(await q(sb.from("artwork_views").select("id,artwork_id,sort,created_at").in("artwork_id",ids.slice(i,i+80))));
+  const expenses=await q(sb.from("expenses").select(EXP_COLS).eq("collection_id",cid).eq("visible_to_client",true).order("date",{ascending:false}));
+  const docs=await q(sb.from("documents").select(DOC_COLS).eq("collection_id",cid).eq("visible_to_client",true).order("created_at",{ascending:false}));
+  return { coll:coll||S.collections.find(c=>c.id===cid)||{id:cid,name:""}, works, views, expenses, docs };
+}
+async function openCollection(cid){
+  S.cid=cid; try{ localStorage.setItem("ls-coll:"+S.user.id,cid); }catch(e){}
+  const cached=await idb.get(`snap:${S.user.id}:${cid}`);
+  if(cached){ S.data=cached.data; S.stamp=cached.at; S.online=false; showApp(); }
+  try{ const data=await fetchCollection(cid); S.data=data; S.stamp=Date.now(); S.online=true;
+    await idb.set(`snap:${S.user.id}:${cid}`,{at:S.stamp,data}); showApp(); prefetchPhotos();
+  }catch(e){ console.warn(e); if(!cached){ gateOffline(false); return; } S.online=false; renderStatus(); }
+}
+async function refresh(silent){
+  if(!S.cid||!S.user||navigator.onLine===false) return;
+  try{ const data=await fetchCollection(S.cid); const changed=JSON.stringify(data)!==JSON.stringify(S.data);
+    S.data=data; S.stamp=Date.now(); S.online=true; await idb.set(`snap:${S.user.id}:${S.cid}`,{at:S.stamp,data});
+    if(changed){ render(); if(S.openId) openWork(S.openId,true); prefetchPhotos(); } else renderStatus();
+    if(!silent) toast(t("live"));
+  }catch(e){ S.online=false; renderStatus(); }
+}
+async function viewPhoto(vid){
+  if(S.viewPhotos[vid]) return S.viewPhotos[vid];
+  const c=await idb.get("img:"+vid); if(c){ S.viewPhotos[vid]=c; return c; }
+  if(!sb||navigator.onLine===false) return null;
+  try{ const {data,error}=await sb.from("artwork_views").select("id,photo").eq("id",vid); if(error||!data||!data[0]) return null;
+    S.viewPhotos[vid]=data[0].photo; idb.set("img:"+vid,data[0].photo); return data[0].photo; }catch(e){ return null; }
+}
+let prefetching=false;
+async function prefetchPhotos(){ if(prefetching||SHARED()) return; prefetching=true;
+  try{ for(const v of (S.data&&S.data.views)||[]){ if(S.viewPhotos[v.id]) continue; const c=await idb.get("img:"+v.id); if(c) continue; await viewPhoto(v.id); } } finally{ prefetching=false; } }
+async function lastCopy(){ let uid=null; try{ uid=localStorage.getItem("ls-last-user"); }catch(e){} if(!uid) return null;
+  let cid=null; try{ cid=localStorage.getItem("ls-coll:"+uid); }catch(e){} const colls=await idb.get("colls:"+uid)||[];
+  cid=cid||(colls[0]&&colls[0].id); if(!cid) return null; const snap=await idb.get(`snap:${uid}:${cid}`); return snap?{uid,cid,colls,snap}:null; }
+async function openFromCache(){ const c=await lastCopy(); if(!c){ gateOffline(false); return; }
+  S.user=S.user||{id:c.uid,email:""}; S.collections=c.colls; S.cid=c.cid; S.data=c.snap.data; S.stamp=c.snap.at; S.online=false; showApp(); }
+
+/* ---------------- shell ---------------- */
+const TABS=["overview","works","locations","expenses","documents"];
+function showApp(){ gate.hidden=true; gate.innerHTML=""; $("#app").hidden=false; $("#topLogo").src=LOGO_H; render(); }
+function render(){
+  const d=S.data; if(!d) return;
+  $("#collName").textContent=d.coll.name||"";
+  $("#collSub").textContent=d.coll.subtitle||"Collection Office";
+  $("#tabs").innerHTML=TABS.map(k=>`<button data-t="${k}" class="${S.tab===k?"on":""}">${esc(t(k))}</button>`).join("");
+  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{ S.tab=b.dataset.t; window.scrollTo(0,0); render(); });
+  renderStatus();
+  const m=$("#main");
+  if(S.tab==="overview") m.innerHTML=viewOverview();
+  else if(S.tab==="works") m.innerHTML=viewWorks();
+  else if(S.tab==="locations") m.innerHTML=viewLocations();
+  else if(S.tab==="expenses") m.innerHTML=viewExpenses();
+  else m.innerHTML=viewDocs();
+  bindMain();
+}
+function renderStatus(){ const s=$("#status"); if(!s) return; s.classList.toggle("off",!S.online);
+  s.querySelector("span").textContent=S.online?`${t("live")} · ${fmtStamp(S.stamp)}`:`${t("offline")} ${fmtStamp(S.stamp)}`; }
+const works=()=>(S.data&&S.data.works)||[];
+const thumbOf=w=>w.thumb||"";
+const workById=id=>works().find(w=>w.id===id);
+function cardHtml(w){ return `<button class="card" data-w="${esc(w.id)}"><div class="ph">${thumbOf(w)?`<img loading="lazy" src="${thumbOf(w)}" alt="">`:""}</div>
+  <div class="tx"><div class="ar">${esc(w.artist)}</div><div class="ti"><i>${esc(w.title)}</i>${w.year?`, ${esc(w.year)}`:""}</div>${w.location_text?`<div class="lo">${esc(w.location_text)}</div>`:""}</div></button>`; }
+
+function viewOverview(){
+  const w=works(); const locs=[...new Set(w.map(x=>x.location_text).filter(Boolean))];
+  const ins=sumByCur(w,"insured_value","insured_currency");
+  const acq=sumByCur(w,"acquisition_price","acquisition_currency");
+  const recent=[...w].sort((a,b)=>String(b.acquisition_date||"").localeCompare(String(a.acquisition_date||""))).slice(0,8);
+  return `${installBanner()}<section class="hero"><div class="lbl">${esc(S.data.coll.subtitle||"Collection Office")}</div><h2>${esc(S.data.coll.name)}</h2>
+    <div class="kpis"><div class="kpi"><b>${w.length}</b><span>${esc(t("nWorks"))}</span></div><div class="kpi"><b>${locs.length}</b><span>${esc(t("nLoc"))}</span></div>
+    <div class="kpi">${curStack(ins)}<span>${esc(t("insured"))}</span></div><div class="kpi">${curStack(acq)}<span>${esc(t("acq"))}</span></div></div></section>
+    <div class="sect"><h3>${esc(t("latest"))}</h3><button data-goto="works">${esc(t("seeAll"))} →</button></div>
+    <div class="grid">${recent.map(cardHtml).join("")}</div>`;
+}
+function filteredWorks(){
+  const q=S.q.trim().toLowerCase();
+  return works().filter(w=>(!S.loc||w.location_text===S.loc)&&(!q||[w.artist,w.title,w.year,w.medium,w.ref,w.location_text].join(" ").toLowerCase().includes(q)));
+}
+function viewWorks(){
+  const locs=[...new Set(works().map(x=>x.location_text).filter(Boolean))].sort();
+  const list=filteredWorks();
+  return `<div class="tools"><input class="search" id="q" type="search" placeholder="${esc(t("search"))}" value="${esc(S.q)}">
+    <select class="sel" id="loc"><option value="">${esc(t("allLoc"))}</option>${locs.map(l=>`<option ${S.loc===l?"selected":""}>${esc(l)}</option>`).join("")}</select></div>
+    <div class="grid" id="grid">${list.map(cardHtml).join("")}</div>${list.length?"":`<div class="empty">${esc(t("noWorks"))}</div>`}`;
+}
+function viewLocations(){
+  const g={}; works().forEach(w=>{ const k=w.location_text||t("none"); (g[k]=g[k]||[]).push(w); });
+  return Object.keys(g).sort().map(k=>`<section class="block"><h3>${esc(k)}<small>${g[k].length} ${esc(t("nWorks").toLowerCase())}</small></h3>
+    ${g[k].map(w=>`<button class="line" data-w="${esc(w.id)}">${thumbOf(w)?`<img class="th" src="${thumbOf(w)}" alt="">`:`<span class="th"></span>`}
+      <span class="mid"><b>${esc(w.artist)}</b><div><i>${esc(w.title)}</i>${w.year?`, ${esc(w.year)}`:""}${w.location_since?` · ${esc(t("since"))} ${esc(fmtDate(w.location_since))}`:""}</div></span></button>`).join("")}</section>`).join("")||`<div class="empty">—</div>`;
+}
+function expYears(){ return [...new Set(((S.data&&S.data.expenses)||[]).map(e=>String(e.date||"").slice(0,4)).filter(Boolean))].sort().reverse(); }
+function expLine(e){ const w=e.artwork_id&&workById(e.artwork_id); const cat=(t("cat")[e.category]||t("cat").other);
+  return `<div class="line"><span class="mid"><b>${esc(e.label||cat)}</b><div>${esc(cat)}${e.supplier?` · ${esc(e.supplier)}`:""}${w?` · ${esc(w.artist)}, <i>${esc(w.title)}</i>`:""}</div></span>
+    <span class="amt">${esc(fmtMoney(e.amount,e.currency))}<div>${esc(fmtDate(e.date))}</div></span></div>`; }
+function viewExpenses(){
+  const all=(S.data&&S.data.expenses)||[]; const years=expYears();
+  const rows=all.filter(e=>!S.year||String(e.date||"").startsWith(S.year));
+  const gen=rows.filter(e=>!e.artwork_id), per=rows.filter(e=>e.artwork_id);
+  const byCat={}; rows.forEach(e=>{ const k=e.category||"other"; (byCat[k]=byCat[k]||[]).push(e); });
+  return `<div class="chipline"><button class="chip ${!S.year?"on":""}" data-y="">${esc(t("allYears"))}</button>${years.map(y=>`<button class="chip ${S.year===y?"on":""}" data-y="${y}">${y}</button>`).join("")}</div>
+    ${rows.length?`<section class="block"><h3>${esc(t("total"))}${S.year?` ${S.year}`:""}<small>${rows.length}</small></h3>
+      ${Object.keys(byCat).sort().map(k=>`<div class="line"><span class="mid"><b>${esc(t("cat")[k]||t("cat").other)}</b></span><span class="amt">${esc(curLine(sumByCur(byCat[k],"amount","currency")))}</span></div>`).join("")}
+      <div class="tot"><span>${esc(t("total"))}</span><span>${esc(curLine(sumByCur(rows,"amount","currency")))}</span></div></section>
+    ${gen.length?`<section class="block"><h3>${esc(t("general"))}<small>${esc(curLine(sumByCur(gen,"amount","currency")))}</small></h3>${gen.map(expLine).join("")}</section>`:""}
+    ${per.length?`<section class="block"><h3>${esc(t("perWork"))}<small>${esc(curLine(sumByCur(per,"amount","currency")))}</small></h3>${per.map(expLine).join("")}</section>`:""}`
+    :`<div class="empty">${esc(t("noExp"))}</div>`}`;
+}
+function docLine(d){ const w=d.artwork_id&&workById(d.artwork_id);
+  return `<button class="doc" data-doc="${esc(d.id)}"><div><b style="font-weight:500">${esc(d.name)}</b><br><span>${w?`${esc(w.artist)}, ${esc(w.title)} · `:""}${esc(fmtDate(d.created_at))}</span></div><span>${esc(t("download"))} ↓</span></button>`; }
+function viewDocs(){ const docs=(S.data&&S.data.docs)||[]; return docs.length?`<section class="block" style="padding:12px">${docs.map(docLine).join("")}</section>`:`<div class="empty">${esc(t("noDocs"))}</div>`; }
+function bindMain(){
+  const m=$("#main");
+  m.querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>openWork(b.dataset.w));
+  m.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{ S.tab=b.dataset.goto; window.scrollTo(0,0); render(); });
+  m.querySelectorAll("[data-y]").forEach(b=>b.onclick=()=>{ S.year=b.dataset.y; render(); });
+  m.querySelectorAll("[data-doc]").forEach(b=>b.onclick=()=>downloadDoc(b.dataset.doc));
+  const q=$("#q"); if(q) q.oninput=()=>{ S.q=q.value; const list=filteredWorks(); $("#grid").innerHTML=list.map(cardHtml).join(""); $("#grid").querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>openWork(b.dataset.w)); };
+  const l=$("#loc"); if(l) l.onchange=()=>{ S.loc=l.value; render(); };
+  const ib=$("#instClose"); if(ib) ib.onclick=()=>{ try{ localStorage.setItem("ls-install-seen","1"); }catch(e){} render(); };
+}
+
+/* ---------------- artwork detail ---------------- */
+function fact(k,v){ return v?`<div class="fact"><dt>${esc(t(k))}</dt><dd>${v}</dd></div>`:""; }
+function ownershipLine(w){ const s=w.ownership_share==null?100:+w.ownership_share; const base=(w.owner_name?w.owner_name+" · ":"")+`${s.toLocaleString(LANG==="fr"?"fr-FR":"en-GB")} % ${s<100?t("shareOf"):""}`.trim(); return base+(w.ownership_note?`\n${w.ownership_note}`:""); }
+async function openWork(id,keep){
+  const w=workById(id); if(!w) return; S.openId=id;
+  const views=((S.data.views)||[]).filter(v=>v.artwork_id===id).sort((a,b)=>(a.sort||0)-(b.sort||0)||String(a.created_at).localeCompare(String(b.created_at)));
+  const exps=((S.data.expenses)||[]).filter(e=>e.artwork_id===id);
+  const docs=((S.data.docs)||[]).filter(d=>d.artwork_id===id);
+  const list=filteredWorks().length?filteredWorks():works(); const idx=list.findIndex(x=>x.id===id);
+  const acq=[w.acquisition_date?fmtDate(w.acquisition_date):"", w.acquisition_price!=null?fmtMoney(w.acquisition_price,w.acquisition_currency):"", w.acquisition_source||""].filter(Boolean).map(esc).join("\n");
+  const ins=w.insured_value!=null?esc(fmtMoney(w.insured_value,w.insured_currency)):"";
+  const loc=w.location_text?esc(w.location_text)+(w.location_since?`\n${esc(t("since"))} ${esc(fmtDate(w.location_since))}`:""):"";
+  const d=$("#detail"); d.hidden=false; if(!keep) d.scrollTop=0; document.body.style.overflow="hidden";
+  d.innerHTML=`<div class="dtop"><button id="dBack">← ${esc(t("back"))}</button><span class="sp"></span>
+      ${idx>0?`<button id="dPrev" aria-label="${esc(t("prev"))}">‹</button>`:""}${idx>=0&&idx<list.length-1?`<button id="dNext" aria-label="${esc(t("next"))}">›</button>`:""}</div>
+    <div class="dwrap"><div><div class="stage" id="dStage">${thumbOf(w)?`<img id="dImg" src="${thumbOf(w)}" alt="">`:""}</div>
+      ${views.length>1?`<div class="thumbs">${views.map((v,i)=>`<button data-v="${esc(v.id)}" class="${i===0?"on":""}"><img alt="" data-vt="${esc(v.id)}"></button>`).join("")}</div>`:""}</div>
+    <div class="dh"><div class="artist">${esc(w.artist)}</div><div class="title"><i>${esc(w.title)}</i>${w.year?`, ${esc(w.year)}`:""}</div>
+      <dl class="facts">${fact("medium",esc(w.medium))}${fact("dims",esc(dimsLine(w.dimensions)))}${fact("edition",esc(editionLine(w)))}
+        ${fact("ownership",esc(ownershipLine(w)))}${fact("location",loc)}${fact("acquisition",acq)}${fact("insurance",ins)}${fact("condition",esc(w.condition))}
+        ${fact("provenance",esc(w.provenance))}${fact("exhibitions",esc(w.exhibitions))}${fact("literature",esc(w.literature))}${fact("notes",esc(w.notes))}${fact("ref",esc(w.ref))}</dl>
+      <div class="acts"><button id="dPdf">${esc(t("sheetPdf"))}</button><button class="alt" id="dImgDl">${esc(t("image"))}</button></div>
+      ${exps.length?`<div class="sec"><h4>${esc(t("linkedExp"))}</h4><section class="block">${exps.map(expLine).join("")}<div class="tot"><span>${esc(t("total"))}</span><span>${esc(curLine(sumByCur(exps,"amount","currency")))}</span></div></section></div>`:""}
+      ${docs.length?`<div class="sec"><h4>${esc(t("linkedDocs"))}</h4>${docs.map(docLine).join("")}</div>`:""}
+    </div></div>`;
+  $("#dBack").onclick=closeWork;
+  if($("#dPrev")) $("#dPrev").onclick=()=>openWork(list[idx-1].id);
+  if($("#dNext")) $("#dNext").onclick=()=>openWork(list[idx+1].id);
+  d.querySelectorAll("[data-doc]").forEach(b=>b.onclick=()=>downloadDoc(b.dataset.doc));
+  let current=views[0]&&views[0].id;
+  const show=async vid=>{ current=vid; d.querySelectorAll("[data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v===vid)); const p=await viewPhoto(vid); if(p&&S.openId===id&&current===vid){ const img=$("#dImg"); if(img) img.src=p; else $("#dStage").innerHTML=`<img id="dImg" src="${p}" alt="">`; } };
+  if(current) show(current);
+  d.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>show(b.dataset.v));
+  d.querySelectorAll("[data-vt]").forEach(async im=>{ const p=await viewPhoto(im.dataset.vt); if(p) im.src=p; });
+  $("#dPdf").onclick=async()=>printSheet(w, current?await viewPhoto(current):thumbOf(w));
+  $("#dImgDl").onclick=async()=>{ const p=(current&&await viewPhoto(current))||thumbOf(w); if(!p) return; const a=document.createElement("a"); a.href=p; a.download=fileBase(w)+".jpg"; document.body.appendChild(a); a.click(); a.remove(); };
+}
+function closeWork(){ S.openId=null; const d=$("#detail"); d.hidden=true; d.innerHTML=""; document.body.style.overflow=""; }
+const fileBase=w=>[w.artist,w.title,w.year].filter(Boolean).join(" - ").replace(/[\\/:*?"<>|]+/g,"").slice(0,120)||"artwork";
+function printSheet(w,img){
+  const p=$("#print"); const rows=[["medium",w.medium],["dims",dimsLine(w.dimensions)],["edition",editionLine(w)],["ownership",ownershipLine(w)],
+    ["location",(w.location_text||"")+(w.location_since?` (${t("since")} ${fmtDate(w.location_since)})`:"")],
+    ["acquisition",[w.acquisition_date?fmtDate(w.acquisition_date):"",w.acquisition_price!=null?fmtMoney(w.acquisition_price,w.acquisition_currency):"",w.acquisition_source||""].filter(Boolean).join(" · ")],
+    ["insurance",w.insured_value!=null?fmtMoney(w.insured_value,w.insured_currency):""],["condition",w.condition],["provenance",w.provenance],["exhibitions",w.exhibitions],["literature",w.literature],["ref",w.ref]].filter(r=>r[1]);
+  p.innerHTML=`<img class="pl" src="${LOGO_GREEN}" alt="Legacy Shaper">${img?`<img class="pimg" src="${img}" alt="">`:""}
+    <div class="pa">${esc(w.artist)}</div><div class="pt"><i>${esc(w.title)}</i>${w.year?`, ${esc(w.year)}`:""}</div>
+    <table>${rows.map(r=>`<tr><td>${esc(t(r[0]))}</td><td style="white-space:pre-line">${esc(r[1])}</td></tr>`).join("")}</table>
+    <div class="pf">${esc(S.data.coll.name)} · ${esc(t("sheetFoot"))} · ${esc(fmtDate(new Date().toISOString()))}</div>`;
+  const prevTitle=document.title; document.title=fileBase(w);
+  const go=()=>{ window.print(); setTimeout(()=>{ document.title=prevTitle; },500); };
+  const imgs=[...p.querySelectorAll("img")]; Promise.all(imgs.map(i=>i.complete?1:new Promise(r=>{ i.onload=i.onerror=r; }))).then(go);
+}
+async function downloadDoc(id){
+  const doc=((S.data&&S.data.docs)||[]).find(d=>d.id===id); if(!doc) return;
+  let blob=await idb.get("doc:"+id);
+  if(!blob){ try{ const {data,error}=await sb.storage.from(CFG.bucket).download(doc.storage_path); if(error) throw error; blob=data; idb.set("doc:"+id,blob); }catch(e){ toast(t("docErr")); return; } }
+  const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=doc.name||"document"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
+}
+
+/* ---------------- export ---------------- */
+async function imgData(p){ if(!p) return null; if(p.startsWith("data:")) return p.split(",")[1]; try{ const r=await fetch(p); return r.ok?await r.blob():null; }catch(e){ return null; } }
+function csvCell(v){ v=v==null?"":String(v); return /[";\n,]/.test(v)?`"${v.replace(/"/g,'""')}"`:v; }
+async function exportAll(){
+  if(!window.JSZip){ toast(t("docErr")); return; }
+  toast(t("preparing"),4000);
+  const zip=new JSZip(); const head=["ref","artist","title","year","medium","dimensions","edition","ownership_share","ownership_note","location","location_since","acquisition_date","acquisition_price","acquisition_currency","acquisition_source","insured_value","insured_currency","condition","provenance","exhibitions","literature","notes"];
+  const lines=[head.join(",")];
+  for(const w of works()){
+    lines.push([w.ref,w.artist,w.title,w.year,w.medium,w.dimensions,editionLine(w),w.ownership_share,w.ownership_note,w.location_text,w.location_since,w.acquisition_date,w.acquisition_price,w.acquisition_currency,w.acquisition_source,w.insured_value,w.insured_currency,w.condition,w.provenance,w.exhibitions,w.literature,w.notes].map(csvCell).join(","));
+    const vs=((S.data.views)||[]).filter(v=>v.artwork_id===w.id); let n=0;
+    for(const v of vs){ const p=await viewPhoto(v.id); const b=await imgData(p); if(!b) continue; n++; zip.file(`images/${fileBase(w)}${vs.length>1?` (${n})`:""}.jpg`, b, {base64:typeof b==="string"}); }
+    if(!n&&w.thumb){ const b=await imgData(w.thumb); if(b) zip.file(`images/${fileBase(w)}.jpg`, b, {base64:typeof b==="string"}); }
+  }
+  zip.file("inventory.csv","﻿"+lines.join("\r\n"));
+  const ex=["date","label","category","supplier","artwork","amount","currency"]; const el=[ex.join(",")];
+  for(const e of (S.data.expenses||[])){ const w=e.artwork_id&&workById(e.artwork_id); el.push([e.date,e.label,t("cat")[e.category]||e.category,e.supplier,w?`${w.artist} - ${w.title}`:"",e.amount,e.currency].map(csvCell).join(",")); }
+  zip.file("expenses.csv","﻿"+el.join("\r\n"));
+  const blob=await zip.generateAsync({type:"blob"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url;
+  a.download=`${(S.data.coll.name||"Collection").replace(/[\\/:*?"<>|]+/g,"")} - ${new Date().toISOString().slice(0,10)}.zip`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000); toast(t("ready"));
+}
+
+/* ---------------- install ---------------- */
+const isStandalone=()=>window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+const platform=()=>{ const u=navigator.userAgent||""; if(/iPhone|iPad|iPod/.test(u)||(/Macintosh/.test(u)&&navigator.maxTouchPoints>1)) return "ios"; if(/Macintosh/.test(u)) return "mac"; return "other"; };
+const installText=()=>({ios:t("installIOS"),mac:t("installMac"),other:t("installOther")}[platform()]);
+function installBanner(){ let seen=false; try{ seen=localStorage.getItem("ls-install-seen")==="1"; }catch(e){} if(isStandalone()||seen||SHARED()) return "";
+  return `<div class="install"><div style="flex:1"><b>${esc(t("installTitle"))}</b>${esc(installText())}</div><button id="instClose" aria-label="${esc(t("ok"))}">×</button></div>`; }
+let deferredPrompt=null; window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferredPrompt=e; });
+
+/* ---------------- menu ---------------- */
+function openMenu(){
+  const s=$("#sheet"); s.hidden=false;
+  s.innerHTML=`<div class="pane"><h3>${esc(t("menu"))}</h3>${S.user&&S.user.email?`<div class="who">${esc(t("signedAs"))} ${esc(S.user.email)}</div>`:""}
+    <button class="opt" id="mRefresh">${esc(t("refresh"))}</button>
+    <button class="opt" id="mExport">${esc(t("exportAll"))}<small>${esc(t("exportSub"))}</small></button>
+    ${isStandalone()?"":`<button class="opt" id="mInstall">${esc(t("install"))}<small>${esc(t("installSub"))}</small></button>`}
+    ${S.collections.length>1?`<button class="opt" id="mSwitch">${esc(t("switchColl"))}</button>`:""}
+    <button class="opt" id="mLang">${esc(t("lang"))}</button>
+    <span style="flex:1"></span><button class="opt" id="mOut">${esc(t("signOut"))}</button><button class="opt" id="mClose">${esc(t("ok"))}</button></div>`;
+  const close=()=>{ s.hidden=true; s.innerHTML=""; };
+  s.onclick=e=>{ if(e.target===s) close(); };
+  $("#mClose").onclick=close;
+  $("#mRefresh").onclick=()=>{ close(); refresh(false); };
+  $("#mExport").onclick=()=>{ close(); exportAll(); };
+  if($("#mInstall")) $("#mInstall").onclick=async()=>{ if(deferredPrompt){ deferredPrompt.prompt(); deferredPrompt=null; close(); return; } close(); toast(installText(),7000); };
+  if($("#mSwitch")) $("#mSwitch").onclick=()=>{ close(); try{ localStorage.removeItem("ls-coll:"+S.user.id); }catch(e){} showPicker(); };
+  $("#mLang").onclick=()=>{ setLang(LANG==="fr"?"en":"fr"); close(); render(); if(S.openId) openWork(S.openId,true); };
+  $("#mOut").onclick=()=>{ close(); signOut(); };
+}
+$("#btnMenu").onclick=openMenu;
+async function signOut(){
+  try{ localStorage.removeItem("ls-last-user"); if(S.user) localStorage.removeItem("ls-coll:"+S.user.id); }catch(e){}
+  await idb.clear();
+  try{ await sb.auth.signOut(); }catch(e){}
+  try{ sessionStorage.removeItem("ls-shared"); }catch(e){}
+  location.reload();
+}
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&S.openId) closeWork(); });
+
+/* ---------------- start ---------------- */
+async function start(){
+  if(!window.supabase){ const c=await lastCopy(); if(c&&!SHARED()) openFromCache(); else gateOffline(false); return; }
+  sb=window.supabase.createClient(CFG.url,CFG.key,{auth:{persistSession:true,autoRefreshToken:true,storage:authStore,storageKey:"ls-client-auth",detectSessionInUrl:false}});
+  window.addEventListener("online",()=>refresh(true));
+  document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") refresh(true); });
+  setInterval(()=>{ if(document.visibilityState==="visible") refresh(true); }, window.LS_POLL_MS||60000);
+  if(navigator.onLine===false){ const c=await lastCopy(); if(c&&!SHARED()){ openFromCache(); return; } }
+  let session=null; try{ const {data}=await sb.auth.getSession(); session=data&&data.session; }catch(e){}
+  if(session){ await afterSignIn(); return; }
+  gateEmail();
+}
+if("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
+start();
+</script>
+</body></html>
