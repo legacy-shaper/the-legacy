@@ -6,11 +6,14 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Legacy Shaper">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
-<title>Legacy Shaper</title>
-<link rel="manifest" href="manifest.webmanifest">
+<script>/* Home-screen name: written while the page is parsed, so Safari's "Add to Home Screen" / "Add to Dock" proposes
+   the collection's name. Once a collection is known, no manifest is linked (its fixed name would take precedence). */
+(function(){var h=null;try{h=JSON.parse(localStorage.getItem("ls-home")||"null");}catch(e){}
+var L=h&&h.label,F=h&&h.full,x=function(v){return String(v).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});};
+window.__homeLabel=L||"";
+document.write('<meta name="apple-mobile-web-app-title" content="'+x(L||"Legacy Shaper")+'"><title>'+x(F||"Legacy Shaper")+'</title>'+(L?'':'<link rel="manifest" href="manifest.webmanifest">'));})();</script>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -458,16 +461,16 @@ function brandCollection(coll){
   const label=homeLabel(name), full=name?`Legacy Shaper · ${name}`:"Legacy Shaper";
   document.title=full;
   const meta=document.querySelector('meta[name="apple-mobile-web-app-title"]'); if(meta) meta.setAttribute("content",label);
-  try{
-    const base=new URL("./",location.href).href;
-    const m={name:full,short_name:label,description:"Legacy Shaper — Collection Office",lang:"en",start_url:base,scope:base,display:"standalone",
-      orientation:"any",background_color:"#1B3924",theme_color:"#1B3924",
-      icons:[{src:base+"icon-192.png",sizes:"192x192",type:"image/png"},{src:base+"icon-512.png",sizes:"512x512",type:"image/png"},
-             {src:base+"icon-maskable-512.png",sizes:"512x512",type:"image/png",purpose:"maskable"}]};
-    const link=document.querySelector('link[rel="manifest"]');
-    if(link){ const old=link.href; link.href=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:"application/manifest+json"}));
-      if(old.startsWith("blob:")) URL.revokeObjectURL(old); }
-  }catch(e){}
+  if(SHARED()) return;  // shared computer: nothing kept on the device
+  let saved=false;
+  try{ localStorage.setItem("ls-home",JSON.stringify({label,full})); saved=JSON.parse(localStorage.getItem("ls-home")).label===label; }catch(e){}
+  // In the browser (not yet installed), reload once so the page is parsed with the collection's name.
+  const standalone=window.navigator.standalone===true||matchMedia("(display-mode: standalone)").matches;
+  let once=false; try{ once=sessionStorage.getItem("ls-home-reload")===label; }catch(e){}
+  if(saved&&!standalone&&window.__homeLabel!==label&&!once&&S.online!==false){
+    try{ sessionStorage.setItem("ls-home-reload",label); }catch(e){}
+    setTimeout(()=>location.reload(),50);
+  }
 }
 function render(){
   const d=S.data; if(!d) return;
@@ -663,7 +666,7 @@ function openMenu(){
 }
 $("#btnMenu").onclick=openMenu;
 async function signOut(){
-  try{ localStorage.removeItem("ls-last-user"); if(S.user) localStorage.removeItem("ls-coll:"+S.user.id); }catch(e){}
+  try{ localStorage.removeItem("ls-last-user"); localStorage.removeItem("ls-home"); if(S.user) localStorage.removeItem("ls-coll:"+S.user.id); }catch(e){}
   await idb.clear();
   try{ await sb.auth.signOut(); }catch(e){}
   try{ sessionStorage.removeItem("ls-shared"); }catch(e){}
@@ -686,5 +689,5 @@ async function start(){
 if("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
 start();
 </script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v7ee88488</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v2276bf54</div>
 </body></html>

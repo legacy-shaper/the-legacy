@@ -61,6 +61,19 @@ def route(ctx):
     ctx.route("**/jszip.min.js", lambda r: r.fulfill(status=200, content_type="application/javascript", body=JSZIP))
     ctx.route(re.compile(r"https://fonts\.(googleapis|gstatic)\.com/.*"), lambda r: r.fulfill(status=200, content_type="text/css", body=""))
 
+def app_ready(p):
+    """App visible and settled: the one-time reload that writes the collection's home-screen name has happened."""
+    p.wait_for_selector("#app:not([hidden])")
+    for _ in range(60):
+        try:
+            if p.evaluate("""(()=>{ const app=document.getElementById('app'); if(!app||app.hidden) return false;
+                let sh=false; try{ sh=sessionStorage.getItem('ls-shared')==='1'; }catch(e){}
+                const want=document.querySelector('meta[name=apple-mobile-web-app-title]').content;
+                return sh || !navigator.onLine || window.__homeLabel===want; })()"""): return
+        except Exception: pass
+        p.wait_for_timeout(100)
+    p.wait_for_selector("#app:not([hidden])")
+
 def login(p, email, code="42424242", shared=False):
     p.goto(URL); p.wait_for_selector("#gEmail")
     p.fill("#gEmail", email)
@@ -82,12 +95,12 @@ with sync_playwright() as pw:
     check("client@example.com" in p.inner_text("#gate"), "code screen names the address")
     p.fill("#gCode", "00000000"); p.wait_for_timeout(400)
     check("does not match" in p.inner_text("#gMsg"), "wrong code is refused")
-    p.fill("#gCode", "42424242"); p.wait_for_selector("#app:not([hidden])")
+    p.fill("#gCode", "42424242"); app_ready(p)
     check(p.inner_text("#collName") == "The Aurelian Collection", "client opens their collection after the code")
     check(p.get_attribute('meta[name="apple-mobile-web-app-title"]', "content") == "Aurelian", "home-screen label is the collection name (Aurelian)")
     check(p.title() == "Legacy Shaper · The Aurelian Collection", "page title carries Legacy Shaper and the collection")
-    man = p.evaluate("fetch(document.querySelector('link[rel=manifest]').href).then(r=>r.json())")
-    check(man["short_name"] == "Aurelian" and man["name"] == "Legacy Shaper · The Aurelian Collection" and man["icons"][0]["src"].startswith("http"), "installed-app manifest named after the collection")
+    check(p.evaluate("window.__homeLabel") == "Aurelian" and p.locator("link[rel=manifest]").count() == 0, "page reloaded once and is parsed with the collection's name (no fixed-name manifest)")
+    check(p.evaluate("sessionStorage.getItem('ls-home-reload')") == "Aurelian", "the reload happens only once")
     check("12" in p.inner_text(".kpis"), "overview counts 12 works")
     check("Secret Work" not in p.content(), "a work from another collection never appears")
     # ---------- 2. works, search, location filter ----------
@@ -154,7 +167,7 @@ with sync_playwright() as pw:
     check("TECHNIQUE" in p.inner_text("#detail").upper() and "43,3 × 43,3 in" in p.inner_text("#detail") and "780 000" in p.inner_text("#detail").replace(" "," ").replace("\xa0"," "), "French labels and number format")
     p.click("#dBack"); p.click("#btnMenu"); p.click("#mLang")
     # ---------- 9. reload keeps the session, photos kept for offline ----------
-    p.reload(); p.wait_for_selector("#app:not([hidden])")
+    p.reload(); app_ready(p)
     check(p.is_hidden("#gate"), "reopening the app needs no new code")
     p.wait_for_function("(async()=>{const r=await new Promise(res=>{const q=indexedDB.open('ls-client');q.onsuccess=()=>res(q.result)});return await new Promise(res=>{const t=r.transaction('kv').objectStore('kv').getAllKeys();t.onsuccess=()=>res(t.result.filter(k=>String(k).startsWith('img:')).length)})})()", polling=300, timeout=15000) if False else None
     p.wait_for_timeout(1500)
@@ -164,7 +177,7 @@ with sync_playwright() as pw:
     # ---------- 10. offline ----------
     p = new_page(ctx, net=False)
     p.goto(URL)  # page itself is served locally; data network is cut
-    p.wait_for_selector("#app:not([hidden])")
+    app_ready(p)
     check("Offline" in p.inner_text("#status"), "offline: collection opens from the device copy")
     p.click("[data-t=works]"); p.click("[data-w=aur-11]"); p.wait_for_selector("#detail .dh")
     check("Figura en reposo" in p.inner_text("#detail") and "3/6" in p.inner_text("#detail"), "offline: detail with edition")
@@ -172,7 +185,7 @@ with sync_playwright() as pw:
     check(True, "offline: photograph available")
     p.close()
     # ---------- 11. sign out wipes the device ----------
-    p = new_page(ctx); p.goto(URL); p.wait_for_selector("#app:not([hidden])")
+    p = new_page(ctx); p.goto(URL); app_ready(p)
     p.click("#btnMenu"); p.click("#mOut"); p.wait_for_selector("#gEmail")
     keys = p.evaluate("new Promise(res=>{const q=indexedDB.open('ls-client');q.onsuccess=()=>{const t=q.result.transaction('kv').objectStore('kv').getAllKeys();t.onsuccess=()=>res(t.result.length)}})")
     check(keys == 0, "sign out removes every copy from the device")
@@ -183,17 +196,17 @@ with sync_playwright() as pw:
     p = new_page(ctx)
     p.goto(URL); p.wait_for_selector("#gEmail")
     check("Accès privé" in p.inner_text("#gate"), "French browser gets the French gate")
-    login(p, "client@example.com", shared=True); p.wait_for_selector("#app:not([hidden])")
+    login(p, "client@example.com", shared=True); app_ready(p)
     p.wait_for_timeout(600)
     keys = p.evaluate("new Promise(res=>{const q=indexedDB.open('ls-client');q.onsuccess=()=>{const t=q.result.transaction('kv').objectStore('kv').getAllKeys();t.onsuccess=()=>res(t.result.length)}})")
-    check(keys == 0 and p.evaluate("!localStorage.getItem('ls-client-auth')"), "shared computer: nothing written on the device")
+    check(keys == 0 and p.evaluate("!localStorage.getItem('ls-client-auth') && !localStorage.getItem('ls-home')"), "shared computer: nothing written on the device")
     check(p.locator(".install").count() == 0, "shared computer: no install suggestion")
     p2 = new_page(ctx); p2.goto(URL); p2.wait_for_selector("#gEmail")
     check(True, "shared computer: a new window asks to sign in again")
     ctx.close()
     # ---------- 13. another client sees only their own collection ----------
     ctx = b.new_context(service_workers="block", locale="en-GB"); route(ctx)
-    p = new_page(ctx); login(p, "other@example.com"); p.wait_for_selector("#app:not([hidden])")
+    p = new_page(ctx); login(p, "other@example.com"); app_ready(p)
     check(p.inner_text("#collName") == "Collection B" and "Aurelian" not in p.content(), "second client sees only Collection B")
     check(p.get_attribute('meta[name="apple-mobile-web-app-title"]', "content") == "B" and "Collection B" in p.title(), "second client: label follows their own collection")
     ctx.close()
@@ -204,7 +217,7 @@ with sync_playwright() as pw:
     check("does not match" in p.inner_text("#gMsg"), "admin: wrong authenticator code refused")
     p.fill("#gCode", "123456"); p.click("#gForm .btn"); p.wait_for_selector("[data-c]")
     check(p.locator("[data-c]").count() == 2, "admin: chooses among all collections")
-    p.click(f"[data-c='{CID}']"); p.wait_for_selector("#app:not([hidden])")
+    p.click(f"[data-c='{CID}']"); app_ready(p)
     p.click("[data-t=expenses]")
     check("Internal commission" not in p.inner_text("#main"), "admin preview shows exactly what the client sees")
     p.click("#btnMenu"); check(p.locator("#mSwitch").count() == 1, "admin: change collection from the menu")
@@ -212,7 +225,7 @@ with sync_playwright() as pw:
     # ---------- 15. phone layout ----------
     ctx = b.new_context(service_workers="block", locale="en-GB", viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True,
                         user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"); route(ctx)
-    p = new_page(ctx); login(p, "client@example.com"); p.wait_for_selector("#app:not([hidden])")
+    p = new_page(ctx); login(p, "client@example.com"); app_ready(p)
     check("Share button" in p.inner_text(".install"), "iPhone: install steps for Safari shown")
     check(p.evaluate("document.documentElement.scrollWidth<=window.innerWidth"), "iPhone: no horizontal scrolling")
     p.screenshot(path=os.path.join(os.environ.get("SHOTS", "/tmp"), "client-phone.png"), full_page=False)
@@ -221,7 +234,7 @@ with sync_playwright() as pw:
     p.screenshot(path=os.path.join(os.environ.get("SHOTS", "/tmp"), "client-phone-detail.png"))
     ctx.close()
     ctx = b.new_context(service_workers="block", locale="en-GB", viewport={"width": 1440, "height": 900}); route(ctx)
-    p = new_page(ctx); login(p, "client@example.com"); p.wait_for_selector("#app:not([hidden])"); p.wait_for_timeout(300)
+    p = new_page(ctx); login(p, "client@example.com"); app_ready(p); p.wait_for_timeout(300)
     p.screenshot(path=os.path.join(os.environ.get("SHOTS", "/tmp"), "client-desktop.png"))
     p.click("[data-t=works]"); p.wait_for_timeout(200); p.screenshot(path=os.path.join(os.environ.get("SHOTS", "/tmp"), "client-desktop-works.png"))
     p.click("[data-w=aur-05]"); p.wait_for_selector("#detail .dh"); p.wait_for_timeout(500); p.screenshot(path=os.path.join(os.environ.get("SHOTS", "/tmp"), "client-desktop-detail.png"))
