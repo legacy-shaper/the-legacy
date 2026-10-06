@@ -545,6 +545,19 @@ body[data-view="contacts"] .listbtn,body[data-view="artworks"] .listbtn{display:
   .hrow .c{grid-column:1/-1;order:3}
   .list{top:100px}
 }
+.ownrow{display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,1fr) minmax(0,1.4fr) 28px;gap:10px;align-items:end;padding:10px 0;border-top:1px solid var(--line)}
+.ownrow.main{border-top:0;padding-top:0}
+.ownrow .ic{margin-bottom:4px}.ic.arm{color:var(--danger);border-color:var(--danger)}
+.coname{display:flex;align-items:center;gap:8px;min-height:36px;padding:0 2px;font-weight:500;min-width:0}.coname span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cotag{font-size:10.5px;color:var(--gold);border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-weight:400;flex:none}
+.ownadd{padding-top:10px;border-top:1px solid var(--line)}
+.coadd{display:flex;flex-direction:column;gap:8px}.coadd .lnk{align-self:flex-start}
+.cores{display:flex;flex-direction:column;gap:4px;max-height:280px;overflow:auto}
+.cohit{display:flex;justify-content:space-between;gap:10px;text-align:left;border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:8px 10px;color:var(--ink)}
+.cohit:hover{border-color:var(--gold)}.cohit span{color:var(--muted);font-size:12px}.cohit.free{border-style:dashed}
+.owntot{margin-top:10px;display:flex;flex-direction:column;gap:2px}.owntot .hint{margin-top:0}.ownok{font-size:12px;color:var(--ok)}
+.ownshow{margin-top:12px;padding:0}
+@media(max-width:600px){.ownrow{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) 28px}.ownrow>.f:first-child{grid-column:1/-1}.ownrow.main>span{display:none}}
 </style>
 
 <section id="home" aria-label="Accueil">
@@ -1252,7 +1265,6 @@ function collCard(a){
   return `<div class="card"><h2>Collection client <span class="lock">${on?"Visible par le collectionneur":"Non partagée"}</span></h2><div class="grid">
     ${kf("Collection","collectionId",a.collectionId||"","s6",{select:opts})}
     ${on?`${kf("Localisation affichée au client","clientLocation",a.clientLocation||"","s4",{ph:a.location||"Ex. Résidence · Genève"})}${kf("Depuis le","locationSince",a.locationSince||"","s2",{type:"date"})}
-    ${kf("Part de propriété (%)","ownershipShare",a.ownershipShare||"","s2",{num:1,ph:"100"})}${kf("Précision sur la propriété","ownershipNote",a.ownershipNote||"","s4",{ph:"Ex. en indivision avec la fondation familiale"})}
     ${kf("Date d’acquisition","acqDate",a.acqDate||"","s2",{type:"date"})}${kf("Prix d’acquisition","acqPrice",a.acqPrice||"","s2",{num:1,ph:"0"})}${kf("Devise","acqCurrency",a.acqCurrency||"USD","s2",{select:COLL_CURS})}
     ${kf("Acquise auprès de / lors de","acqSource",a.acqSource||"","s6",{ph:"Ex. vente du soir, Londres · galerie · vente privée"})}
     ${kf("Valeur d’assurance","insuredValue",a.insuredValue||"","s3",{num:1,ph:"0"})}${kf("Devise","insuredCurrency",a.insuredCurrency||"USD","s3",{select:COLL_CURS})}
@@ -1463,7 +1475,7 @@ function renderDetail(){
         ${kf("Notes privées (n’apparaissent pas sur les factures)","notes",c.notes,"s6",{area:1,rows:3,ph:"Goûts, artistes suivis, conseiller, préférences de livraison…"})}
       </div></div>
       <div class="card"><h2>Documents <span class="lock">Hors comptabilité</span></h2><p class="hint keep ctdoc-hint">Factures adressées au client, devis, contrats… Archivés ici uniquement : ils n’entrent pas dans la comptabilité de Legacy Shaper.</p><div id="ctDocs">${ctDocsHTML(c)}</div></div>
-      <div class="card"><h2>Œuvres lui appartenant</h2>${(()=>{ const own=sortedArtworks().filter(a=>a.ownerContactId===c.id); return own.length?`<div class="inv-list">${own.map(a=>`<button type="button" class="art" data-art-open="${a.id}"><span class="th">${a.photo?`<img src="${a.photo}" alt="">`:""}</span><span class="tx"><span class="ar">${esc(a.artist||"Artiste")}</span><span class="ti"><i>${esc(a.title||"Sans titre")}</i>${a.year?", "+esc(a.year):""}</span><span class="pr">${esc(a.location||"")}</span></span><span class="chip st-${artStatus(a)}">${ART_STATUS[artStatus(a)]}</span></button>`).join("")}</div>`:`<p class="msg">Aucune œuvre enregistrée à son nom.</p>`; })()}</div>
+      <div class="card"><h2>Œuvres lui appartenant</h2>${(()=>{ const own=sortedArtworks().filter(a=>a.ownerContactId===c.id||coOwners(a).some(o=>o.contactId===c.id)); const shareOf=a=>{ if(a.ownerContactId===c.id) return coOwners(a).length||hasNum(a.ownershipShare)?"Part "+fmtPct(ownMainPct(a)):""; const o=coOwners(a).find(o=>o.contactId===c.id); return "Copropriétaire"+(o&&hasNum(o.pct)?" · "+fmtPct(num(o.pct)):""); }; return own.length?`<div class="inv-list">${own.map(a=>`<button type="button" class="art" data-art-open="${a.id}"><span class="th">${a.photo?`<img src="${a.photo}" alt="">`:""}</span><span class="tx"><span class="ar">${esc(a.artist||"Artiste")}</span><span class="ti"><i>${esc(a.title||"Sans titre")}</i>${a.year?", "+esc(a.year):""}</span><span class="pr">${esc([shareOf(a),a.location||""].filter(Boolean).join(" · "))}</span></span><span class="chip st-${artStatus(a)}">${ART_STATUS[artStatus(a)]}</span></button>`).join("")}</div>`:`<p class="msg">Aucune œuvre enregistrée à son nom.</p>`; })()}</div>
       ${(()=>{ const br=sortedArtworks().filter(a=>a.brokerContactId===c.id); return br.length?`<div class="card"><h2>Intermédiaire sur</h2><div class="inv-list">${br.map(a=>{ const r=finOf(a); return `<button type="button" class="art" data-art-open="${a.id}"><span class="th">${a.photo?`<img src="${a.photo}" alt="">`:""}</span><span class="tx"><span class="ar">${esc(a.artist||"Artiste")}</span><span class="ti"><i>${esc(a.title||"Sans titre")}</i>${a.year?", "+esc(a.year):""}</span><span class="pr">Commission ${r.broker?esc(money(r.broker,r.cur,"en")):"—"}${(a.brokerMode||"pct")==="pct"&&a.brokerValue?" · "+esc(a.brokerValue)+" %":""}</span></span><span class="chip st-${artStatus(a)}">${ART_STATUS[artStatus(a)]}</span></button>`; }).join("")}</div></div>`:""; })()}
       <div class="card"><h2>Factures</h2>${invRows(invs)}</div>`;
   } else {
@@ -1488,8 +1500,9 @@ function renderDetail(){
       <div class="card"><h2>Photos · additional views <span class="lock" id="viewsCount">${(()=>{ const n=galleryOf(a).length; return n+" photo"+(n>1?"s":""); })()}</span></h2><div class="views" id="viewsBox">${viewsHTML(a)}</div></div>
       <div class="card"><h2>Suivi</h2><div class="grid">
         ${kf("Disponibilité","status",artStatus(a),"s2 half",{select:Object.entries(ART_STATUS)})}
-        ${ownerField(a)}${locField(a)}
+        ${locField(a)}
       </div></div>
+      <div class="card" id="ownCard">${ownCardHTML(a)}</div>
       ${collCard(a)}
       <div class="card private"><h2>Financials <span class="lock">Privé · jamais sur les factures</span></h2><div class="grid">
         ${kf("Prix de vente","price",a.price,"s3 half",{num:1,ph:"0.00"})}
@@ -1540,10 +1553,10 @@ function brokerField(a){
       <option value="__other" ${sel==="__other"?"selected":""}>Autre…</option></select>
       ${sel==="__other"?`<input id="k_brokerName" data-k="brokerName" value="${esc(a.brokerName||"")}" placeholder="Nom de l’intermédiaire">`:""}</div>`;
 }
-function ownerField(a){
+function ownerField(a,cls="s3"){
   const cts=sortedContacts(); const isDL=!a.ownerContactId && (a.owner||"")==="Collection DL";
   const sel=a.ownerContactId&&state.contacts[a.ownerContactId]?a.ownerContactId:(isDL?"__dl":(a.owner||window.__ownOther?"__other":""));
-  return `<div class="f s3"><label for="ownSel">Propriétaire</label><select id="ownSel" data-ownsel>
+  return `<div class="f ${cls}"><label for="ownSel">Propriétaire</label><select id="ownSel" data-ownsel>
       <option value="" ${sel===""?"selected":""}>Non renseigné</option>
       <option value="__dl" ${sel==="__dl"?"selected":""}>Collection DL (moi)</option>
       ${cts.length?`<optgroup label="Clients">${cts.map(c=>`<option value="${c.id}" ${sel===c.id?"selected":""}>${esc(c.name||c.company||"Sans nom")}${c.name&&c.company?" · "+esc(c.company):""}</option>`).join("")}</optgroup>`:""}
@@ -1551,6 +1564,106 @@ function ownerField(a){
       ${sel==="__other"?`<input id="k_owner" data-k="owner" value="${esc(a.owner||"")}" placeholder="Nom du propriétaire">`:""}
       ${!cts.length?`<span class="hint" style="margin-top:2px">Créez vos clients dans l’onglet Contacts pour les choisir ici.</span>`:""}</div>`;
 }
+/* ===== Propriété : copropriétaires, parts en % ou en montant ===== */
+const r2=v=>Math.round(v*100)/100;
+const nStr=v=>String(r2(v)).replace(".",",");
+const hasNum=v=>String(v??"").trim()!=="" && isFinite(parseFloat(String(v).replace(/\s/g,"").replace(/,/g,".")));
+const fmtPct=v=>r2(v).toLocaleString("fr-FR",{maximumFractionDigits:2})+" %";
+function coOwners(a){ return Array.isArray(a.coOwners)?a.coOwners:[]; }
+function coName(o){ if(o.contactId&&state.contacts[o.contactId]){ const c=state.contacts[o.contactId]; return c.name||c.company||o.name||""; } return o.name||""; }
+function ownMainPct(a){ return hasNum(a.ownershipShare)? num(a.ownershipShare) : (coOwners(a).length?0:100); }
+function ownTotal(a){ return r2(ownMainPct(a)+coOwners(a).reduce((s,o)=>s+(hasNum(o.pct)?num(o.pct):0),0)); }
+function ownStatusHTML(a){
+  const t=ownTotal(a), co=coOwners(a);
+  if(!co.length && !hasNum(a.ownershipShare)) return `<span class="hint keep">Propriété à 100 %. Ajoutez un copropriétaire si l’œuvre est détenue à plusieurs.</span>`;
+  if(Math.abs(t-100)<0.005) return `<span class="ownok">Répartition complète : 100 %</span>`;
+  return t<100? `<span class="warn">Total attribué : ${fmtPct(t)} · reste ${fmtPct(100-t)} à attribuer</span>`
+              : `<span class="warn">Total attribué : ${fmtPct(t)} · dépasse 100 % de ${fmtPct(t-100)}</span>`;
+}
+function ownCardHTML(a){
+  const co=coOwners(a), cur=a.ownCurrency||a.currency||"USD", val=hasNum(a.ownValue);
+  const rest=r2(100-co.reduce((s,o)=>s+(hasNum(o.pct)?num(o.pct):0),0));
+  const pctIn=(id,attr,v,ph)=>`<div class="f"><label for="${id}">Part (%)</label><input id="${id}" ${attr} value="${esc(v||"")}" placeholder="${esc(ph)}" class="num" inputmode="decimal"></div>`;
+  const amtIn=(id,attr,v)=>`<div class="f"><label for="${id}">Montant (${esc(cur)})</label><input id="${id}" ${attr} value="${esc(v||"")}" placeholder="0" class="num" inputmode="decimal"></div>`;
+  const rows=co.map((o,i)=>`<div class="ownrow" data-corow="${i}">
+      ${o.contactId?`<div class="f"><label>Copropriétaire</label><div class="coname"><span>${esc(coName(o)||"Contact supprimé")}</span><span class="cotag">Contact</span></div></div>`
+        :`<div class="f"><label for="co_n_${i}">Copropriétaire</label><input id="co_n_${i}" data-co="${i}.name" value="${esc(o.name||"")}" placeholder="Nom du copropriétaire"></div>`}
+      ${pctIn("co_p_"+i,`data-co="${i}.pct"`,o.pct,"0")}${amtIn("co_a_"+i,`data-co="${i}.amount"`,o.amount)}
+      <button type="button" class="ic" data-codel="${i}" aria-label="Retirer ce copropriétaire" title="Retirer">${ICON.x}</button></div>`).join("");
+  const q=window.__coQ||"";
+  const add=window.__coAdd?`<div class="coadd"><div class="f"><label for="coQ">Nom libre, ou recherche dans vos contacts</label><input id="coQ" value="${esc(q)}" placeholder="Ex. Jonathan, Fondation…" autocomplete="off"></div>
+      <div id="coRes" class="cores">${coResHTML(a,q)}</div>
+      <button type="button" class="lnk" id="coCancel">Annuler</button></div>`
+    :`<button type="button" class="btn" id="coAdd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>Ajouter un copropriétaire</button>`;
+  return `<h2>Propriété <span class="lock">${co.length?(co.length+1)+" propriétaires":"Propriétaire unique"}</span></h2>
+    <div class="ownrow main">${ownerField(a,"")}${pctIn("k_ownershipShare",`data-k="ownershipShare"`,a.ownershipShare,co.length?(rest>0?nStr(rest):"0"):"100")}${amtIn("k_ownerAmount",`data-k="ownerAmount"`,a.ownerAmount)}<span></span></div>
+    ${rows}
+    <div class="ownadd">${add}</div>
+    <div class="grid" style="margin-top:14px">
+      ${kf("Valeur totale de l’œuvre","ownValue",a.ownValue||"","s3 half",{num:1,ph:"Pour calculer les % depuis les montants"})}
+      ${kf("Devise","ownCurrency",cur,"s3 half",{select:CURRENCIES.map(x=>[x,x])})}
+    </div>
+    <div id="ownTotal" class="owntot">${ownStatusHTML(a)}${!val&&co.some(o=>hasNum(o.amount)&&!hasNum(o.pct))?`<span class="hint keep">Indiquez la valeur totale pour calculer les pourcentages à partir des montants.</span>`:""}</div>
+    <div class="grid" style="margin-top:12px">${kf("Précision sur la propriété","ownershipNote",a.ownershipNote||"","s6",{ph:"Ex. en indivision avec la fondation familiale"})}</div>
+    ${a.collectionId?`<label class="provck ownshow"><input type="checkbox" id="ownShow" ${a.ownHide?"":"checked"}> Montrer la répartition au collectionneur (noms et pourcentages, jamais les montants)</label>`:""}`;
+}
+const normQ=s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().trim();
+function coResHTML(a,q){
+  const used=new Set([a.ownerContactId,...coOwners(a).map(o=>o.contactId)].filter(Boolean)); const nq=normQ(q);
+  const hits=sortedContacts().filter(c=>!used.has(c.id) && (!nq || normQ([c.name,c.company,c.email].join(" ")).includes(nq))).slice(0,8);
+  return `${hits.map(c=>`<button type="button" class="cohit" data-copick="${c.id}"><b>${esc(c.name||c.company||"Sans nom")}</b>${c.name&&c.company?`<span>${esc(c.company)}</span>`:""}</button>`).join("")}
+    ${!hits.length&&sortedContacts().length?`<span class="hint keep">Aucun contact ne correspond.</span>`:""}
+    ${nq?`<button type="button" class="cohit free" data-cofree><b>Ajouter « ${esc(q.trim())} »</b><span>nom libre, sans créer de contact</span></button>`:""}`;
+}
+function ownRefresh(a,keepFocus){
+  const box=$("#ownCard"); if(!box) return;
+  if(keepFocus){ const t=$("#ownTotal"); if(t) t.innerHTML=ownStatusHTML(a); const h=box.querySelector("h2 .lock"); if(h) h.textContent=coOwners(a).length?(coOwners(a).length+1)+" propriétaires":"Propriétaire unique"; return; }
+  box.innerHTML=ownCardHTML(a);
+}
+function setField(id,v){ const f=document.getElementById(id); if(f && f!==document.activeElement) f.value=v; }
+/* une part ou un montant saisi : on calcule l’autre à partir de la valeur totale */
+function ownRecalc(a,which){
+  const V=hasNum(a.ownValue)?num(a.ownValue):0; if(!V) return;
+  const pair=(o,pk,ak,pid,aid,from)=>{ if(from==="pct"){ if(hasNum(o[pk])){ o[ak]=nStr(V*num(o[pk])/100); setField(aid,o[ak]); } }
+    else if(from==="amt"){ if(hasNum(o[ak])){ o[pk]=nStr(num(o[ak])/V*100); setField(pid,o[pk]); } }
+    else { if(hasNum(o[pk])){ o[ak]=nStr(V*num(o[pk])/100); setField(aid,o[ak]); } else if(hasNum(o[ak])){ o[pk]=nStr(num(o[ak])/V*100); setField(pid,o[pk]); } } };
+  if(which.main) pair(a,"ownershipShare","ownerAmount","k_ownershipShare","k_ownerAmount",which.main);
+  if(which.co) which.co.forEach(([i,from])=>{ const o=coOwners(a)[i]; if(o) pair(o,"pct","amount","co_p_"+i,"co_a_"+i,from); });
+}
+function addCoOwner(a,o){ a.coOwners=coOwners(a).concat([Object.assign({id:uid(),contactId:"",name:"",pct:"",amount:""},o)]); window.__coAdd=false; window.__coQ="";
+  schedDoc("artworks",a.id); ownRefresh(a); const i=a.coOwners.length-1; const f=document.getElementById("co_p_"+i); if(f) f.focus(); setSave("Copropriétaire ajouté"); }
+document.addEventListener("input",e=>{
+  if(state.view!=="artworks") return; const a=state.artworks[state.curArt]; if(!a) return; const t=e.target;
+  if(t.id==="coQ"){ window.__coQ=t.value; const r=$("#coRes"); if(r) r.innerHTML=coResHTML(a,t.value); return; }
+  const co=t.dataset?.co, k=t.dataset?.k;
+  if(k==="ownershipShare"||k==="ownerAmount"||k==="ownValue") a[k]=t.value;
+  if(k==="ownCurrency"){ a.ownCurrency=t.value; schedDoc("artworks",a.id); ownRefresh(a); return; }
+  if(co){ const [i,f]=co.split("."); const o=coOwners(a)[+i]; if(!o) return; o[f]=t.value;
+    if(f==="pct") ownRecalc(a,{co:[[+i,"pct"]]}); if(f==="amount") ownRecalc(a,{co:[[+i,"amt"]]});
+    schedDoc("artworks",a.id); ownRefresh(a,true); return; }
+  if(k==="ownershipShare"){ ownRecalc(a,{main:"pct"}); schedDoc("artworks",a.id); ownRefresh(a,true); }
+  else if(k==="ownerAmount"){ ownRecalc(a,{main:"amt"}); schedDoc("artworks",a.id); ownRefresh(a,true); }
+  else if(k==="ownValue"){ ownRecalc(a,{main:"val",co:coOwners(a).map((o,i)=>[i,"val"])}); schedDoc("artworks",a.id); ownRefresh(a,true); }
+});
+document.addEventListener("keydown",e=>{
+  if(e.target.id!=="coQ") return; const a=state.artworks[state.curArt]; if(!a) return;
+  if(e.key==="Escape"){ window.__coAdd=false; window.__coQ=""; ownRefresh(a); return; }
+  if(e.key!=="Enter") return; e.preventDefault(); const q=e.target.value.trim(); if(!q) return;
+  const used=new Set([a.ownerContactId,...coOwners(a).map(o=>o.contactId)].filter(Boolean));
+  const exact=sortedContacts().find(c=>!used.has(c.id) && [c.name,c.company].some(x=>x&&normQ(x)===normQ(q)));
+  addCoOwner(a, exact?{contactId:exact.id,name:exact.name||exact.company||""}:{name:q});
+});
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button,input#ownShow"); if(!b||!$("#ownCard")||!$("#ownCard").contains(b)) return; const a=state.artworks[state.curArt]; if(!a) return;
+  if(b.id==="ownShow"){ a.ownHide=!b.checked; schedDoc("artworks",a.id); setSave(b.checked?"Répartition visible par le collectionneur":"Répartition masquée au collectionneur"); return; }
+  if(b.id==="coAdd"){ window.__coAdd=true; window.__coQ=""; ownRefresh(a); const q=$("#coQ"); if(q) q.focus(); return; }
+  if(b.id==="coCancel"){ window.__coAdd=false; window.__coQ=""; ownRefresh(a); return; }
+  if(b.dataset.copick){ const c=state.contacts[b.dataset.copick]; if(c) addCoOwner(a,{contactId:c.id,name:c.name||c.company||""}); return; }
+  if(b.dataset.cofree!==undefined){ const q=(window.__coQ||"").trim(); if(q) addCoOwner(a,{name:q}); return; }
+  if(b.dataset.codel!==undefined){
+    if(!b.classList.contains("arm")){ b.classList.add("arm"); b.title="Cliquer à nouveau pour retirer"; setTimeout(()=>{ if(b.isConnected){ b.classList.remove("arm"); b.title="Retirer"; } },3000); return; }
+    const i=+b.dataset.codel; a.coOwners=coOwners(a).filter((_,j)=>j!==i); schedDoc("artworks",a.id); ownRefresh(a); setSave("Copropriétaire retiré"); return; }
+});
 function locField(a){
   const locs=state.company.locations||[]; const hit=locs.find(l=>l.name===a.location);
   const other=!!a.location && !hit; const sel=hit?a.location:(other?"__other":"");
@@ -2128,7 +2241,7 @@ document.addEventListener("change",e=>{
     if(v==="__dl"){ a.owner="Collection DL"; a.ownerContactId=""; }
     else if(v===""){ a.owner=""; a.ownerContactId=""; }
     else if(v==="__other"){ if(a.ownerContactId||a.owner==="Collection DL") a.owner=""; a.ownerContactId=""; }
-    else { const c=state.contacts[v]; a.ownerContactId=v; a.owner=c?(c.name||c.company||""):""; }
+    else { const c=state.contacts[v]; a.ownerContactId=v; a.owner=c?(c.name||c.company||""):""; if(coOwners(a).some(o=>o.contactId===v)) a.coOwners=coOwners(a).filter(o=>o.contactId!==v); }
     schedDoc("artworks",a.id); renderAlt(); if(v==="__other"){ const f=$("#k_owner"); if(f) f.focus(); } return; }
   if(e.target.dataset && e.target.dataset.locsel!==undefined){ const a=state.artworks[state.curArt]; if(!a) return; const v=e.target.value;
     if(v==="__other"){ window.__locOther=true; if((state.company.locations||[]).some(l=>l.name===a.location)) a.location=""; }

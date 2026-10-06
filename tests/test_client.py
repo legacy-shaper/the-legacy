@@ -17,6 +17,10 @@ docs = [
   dict(id="d3", kind="invoice", name="Other collection.pdf", mime="application/pdf", size=900, storage_path="files/d3", artwork_id="b-1", expense_id=None, collection_id=OTHER, visible_to_client=True, created_at="2025-02-22T10:00:00Z"),
 ]
 hidden_exp = dict(id="demo-exp-hidden", date="2025-03-01", label="Internal commission", category="commission", amount=99999, currency="USD", supplier="x", artwork_id="aur-03", collection_id=CID, visible_to_client=False, status="paid")
+# co-owned work (names + % only reach the client) and a work whose split Dylan hid
+for w in demo["works"]:
+    if w["id"] == "aur-04": w.update(ownership_share=60, co_owners=[dict(name="Jonathan Wahnich", share=25), dict(name="Fondation X", share=15)], ownership_visible=True)
+    if w["id"] == "aur-02": w.update(ownership_share=None, co_owners=[], ownership_visible=False)
 other_work = dict(demo["works"][0], id="b-1", collection_id=OTHER, title="Secret Work", artist="Other Artist", ref="B-1")
 SEED = {
   "users": [dict(id="u1", email="client@example.com", role="client"), dict(id="u2", email="other@example.com", role="client"),
@@ -129,6 +133,16 @@ with sync_playwright() as pw:
     # ---------- 4. shared ownership ----------
     p.click("[data-w=aur-06]"); p.wait_for_selector("#detail .dh")
     check("50 % share" in p.inner_text("#detail") and "family foundation" in p.inner_text("#detail"), "shared ownership shown with its note")
+    p.click("#dBack")
+    p.click("[data-w=aur-04]"); p.wait_for_selector("#detail .dh")
+    det4 = p.inner_text("#detail")
+    check("The Aurelian Family Trust · 60 %" in det4, "co-owned work: the collector's own share is shown")
+    check("Jonathan Wahnich · 25 %" in det4 and "Fondation X · 15 %" in det4, "co-owners listed with their percentages")
+    check(not re.search(r"\b250[ ,.]?000\b", det4), "no co-owner amount ever shown")
+    p.click("#dBack"); p.click("[data-w=aur-02]"); p.wait_for_selector("#detail .dh")
+    own2 = p.evaluate("(()=>{const d=[...document.querySelectorAll('#detail .fact')].find(f=>/ownership|propriété/i.test(f.querySelector('dt').textContent)); return d?d.querySelector('dd').textContent:''})()")
+    check("%" not in own2, "split hidden by Dylan: no percentage shown to the collector")
+    p.click("#dBack"); p.click("[data-w=aur-06]"); p.wait_for_selector("#detail .dh")
     # print sheet
     p.evaluate("window.print=()=>{window.__printed=document.getElementById('print').innerText}")
     p.click("#dPdf"); p.wait_for_function("window.__printed")

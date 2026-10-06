@@ -400,7 +400,7 @@ function showPicker(){
 }
 
 /* ---------------- data ---------------- */
-const ART_COLS="id,collection_id,ref,artist,title,year,medium,dimensions,category,edition_type,edition_number,owner_name,ownership_share,ownership_note,location_text,location_since,provenance,exhibitions,literature,condition,insured_value,insured_currency,acquisition_date,acquisition_price,acquisition_currency,acquisition_source,notes,thumb,updated_at";
+const ART_COLS="id,collection_id,ref,artist,title,year,medium,dimensions,category,edition_type,edition_number,owner_name,ownership_share,ownership_note,co_owners,ownership_visible,location_text,location_since,provenance,exhibitions,literature,condition,insured_value,insured_currency,acquisition_date,acquisition_price,acquisition_currency,acquisition_source,notes,thumb,updated_at";
 const EXP_COLS="id,supplier,label,category,date,amount,currency,artwork_id,collection_id,status,notes";
 const DOC_COLS="id,kind,name,mime,size,storage_path,artwork_id,expense_id,created_at";
 async function fetchCollection(cid){
@@ -557,7 +557,15 @@ function bindMain(){
 
 /* ---------------- artwork detail ---------------- */
 function fact(k,v){ return v?`<div class="fact"><dt>${esc(t(k))}</dt><dd>${v}</dd></div>`:""; }
-function ownershipLine(w){ const s=w.ownership_share==null?100:+w.ownership_share; const base=(w.owner_name?w.owner_name+" · ":"")+`${s.toLocaleString(LANG==="fr"?"fr-FR":"en-GB")} % ${s<100?t("shareOf"):""}`.trim(); return base+(w.ownership_note?`\n${w.ownership_note}`:""); }
+function coOwnersOf(w){ return w.ownership_visible!==false && Array.isArray(w.co_owners) ? w.co_owners.filter(o=>o&&o.name) : []; }
+function pctTxt(v){ return (+v).toLocaleString(LANG==="fr"?"fr-FR":"en-GB",{maximumFractionDigits:2})+" %"; }
+function ownershipLine(w){
+  const note=w.ownership_note?`\n${w.ownership_note}`:"";
+  if(w.ownership_visible===false) return (w.owner_name||"")+note;
+  const co=coOwnersOf(w);
+  if(co.length) return [ [w.owner_name||"", w.ownership_share!=null?pctTxt(w.ownership_share):""].filter(Boolean).join(" · "), ...co.map(o=>o.name+(o.share!=null?" · "+pctTxt(o.share):"")) ].filter(Boolean).join("\n")+note;
+  const s=w.ownership_share==null?100:+w.ownership_share; const base=(w.owner_name?w.owner_name+" · ":"")+`${s.toLocaleString(LANG==="fr"?"fr-FR":"en-GB")} % ${s<100?t("shareOf"):""}`.trim(); return base+note; }
+function coOwnersCsv(w){ return coOwnersOf(w).map(o=>o.name+(o.share!=null?" "+pctTxt(o.share):"")).join("; "); }
 async function openWork(id,keep){
   const w=workById(id); if(!w) return; S.openId=id;
   const views=((S.data.views)||[]).filter(v=>v.artwork_id===id).sort((a,b)=>(a.sort||0)-(b.sort||0)||String(a.created_at).localeCompare(String(b.created_at)));
@@ -620,10 +628,10 @@ function csvCell(v){ v=v==null?"":String(v); return /[";\n,]/.test(v)?`"${v.repl
 async function exportAll(){
   if(!window.JSZip){ toast(t("docErr")); return; }
   toast(t("preparing"),4000);
-  const zip=new JSZip(); const head=["ref","artist","title","year","medium","dimensions","edition","ownership_share","ownership_note","location","location_since","acquisition_date","acquisition_price","acquisition_currency","acquisition_source","insured_value","insured_currency","condition","provenance","exhibitions","literature","notes"];
+  const zip=new JSZip(); const head=["ref","artist","title","year","medium","dimensions","edition","ownership_share","co_owners","ownership_note","location","location_since","acquisition_date","acquisition_price","acquisition_currency","acquisition_source","insured_value","insured_currency","condition","provenance","exhibitions","literature","notes"];
   const lines=[head.join(",")];
   for(const w of works()){
-    lines.push([w.ref,w.artist,w.title,w.year,w.medium,w.dimensions,editionLine(w),w.ownership_share,w.ownership_note,w.location_text,w.location_since,w.acquisition_date,w.acquisition_price,w.acquisition_currency,w.acquisition_source,w.insured_value,w.insured_currency,w.condition,w.provenance,w.exhibitions,w.literature,w.notes].map(csvCell).join(","));
+    lines.push([w.ref,w.artist,w.title,w.year,w.medium,w.dimensions,editionLine(w),w.ownership_visible===false?"":w.ownership_share,coOwnersCsv(w),w.ownership_note,w.location_text,w.location_since,w.acquisition_date,w.acquisition_price,w.acquisition_currency,w.acquisition_source,w.insured_value,w.insured_currency,w.condition,w.provenance,w.exhibitions,w.literature,w.notes].map(csvCell).join(","));
     const vs=((S.data.views)||[]).filter(v=>v.artwork_id===w.id); let n=0;
     for(const v of vs){ const p=await viewPhoto(v.id); const b=await imgData(p); if(!b) continue; n++; zip.file(`images/${fileBase(w)}${vs.length>1?` (${n})`:""}.jpg`, b, {base64:typeof b==="string"}); }
     if(!n&&w.thumb){ const b=await imgData(w.thumb); if(b) zip.file(`images/${fileBase(w)}.jpg`, b, {base64:typeof b==="string"}); }
@@ -695,5 +703,5 @@ async function start(){
 if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")) navigator.serviceWorker.register("sw.js").catch(()=>{});
 start();
 </script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v9e10f3dc</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v6456d2a4</div>
 </body></html>
