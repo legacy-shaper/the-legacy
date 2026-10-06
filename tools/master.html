@@ -348,6 +348,8 @@ body[data-view="accounting"] .app,body[data-view="accounting"] .alt,body[data-vi
 .efile .fi{color:var(--gold);display:flex}
 .efile .fn{flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .efile .fn small{display:block;color:var(--muted);font-size:11px}
+@media (max-width:600px){.efile{flex-wrap:wrap}.efile .fn{flex:1 1 calc(100% - 30px)}.efile .btn{flex:1 1 auto}}
+#ctDocs{contain:inline-size;min-width:0}
 .efile .btn{padding:5px 10px;font-size:12px}
 .addfile{cursor:pointer}
 .rcpt{z-index:70;justify-content:center;align-items:center}
@@ -1157,7 +1159,7 @@ async function fullBackupZip(onStep){
   zip.file("settings/company.json", j(state.company));
   for(const coll of ["invoices","contacts","artworks","expenses"]) for(const [id,o] of Object.entries(state[coll]||{})) zip.file(`${coll}/${id}.json`, j(o));
   for(const [aid,vs] of Object.entries(state.views||{})) for(const [vid,v] of Object.entries(vs||{})) zip.file(`artworks/${aid}/views/${vid}.json`, j(v));
-  const files={}; for(const coll of ["invoices","expenses"]) for(const o of Object.values(state[coll]||{})) for(const f of [...(o.files||[]),...(o.proofs||[])]) files[f.id]=f;
+  const files={}; for(const coll of ["invoices","expenses","contacts"]) for(const o of Object.values(state[coll]||{})) for(const f of allFilesOf(o)) files[f.id]=f;
   let n=0; const ext=t=>t==="application/pdf"?"pdf":t==="image/png"?"png":t==="image/jpeg"?"jpg":"bin";
   for(const f of Object.values(files)){ n++; onStep&&onStep(`Justificatifs ${n}/${Object.keys(files).length}…`); try{ zip.file(`assets/${f.id}.${ext(f.type)}`, await fileBlob(f)); }catch(e){} }
   return await zip.generateAsync({type:"blob",compression:"DEFLATE"});
@@ -1168,7 +1170,7 @@ async function downloadFullBackup(z){
   const blob=await fullBackupZip(say);
   await saveFile(`The Legacy - sauvegarde ${d}.zip`, blob);
   if(db) await db.doc("settings/backup").set({lastAt:new Date().toISOString()});
-  say(`Sauvegarde complète téléchargée : ${Object.keys(state.invoices).length} factures, ${Object.keys(state.contacts).length} contacts, ${Object.keys(state.artworks).length} œuvres, photos et justificatifs.`);
+  say(`Sauvegarde complète téléchargée : ${Object.keys(state.invoices).length} factures, ${Object.keys(state.contacts).length} contacts, ${Object.keys(state.artworks).length} œuvres, photos, justificatifs et documents.`);
 }
 async function weeklyBackup(){
   if(!window.LEGACY_SB || !db || window.matchMedia("(max-width:900px)").matches || /iPhone|iPad/.test(navigator.userAgent)) return;
@@ -1191,7 +1193,7 @@ async function zipToBackup(file, z){
 }
 async function uploadBackupAssets(d, z){
   const ids=Object.keys(d.assets||{}); if(!ids.length||!assetsCap) return 0; let n=0;
-  const types={}; for(const coll of ["invoices","expenses"]) for(const o of Object.values(d[coll]||{})) for(const f of [...(o.files||[]),...(o.proofs||[])]) types[f.id]=f.type;
+  const types={}; for(const coll of ["invoices","expenses","contacts"]) for(const o of Object.values(d[coll]||{})) for(const f of allFilesOf(o)) types[f.id]=f.type;
   for(const id of ids){ if(z) z.firstElementChild&&(z.firstElementChild.firstElementChild.textContent=`Envoi des justificatifs… ${n+1}/${ids.length}`);
     const blob=await d.assets[id].async("blob"); await assetsCap.upload(blob,{type:types[id]||"application/octet-stream",id}); n++; }
   return n;
@@ -1351,7 +1353,7 @@ function renderSide(){
     el.innerHTML=`<input class="search" id="q2" type="search" placeholder="Rechercher un contact…" value="${esc(q2)}">
       <div class="lh" style="margin-top:16px"><span>Contacts</span><span>${all.length}</span></div>
       <div class="inv-list">${rows.map(c=>{ const n=contactInvoices(c).length; return `<button type="button" class="inv ${c.id===state.curContact?"on":""}" data-ct="${c.id}">
-        <span class="n">${esc(c.name||c.company||"Nouveau contact")}</span><span class="a">${n?n+" fact.":""}</span>
+        <span class="n">${esc(c.name||c.company||"Nouveau contact")}</span><span class="a">${[n?n+" fact.":"",(c.docs||[]).length?(c.docs.length+" doc."):""].filter(Boolean).join(" · ")}</span>
         <span class="c">${esc([c.name?c.company:"",c.email].filter(Boolean).join(" · ")||"—")}</span><span></span></button>`;}).join("") || `<div class="empty">${all.length?"Aucun résultat.":"Aucun contact pour l’instant."}</div>`}</div>
       ${!all.length && Object.keys(clientNames()).length?`<button type="button" class="btn" id="importClients" style="margin-top:10px">Importer les clients de mes factures</button>`:""}`;
   } else {
@@ -1392,6 +1394,7 @@ function renderDetail(){
         ${kf("TRN / n° TVA (facultatif)","trn",c.trn,"s3")}
         ${kf("Notes privées (n’apparaissent pas sur les factures)","notes",c.notes,"s6",{area:1,rows:3,ph:"Goûts, artistes suivis, conseiller, préférences de livraison…"})}
       </div></div>
+      <div class="card"><h2>Documents <span class="lock">Hors comptabilité</span></h2><p class="hint keep ctdoc-hint">Factures adressées au client, devis, contrats… Archivés ici uniquement : ils n’entrent pas dans la comptabilité de Legacy Shaper.</p><div id="ctDocs">${ctDocsHTML(c)}</div></div>
       <div class="card"><h2>Œuvres lui appartenant</h2>${(()=>{ const own=sortedArtworks().filter(a=>a.ownerContactId===c.id); return own.length?`<div class="inv-list">${own.map(a=>`<button type="button" class="art" data-art-open="${a.id}"><span class="th">${a.photo?`<img src="${a.photo}" alt="">`:""}</span><span class="tx"><span class="ar">${esc(a.artist||"Artiste")}</span><span class="ti"><i>${esc(a.title||"Sans titre")}</i>${a.year?", "+esc(a.year):""}</span><span class="pr">${esc(a.location||"")}</span></span><span class="chip st-${artStatus(a)}">${ART_STATUS[artStatus(a)]}</span></button>`).join("")}</div>`:`<p class="msg">Aucune œuvre enregistrée à son nom.</p>`; })()}</div>
       ${(()=>{ const br=sortedArtworks().filter(a=>a.brokerContactId===c.id); return br.length?`<div class="card"><h2>Intermédiaire sur</h2><div class="inv-list">${br.map(a=>{ const r=finOf(a); return `<button type="button" class="art" data-art-open="${a.id}"><span class="th">${a.photo?`<img src="${a.photo}" alt="">`:""}</span><span class="tx"><span class="ar">${esc(a.artist||"Artiste")}</span><span class="ti"><i>${esc(a.title||"Sans titre")}</i>${a.year?", "+esc(a.year):""}</span><span class="pr">Commission ${r.broker?esc(money(r.broker,r.cur,"en")):"—"}${(a.brokerMode||"pct")==="pct"&&a.brokerValue?" · "+esc(a.brokerValue)+" %":""}</span></span><span class="chip st-${artStatus(a)}">${ART_STATUS[artStatus(a)]}</span></button>`; }).join("")}</div></div>`:""; })()}
       <div class="card"><h2>Factures</h2>${invRows(invs)}</div>`;
@@ -1797,6 +1800,31 @@ function refreshAfterExp(){ if(state.view==="payables") renderPay(); else if(sta
 
 /* ---------------- expense sheet ---------------- */
 function fileKind(f){ return (f.type||"").startsWith("image/")?"img":"pdf"; }
+function allFilesOf(o){ return [...(o.files||[]),...(o.proofs||[]),...(o.docs||[])]; }
+const FILE_ICON={img:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="5" width="17" height="14" rx="1.5"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 16l-5-5-8 8"/></svg>',pdf:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 15h5M10 18h3"/></svg>'};
+function ctDocsHTML(c){
+  const ds=[...(c.docs||[])].sort((a,b)=>String(b.addedAt||"").localeCompare(String(a.addedAt||"")));
+  return `${ds.length?`<div class="efiles">${ds.map(f=>`<div class="efile"><span class="fi">${FILE_ICON[fileKind(f)]}</span><span class="fn">${esc(f.name||"Document")}<small>${[f.addedAt?fdate(f.addedAt.slice(0,10),"fr"):"",f.size?Math.max(1,Math.round(f.size/1024))+" Ko":""].filter(Boolean).map(esc).join(" · ")}</small></span>
+      <button type="button" class="btn" data-fview="${f.id}">Voir</button><button type="button" class="btn" data-fdl="${f.id}">Télécharger</button>${VIEWER?"":`<button type="button" class="btn danger ctdoc-del" data-fdel="${f.id}" aria-label="Supprimer">${ICON.trash}</button>`}</div>`).join("")}</div>`:`<p class="hint keep">Aucun document.</p>`}
+    ${VIEWER||window.LEGACY_SB?.offline?"":assetsCap?`<label class="btn addfile ctdoc-add"><input type="file" id="ctDocFile" accept="application/pdf,image/*" multiple hidden>+ Ajouter un document (PDF ou photo)</label>`:`<p class="hint keep">Pour joindre un document, envoyez-le à Claude dans la conversation.</p>`}
+    <div class="msg" id="ctDocMsg" hidden></div>`;
+}
+async function addContactDocs(files){
+  const c=state.contacts[state.curContact]; const msg=$("#ctDocMsg"); if(!c||!assetsCap) return; let added=0, lastErr="";
+  for(const file of files){ if(msg){ msg.hidden=false; msg.textContent="Envoi de « "+file.name+" »…"; }
+    try{ let blob=file, type=file.type, name=file.name;
+      if(type.startsWith("image/")){ const du=await resizeImage(file,2400); blob=await (await fetch(du)).blob(); type="image/jpeg"; name=name.replace(/\.[^.]+$/,"")+".jpg"; }
+      else if(type!=="application/pdf"){ lastErr="« "+file.name+" » : format non accepté, PDF ou photo uniquement."; continue; }
+      const r=await assetsCap.upload(blob,{type}); c.docs=c.docs||[]; c.docs.push({id:r.id,name,type:r.contentType,size:r.sizeBytes,addedAt:new Date().toISOString()});
+      fileCache[r.id]=blob; try{ await idb.set("f:"+r.id,blob); }catch(e){}
+      await flushDoc("contacts",c.id); added++;
+    }catch(err){ lastErr=err?.code==="too_large"?"« "+file.name+" » : fichier trop lourd (50 Mo maximum).":"« "+file.name+" » : l’envoi n’a pas abouti. Réessayez."; } }
+  if(added){ setSave(added>1?added+" documents ajoutés":"Document ajouté"); if(state.view==="contacts") renderAlt(); }
+  const m2=$("#ctDocMsg"); if(m2){ m2.hidden=!lastErr; m2.textContent=lastErr; }
+}
+let ctDocsCaching=false;
+async function cacheContactDocs(){ if(ctDocsCaching||!window.LEGACY_SB||window.LEGACY_SB.offline||!assetsCap||!navigator.onLine) return; ctDocsCaching=true;
+  try{ for(const c of Object.values(state.contacts||{})) for(const f of (c.docs||[])){ try{ if(await idb.get("f:"+f.id)) continue; await fileBlob(f); }catch(e){} } }finally{ ctDocsCaching=false; } }
 function filesHTML(e){
   const fs=e.files||[];
   return `${fs.length?`<div class="efiles">${fs.map(f=>`<div class="efile"><span class="fi">${fileKind(f)==="img"?'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="5" width="17" height="14" rx="1.5"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 16l-5-5-8 8"/></svg>':'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 15h5M10 18h3"/></svg>'}</span><span class="fn">${esc(f.name||"Justificatif")}<small>${f.size?Math.max(1,Math.round(f.size/1024))+" Ko":""}</small></span>
@@ -1898,7 +1926,10 @@ function openExp(id){
   };
 }
 async function fileBlob(f){
-  if(!VIEWER && window.LEGACY_SB && assetsCap && assetsCap.blob) return await assetsCap.blob(f.id);
+  if(!VIEWER && window.LEGACY_SB){
+    if(window.LEGACY_SB.offline||!navigator.onLine||!assetsCap||!assetsCap.blob){ const c=await idb.get("f:"+f.id).catch(()=>null); if(c) return c; throw new Error("offline"); }
+    try{ const b=await assetsCap.blob(f.id); try{ await idb.set("f:"+f.id,b); }catch(e){} return b; }
+    catch(err){ const c=await idb.get("f:"+f.id).catch(()=>null); if(c) return c; throw err; } }
   if(!VIEWER){ const r=await fetch("/_blob/"+f.id); if(!r.ok) throw new Error("missing"); return await r.blob(); }
   try{ const c=await idb.get("f:"+f.id); if(c) return c; }catch(e){}
   let r; try{ const ctl=new AbortController(); setTimeout(()=>ctl.abort(),20000); r=await fetch("files/"+f.id+".enc",{signal:ctl.signal}); }catch(e){ throw new Error("offline"); } if(!r.ok) throw new Error("offline");
@@ -1908,7 +1939,7 @@ async function fileBlob(f){
   const plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(env.iv)},aes,b64d(env.ct));
   const blob=new Blob([plain],{type:f.type||env.type||"application/octet-stream"}); try{ await idb.set("f:"+f.id,blob); }catch(e){} return blob;
 }
-function findFile(fid){ for(const e of Object.values(state.expenses)) for(const f of [...(e.files||[]),...(e.proofs||[])]) if(f.id===fid) return {e,f}; for(const e of Object.values(state.invoices)) for(const f of (e.proofs||[])) if(f.id===fid) return {e,f}; return null; }
+function findFile(fid){ for(const e of Object.values(state.expenses)) for(const f of [...(e.files||[]),...(e.proofs||[])]) if(f.id===fid) return {e,f,coll:"expenses"}; for(const e of Object.values(state.invoices)) for(const f of (e.proofs||[])) if(f.id===fid) return {e,f,coll:"invoices"}; for(const e of Object.values(state.contacts)) for(const f of (e.docs||[])) if(f.id===fid) return {e,f,coll:"contacts"}; return null; }
 const PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
 let pdfjsP=null;
 function ensurePdfJs(){ if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib); if(pdfjsP) return pdfjsP;
@@ -1924,13 +1955,13 @@ async function renderPdfInto(box, blob){
 }
 const fileCache={};
 async function viewFile(fid){
-  const x=findFile(fid); if(!x) return; const m=$("#expFileMsg"); if(m){ m.hidden=false; m.textContent="Ouverture…"; }
+  const x=findFile(fid); if(!x) return; const m=x.coll==="contacts"?$("#ctDocMsg"):$("#expFileMsg"); if(m){ m.hidden=false; m.textContent="Ouverture…"; }
   try{ const blob=fileCache[fid]||await fileBlob(x.f); fileCache[fid]=blob; if(m) m.hidden=true;
     const isImg=fileKind(x.f)==="img", u=URL.createObjectURL(blob);
-    const d=document.createElement("div"); d.className="ov lb rcpt"; d.innerHTML=`<div class="lbox rbox" role="dialog" aria-label="Justificatif">${isImg?`<img src="${u}" alt="">`:`<div class="pdfbox" id="pdfBox"><div class="hint keep">Affichage du PDF…</div></div>`}<div class="eacts"><button type="button" class="btn" data-fdl="${x.f.id}">Télécharger</button><button type="button" class="btn" data-fclose>Fermer</button></div></div>`;
+    const d=document.createElement("div"); d.className="ov lb rcpt"; d.innerHTML=`<div class="lbox rbox" role="dialog" aria-label="${x.coll==="contacts"?"Document":"Justificatif"}">${isImg?`<img src="${u}" alt="">`:`<div class="pdfbox" id="pdfBox"><div class="hint keep">Affichage du PDF…</div></div>`}<div class="eacts"><button type="button" class="btn" data-fdl="${x.f.id}">Télécharger</button><button type="button" class="btn" data-fclose>Fermer</button></div></div>`;
     document.body.appendChild(d); d.onclick=ev=>{ if(ev.target===d||ev.target.closest("[data-fclose]")){ d.remove(); URL.revokeObjectURL(u); } };
     if(!isImg){ const box=d.querySelector("#pdfBox"); try{ await renderPdfInto(box, blob); }catch(err){ box.innerHTML=`<iframe src="${u}" title="${esc(x.f.name)}"></iframe>`; } }
-  }catch(err){ if(m){ m.hidden=false; m.textContent=err.message==="offline"?"Connexion nécessaire pour ouvrir ce justificatif la première fois.":"Justificatif introuvable."; } }
+  }catch(err){ if(m){ m.hidden=false; m.textContent=err.message==="offline"?(x.coll==="contacts"?"Connexion nécessaire pour ouvrir ce document la première fois.":"Connexion nécessaire pour ouvrir ce justificatif la première fois."):(x.coll==="contacts"?"Document introuvable.":"Justificatif introuvable."); } }
 }
 async function dlFile(fid){ const x=findFile(fid); if(!x) return;
   try{ const blob=fileCache[fid]||await fileBlob(x.f); fileCache[fid]=blob;
@@ -1940,7 +1971,8 @@ async function dlFile(fid){ const x=findFile(fid); if(!x) return;
   }catch(err){ if(err?.code!=="declined") setSave("Téléchargement impossible",true); } }
 function prefetchFiles(e){ (e.files||[]).forEach(f=>{ if(!fileCache[f.id]) fileBlob(f).then(b=>{ fileCache[f.id]=b; }).catch(()=>{}); }); }
 async function delFile(fid,btn){ const x=findFile(fid); if(!x) return; if(!btn.classList.contains("arm")){ btn.classList.add("arm"); btn.title="Confirmer"; return; }
-  x.e.files=x.e.files.filter(f=>f.id!==fid); await flushDoc("expenses",x.e.id); openExp(x.e.id);
+  if(x.coll==="contacts"){ x.e.docs=(x.e.docs||[]).filter(f=>f.id!==fid); await flushDoc("contacts",x.e.id); delete fileCache[fid]; renderAlt(); setSave("Document supprimé"); }
+  else { x.e.files=x.e.files.filter(f=>f.id!==fid); await flushDoc("expenses",x.e.id); openExp(x.e.id); }
   if(assetsCap){ try{ await assetsCap.delete(fid); }catch(err){} } }
 
 function renderAlt(){ if(state.view==="accounting"){ renderAcct(); return; } if(state.view==="payables"){ renderPay(); return; } renderSide(); renderDetail(); renderHome(); }
@@ -2013,6 +2045,7 @@ document.addEventListener("click",async e=>{
 });
 document.addEventListener("change",e=>{
   if(e.target.id==="ficheProv"){ state.ficheProv=e.target.checked; return; }
+  if(e.target.id==="ctDocFile"){ const fs=[...(e.target.files||[])]; e.target.value=""; if(fs.length) addContactDocs(fs); return; }
   if(e.target.id==="pickContact"){ const c=state.contacts[e.target.value], inv=state.invoices[state.current]; if(c&&inv){ inv.client=clientFromContact(c); inv.contactId=c.id; touch({editor:true}); } return; }
   if(e.target.dataset && e.target.dataset.brksel!==undefined){ const a=state.artworks[state.curArt]; if(!a) return; const v=e.target.value;
     window.__brkOther=(v==="__other");
@@ -2150,7 +2183,7 @@ async function viewerSync(manual){
         if(JSON.stringify(state.invoices[id])===JSON.stringify(data)) return;
         state.invoices[id]=data; if(id===state.current) curChanged=true;
       });
-      if(first){ first=false; if(!state.invoices[state.current]) state.current=sortedInvoices()[0]?.id||null; if(state.view==="invoices") renderAll(); else renderAlt(); setSave("Enregistré"); if(window.LEGACY_SB) setTimeout(weeklyBackup,4000); return; }
+      if(first){ first=false; if(!state.invoices[state.current]) state.current=sortedInvoices()[0]?.id||null; if(state.view==="invoices") renderAll(); else renderAlt(); setSave("Enregistré"); if(window.LEGACY_SB){ setTimeout(weeklyBackup,4000); setTimeout(cacheContactDocs,8000); } return; }
       if(state.view!=="invoices"){ renderAlt(); return; }
       renderList();
       if(curChanged){ if(!state.invoices[state.current]) state.current=sortedInvoices()[0]?.id||null; const a=document.activeElement; if(!a||!a.dataset?.p){ renderEditor(); } renderPreview(); }
