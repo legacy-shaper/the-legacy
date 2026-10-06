@@ -29,7 +29,7 @@ revoke all on function private.coll_id(text) from public, anon, authenticated;
 CREATE OR REPLACE FUNCTION private.sync_master_doc()
  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
 AS $function$
-declare d jsonb; c text; i text; aid text; cid uuid; f jsonb; keep text[]; vis boolean;
+declare d jsonb; c text; i text; aid text; cid uuid; oldcid uuid; f jsonb; keep text[]; vis boolean;
 begin
   if tg_op = 'DELETE' then
     c := old.coll; i := old.id;
@@ -50,6 +50,7 @@ begin
     on conflict (id) do update set name=excluded.name, company=excluded.company, email=excluded.email, phone=excluded.phone, address=excluded.address, trn=excluded.trn, notes=excluded.notes;
   elsif c = 'artworks' then
     cid := private.coll_id(d->>'collectionId');
+    oldcid := (select a.collection_id from public.artworks a where a.id = i);
     insert into public.artworks(id, collection_id, ref, artist, title, year, medium, dimensions, category, edition_type, edition_number, owner_name, owner_contact_id,
         ownership_share, ownership_note, location_text, location_since, provenance, exhibitions, literature, condition, insured_value, insured_currency,
         acquisition_date, acquisition_price, acquisition_currency, acquisition_source, notes, thumb)
@@ -72,6 +73,10 @@ begin
     values (i, d->>'status', private.nnum(d->>'price'), private.nnum(d->>'cost'), d->>'currency', private.nnum(d->>'discount'), d->>'broker', d->>'notes')
     on conflict (artwork_id) do update set status=excluded.status, price=excluded.price, cost=excluded.cost, currency=excluded.currency, discount=excluded.discount,
       broker=excluded.broker, internal_notes=excluded.internal_notes;
+    -- the work changed collection: its expenses and documents follow
+    if oldcid is distinct from cid then
+      update public.master_docs set data = data where coll = 'expenses' and data->>'artworkId' = i;
+    end if;
   elsif c = 'invoices' then
     insert into public.invoices(id,number,date,due,paid_date,status,currency,lang,vat_mode,vat_rate,discount,contact_id,client,items,payments,terms,reference,fx_aed)
     values (i, nullif(d->>'number',''), private.ndate(d->>'date'), private.ndate(d->>'due'), private.ndate(d->>'paidDate'),

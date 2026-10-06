@@ -74,5 +74,8 @@ manifest = {"name": "Legacy Shaper", "short_name": "Legacy Shaper", "description
                       {"src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}]}
 json.dump(manifest, open(os.path.join(OUT, "manifest.webmanifest"), "w"), ensure_ascii=False, indent=2)
 open(os.path.join(OUT, "CNAME"), "w").write("app.legacy-shaper.com\n")
+# logo used by the access-code email (gold on the green email header)
+_g = Image.open(io.BytesIO(base64.b64decode(logos["LOGO_GOLD"].split(",", 1)[1]))).convert("RGBA")
+_g.thumbnail((440, 440), Image.LANCZOS); _g.save(os.path.join(OUT, "email-logo.png"), optimize=True)
 open(os.path.join(OUT, "robots.txt"), "w").write("User-agent: *\nDisallow: /\n")
 print("build", build)
