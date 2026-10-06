@@ -675,18 +675,24 @@ async function signOut(){
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&S.openId) closeWork(); });
 
 /* ---------------- start ---------------- */
+const within=(pr,ms)=>Promise.race([pr,new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),ms))]);
 async function start(){
-  if(!window.supabase){ const c=await lastCopy(); if(c&&!SHARED()) openFromCache(); else gateOffline(false); return; }
+  // Offline first: the copy kept on this device opens at once, whatever the network does; it is refreshed when the connection allows.
+  const copy=SHARED()?null:await lastCopy();
+  if(copy) openFromCache();
+  if(!window.supabase){ if(!copy) gateOffline(false); return; }
   sb=window.supabase.createClient(CFG.url,CFG.key,{auth:{persistSession:true,autoRefreshToken:true,storage:authStore,storageKey:"ls-client-auth",detectSessionInUrl:false}});
   window.addEventListener("online",()=>refresh(true));
   document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") refresh(true); });
   setInterval(()=>{ if(document.visibilityState==="visible") refresh(true); }, window.LS_POLL_MS||60000);
-  if(navigator.onLine===false){ const c=await lastCopy(); if(c&&!SHARED()){ openFromCache(); return; } }
-  let session=null; try{ const {data}=await sb.auth.getSession(); session=data&&data.session; }catch(e){}
+  if(navigator.onLine===false){ if(!copy) gateOffline(false); return; }
+  let session=null, failed=false;
+  try{ const {data,error}=await within(sb.auth.getSession(),8000); session=data&&data.session; if(error) failed=true; }catch(e){ failed=true; }
   if(session){ await afterSignIn(); return; }
+  if(failed){ if(!copy) gateOffline(false); return; }   // no network: keep the device copy on screen
   gateEmail();
 }
-if("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
+if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")) navigator.serviceWorker.register("sw.js").catch(()=>{});
 start();
 </script>
 </body></html>
