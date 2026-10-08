@@ -316,7 +316,7 @@ const I18N={
    chatPh:"Your message…",chatSend:"Send",chatAttach:"Add a photo or a PDF",chatAbout:"About",chatMe:"You",chatAi:"Legacy Shaper",chatDylanName:"Dylan Lessel",
    chatOffline:"Messages will be available as soon as the connection is back.",chatFail:"Your message could not leave yet. Please try again in a moment.",
    chatTooBig:"This file is larger than 15 MB.",askWork:"A question about this work",
-   atScale:"View at scale",scaleTile:"At scale",plinthLow:"Low plinth",plinthHigh:"90 cm plinth",scaleAdjust:"Adjust position",scaleInPdf:"Add to the PDF sheet",scaleSave:"Save",roomHint:"Move the work and the chair with your finger",reset:"Reset",saveView:"Save image",
+   atScale:"View at scale",scaleTile:"At scale",plinthLow:"Low plinth",plinthHigh:"90 cm plinth",chairOn:"With chair",chairOff:"Without chair",roomHintNoChair:"Move the work with your finger",scaleAdjust:"Adjust position",scaleInPdf:"Add to the PDF sheet",scaleSave:"Save",roomHint:"Move the work and the chair with your finger",reset:"Reset",saveView:"Save image",
    walls:{pearl:"Pearl grey",white:"Gallery white",linen:"Linen",green:"Legacy green"},
    foot:"Legacy Shaper Collection · Dubai",sheetFoot:"Inventory sheet · Legacy Shaper Collection Office"},
  fr:{access:"Accès privé",intro:"Saisissez l’adresse e-mail enregistrée chez Legacy Shaper. Un code d’accès vous sera envoyé.",email:"Adresse e-mail",getCode:"Recevoir mon code",
@@ -357,7 +357,7 @@ const I18N={
    chatPh:"Votre message…",chatSend:"Envoyer",chatAttach:"Ajouter une photo ou un PDF",chatAbout:"À propos de",chatMe:"Vous",chatAi:"Legacy Shaper",chatDylanName:"Dylan Lessel",
    chatOffline:"La messagerie sera disponible dès le retour de la connexion.",chatFail:"Votre message n’a pas encore pu partir. Réessayez dans un instant.",
    chatTooBig:"Ce fichier dépasse 15 Mo.",askWork:"Une question sur cette œuvre",
-   atScale:"Voir à l’échelle",scaleTile:"À l’échelle",plinthLow:"Socle bas",plinthHigh:"Socle 90 cm",scaleAdjust:"Ajuster l’emplacement",scaleInPdf:"Ajouter à la fiche PDF",scaleSave:"Enregistrer",roomHint:"Déplacez l’œuvre et la chaise du doigt",reset:"Recentrer",saveView:"Enregistrer l’image",
+   atScale:"Voir à l’échelle",scaleTile:"À l’échelle",plinthLow:"Socle bas",plinthHigh:"Socle 90 cm",chairOn:"Avec chaise",chairOff:"Sans chaise",roomHintNoChair:"Déplacez l’œuvre du doigt",scaleAdjust:"Ajuster l’emplacement",scaleInPdf:"Ajouter à la fiche PDF",scaleSave:"Enregistrer",roomHint:"Déplacez l’œuvre et la chaise du doigt",reset:"Recentrer",saveView:"Enregistrer l’image",
    walls:{pearl:"Gris perle",white:"Blanc galerie",linen:"Lin",green:"Vert Legacy"},
    foot:"Legacy Shaper Collection · Dubaï",sheetFoot:"Fiche d’inventaire · Legacy Shaper Collection Office"}
 };
@@ -703,6 +703,7 @@ async function openWork(id,keep){
       ${(views.length>1||scOK)?`<div class="thumbs">${views.map((v,i)=>`<button data-v="${esc(v.id)}" class="${i===0?"on":""}"><img alt="" data-vt="${esc(v.id)}"></button>`).join("")}${scOK?`<button class="sct" id="dScTile" aria-label="${esc(t("atScale"))}"><img alt="" id="dScThumb"><span>${esc(t("scaleTile"))}</span></button>`:""}</div>`:""}
       ${scOK?`<div class="scbar" id="dScBar" hidden><div class="sw">${ROOM.walls.map(([k,c])=>`<button data-scwall="${k}" title="${esc(t("walls")[k])}" aria-label="${esc(t("walls")[k])}" style="background:${c}" class="${k===scSet.wall?"on":""}"></button>`).join("")}</div>
         ${(canStand(w)&&canHighPlinth(w))?`<span class="seg"><button data-plinth="low" class="${scSet.plinth==="high"?"":"on"}">${esc(t("plinthLow"))}</button><button data-plinth="high" class="${scSet.plinth==="high"?"on":""}">${esc(t("plinthHigh"))}</button></span>`:""}
+        <span class="seg"><button data-chair="on" class="${scSet.chair==="off"?"":"on"}">${esc(t("chairOn"))}</button><button data-chair="off" class="${scSet.chair==="off"?"on":""}">${esc(t("chairOff"))}</button></span>
         <button class="tb" id="dScAdj">${esc(t("scaleAdjust"))}</button><label><input type="checkbox" id="dScPdf" ${scPdf?"checked":""}> ${esc(t("scaleInPdf"))}</label></div>`:""}</div>
     <div class="dh"><div class="artist">${esc(w.artist)}</div><div class="title"><i>${esc(w.title)}</i>${w.year?`, ${esc(w.year)}`:""}</div>
       <dl class="facts">${fact("medium",esc(w.medium))}${fact("dims",esc(dimsLine(w.dimensions)))}${fact("edition",esc(editionLine(w)))}
@@ -734,7 +735,10 @@ async function openWork(id,keep){
     $("#dScAdj").onclick=async()=>openRoom(w, await basePhoto(), { fit:true, init:Object.assign({wall:"pearl"},scaleGet(id)), saveLabel:t("scaleSave"), onSave:st=>{ scaleSet(id,st); d.querySelectorAll("[data-scwall]").forEach(x=>x.classList.toggle("on",x.dataset.scwall===st.wall)); scaleThumb(); } });
     $("#dScPdf").onchange=e=>scalePdfSet(id,e.target.checked);
     d.querySelectorAll("[data-plinth]").forEach(b=>b.onclick=()=>{ const v=Object.assign({},scaleGet(id)); if(b.dataset.plinth==="high") v.plinth="high"; else delete v.plinth; scaleSet(id,v);
-      d.querySelectorAll("[data-plinth]").forEach(x=>x.classList.toggle("on",x===b)); scaleThumb(); }); }
+      d.querySelectorAll("[data-plinth]").forEach(x=>x.classList.toggle("on",x===b)); scaleThumb(); });
+    d.querySelectorAll("[data-chair]").forEach(b=>b.onclick=()=>{ const v=Object.assign({},scaleGet(id)); if(b.dataset.chair==="off") v.chair="off"; else delete v.chair;
+      delete v.artX; delete v.chairX; if(canStand(w)) delete v.artY; scaleSet(id,v);
+      d.querySelectorAll("[data-chair]").forEach(x=>x.classList.toggle("on",x===b)); scaleThumb(); }); }
   if(current) show(current);
   d.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>show(b.dataset.v));
   d.querySelectorAll("[data-vt]").forEach(async im=>{ const p=await viewPhoto(im.dataset.vt); if(p) im.src=p; });

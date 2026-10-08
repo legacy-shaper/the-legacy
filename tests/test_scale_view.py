@@ -291,6 +291,32 @@ with sync_playwright() as pw:
         check(tall < 90, f"{name}: master — a 1.50 m piece keeps the low plinth ({tall:.0f} cm)")
         p.click("[data-plinth=low]"); p.wait_for_timeout(1500)
         check("plinth" not in DOC("art4").get("scaleView", {}), f"{name}: master — back to the low plinth")
+        # with or without the chair
+        check(p.locator("[data-chair=on].on").count() == 1, f"{name}: master — chair shown by default")
+        p.click("[data-chair=off]"); p.wait_for_timeout(1500)
+        sv = DOC("art4").get("scaleView", {})
+        check(sv.get("chair") == "off" and "artX" not in sv and p.locator("[data-chair=off].on").count() == 1, f"{name}: master — 'Sans chaise' chosen and saved, composition recentred")
+        nc = p.evaluate("""(async()=>{ const a=state.artworks.art4, im=await roomImg(scaleSrc(a)); const ch=await roomImg('room-chair.webp');
+            const s={stand:true,dims:standDims(a),obj:roomObj(im),chair:ch,noChair:true}; roomDefaults(s); roomApply(s,a.scaleView); roomFit(s,1600,1200,1);
+            const g=standGeom(s), L=roomP(s,s.artX-g.pw/2,0,g.zf)[0], Rr=roomP(s,s.artX+g.pw/2,0,g.zf)[0];
+            const c=document.createElement('canvas'); c.width=1600; c.height=1200; let calls=0; const x=c.getContext('2d'); const d0=x.drawImage.bind(x); x.drawImage=(i,...r)=>{ if(i===ch) calls++; return d0(i,...r); };
+            const cr=chairRect(s); s.W=1600; roomDraw(c,null,s); s.noChair=false; roomDraw(c,null,s);
+            return {centred:Math.abs((L+Rr)/2-800)<2, bigger:(Rr-L), chairDrawn:calls, art:s.artX}; })()""")
+        check(nc["centred"] and nc["chairDrawn"] == 1, f"{name}: master — without the chair: volume centred, chair not drawn (drawn once when back on)")
+        p.wait_for_function("(()=>{const i=document.querySelector('#scaleOpen img'); return i&&i.complete&&i.naturalWidth===1600})()")
+        if name == "mac":
+            p.click("#scaleOpen"); p.wait_for_selector("#scBigImg"); p.wait_for_function("document.querySelector('#scBigImg').naturalWidth===2400"); p.wait_for_timeout(200)
+            p.screenshot(path="/tmp/ls-scale-nochair.png"); p.keyboard.press("Escape"); p.wait_for_timeout(150)
+        p.click("#scaleAdjust"); p.wait_for_selector("#room:not([hidden]) canvas"); p.wait_for_function("R.W && R.obj")
+        check(p.evaluate("R.noChair===true") and "chaise" not in p.inner_text("#rHint"), f"{name}: master — editor opens without the chair")
+        p.click("#rSave"); p.wait_for_timeout(1500)
+        check(DOC("art4").get("scaleView", {}).get("chair") == "off", f"{name}: master — 'sans chaise' kept after adjusting")
+        p.click("[data-chair=on]"); p.wait_for_timeout(1500)
+        check("chair" not in DOC("art4").get("scaleView", {}), f"{name}: master — back to 'Avec chaise'")
+        # a painting without the chair too
+        hp = p.evaluate("""(async()=>{ const ch=await roomImg('room-chair.webp'); const s={dims:{h:100,w:81},chair:ch,noChair:true}; roomDefaults(s,false); roomApply(s,{chair:'off'}); roomFit(s,1600,1200,1,true);
+            const a=artRect(s); return {centred:Math.abs(a.x+a.w/2-800)<1, inview:a.x>0&&a.x+a.w<1600&&a.y>0, set:roomSettings(Object.assign(s,{wall:'pearl'}))}; })()""")
+        check(hp["centred"] and hp["inview"] and hp["set"].get("chair") == "off", f"{name}: master — painting without the chair: centred, in view, setting kept")
         open_art("art3"); p.wait_for_timeout(300)
         check("Indiquez les dimensions" in p.inner_text("#scaleWrap"), f"{name}: master — missing dimensions: hint instead of the image")
         p.fill("#k_dimensions", "65 x 54 cm"); p.wait_for_selector("#scaleOpen img", timeout=20000)
@@ -364,6 +390,16 @@ with sync_playwright() as pw:
         p.evaluate("(u)=>{ const w=S.data.works.find(x=>x.id==='aur-04'); S.viewPhotos={}; const v=(S.data.views||[]).filter(v=>v.artwork_id==='aur-04'); v.forEach(x=>S.viewPhotos[x.id]=u); w.thumb=u; openWork('aur-04'); }", PAIR_URL)
         p.wait_for_function("(()=>{const i=document.querySelector('#dScThumb'); return i&&i.complete&&i.naturalWidth===1600})()", timeout=30000)
         check(True, f"{name}: client — sculpture on its plinth among the views")
+        p.click("#dScTile"); p.wait_for_selector("#dScBar:not([hidden])")
+        check(p.locator("[data-chair=on].on").count() == 1, f"{name}: client — chair shown by default")
+        p.click("[data-chair=off]"); p.wait_for_timeout(1200)
+        check(p.evaluate("JSON.parse(localStorage.getItem('ls-scale:aur-04')).chair") == "off" and p.locator("[data-chair=off].on").count() == 1, f"{name}: client — 'Sans chaise' kept on this device")
+        p.click("#dScAdj"); p.wait_for_selector("#room:not([hidden]) canvas"); p.wait_for_function("R.W && R.art")
+        check(p.evaluate("R.noChair===true") and "chaise" not in p.inner_text("#rHint").lower() and "chair" not in p.inner_text("#rHint").lower(), f"{name}: client — editor without the chair")
+        if name == "iphone": p.screenshot(path="/tmp/ls-client-nochair-iphone.png")
+        p.click("#rBack"); p.wait_for_timeout(100)
+        p.click("[data-chair=on]"); p.wait_for_timeout(600)
+        check("chair" not in p.evaluate("JSON.parse(localStorage.getItem('ls-scale:aur-04'))"), f"{name}: client — back to 'Avec chaise'")
         ctx.close()
     # database without the scale_view column (before SQL 005): the collection still opens
     OLDMOCK = CMOCK.replace("select() { return q; },", "select(c) { if (table === 'artworks' && String(c || '').includes('scale_view')) ins = '__nocol'; return q; },")

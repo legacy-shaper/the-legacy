@@ -8,9 +8,9 @@
    work's centre above the floor). Static image (roomRender) and interactive view (openRoom) share them. */
 const ROOM={ D:500, EYE:140, CHAIR_H:80, CHAIR_Z:30, CHAIR_FRONT:55, FLOOR_MARGIN:7, PANEL:100, STATIC_W:1600, STATIC_H:1200,
   walls:[["pearl","#DAD8D3"],["white","#EEECE7"],["linen","#D8CFC0"],["green","#33503B"]] };
-const ROOM_TXT={ fr:{back:"Retour",atScale:"Voir à l’échelle",roomHint:"Déplacez l’œuvre et la chaise du doigt",reset:"Recentrer",saveView:"Enregistrer l’image",
+const ROOM_TXT={ fr:{back:"Retour",atScale:"Voir à l’échelle",roomHint:"Déplacez l’œuvre et la chaise du doigt",roomHintNoChair:"Déplacez l’œuvre du doigt",reset:"Recentrer",saveView:"Enregistrer l’image",
     walls:{pearl:"Gris perle",white:"Blanc galerie",linen:"Lin",green:"Vert Legacy"}},
-  en:{back:"Back",atScale:"View at scale",roomHint:"Move the work and the chair with your finger",reset:"Reset",saveView:"Save image",
+  en:{back:"Back",atScale:"View at scale",roomHint:"Move the work and the chair with your finger",roomHintNoChair:"Move the work with your finger",reset:"Reset",saveView:"Save image",
     walls:{pearl:"Pearl grey",white:"Gallery white",linen:"Linen",green:"Legacy green"}} };
 const RH=()=>window.ROOM_HOST||{};
 const rt=k=>{ const h=RH(); if(h.t){ const v=h.t(k); if(v!==undefined&&v!==k) return v; } const L=ROOM_TXT[h.lang||"fr"]||ROOM_TXT.fr; return L[k]!==undefined?L[k]:ROOM_TXT.en[k]; };
@@ -53,6 +53,8 @@ const roomAsset=f=>(RH().base||"")+f;
 const fmtCm=v=>(Math.round(v*10)/10).toLocaleString((RH().lang||"fr")==="fr"?"fr-FR":"en-GB",{maximumFractionDigits:1});
 const R={};   // live state of the open (interactive) view
 function chairW(s=R){ return s.chair?ROOM.CHAIR_H*s.chair.width/s.chair.height:66; }
+/* half-width the chair takes from the centre (0 when the view is shown without the chair: settings chair:"off") */
+const chairExt=(s=R)=>s.noChair?0:Math.abs(s.chairX)+chairW(s)/2;
 /* size the work occupies on the wall (cm): its dimensions, or the bounding box when it hangs at an angle */
 function artBox(s=R){ const {h,w}=s.dims, a=s.cut&&s.cut.angle||0; if(!a) return {w,h};
   const c=Math.abs(Math.cos(a)), n=Math.abs(Math.sin(a)); return {w:w*c+h*n, h:w*n+h*c}; }
@@ -70,6 +72,10 @@ function standGeom(s=R){
 function roomWallOk(k){ return ROOM.walls.some(v=>v[0]===k)?k:"pearl"; }
 /* default composition. portrait: phone held upright → chair beneath the work when it fits */
 function roomDefaults(s=R,portrait){
+  if(s.noChair){ // without the chair: the work (or the volume on its plinth) alone, centred
+    s.chairX=0; s.artX=0;
+    if(s.stand){ s.artY=0; s.extentW=standGeom(s).pw; return; }
+    const {h,w}=artBox(s); s.artY=Math.max(150,h/2+25); s.extentW=w; return; }
   if(s.stand){ const g=standGeom(s), cw=chairW(s), gap=30, total=cw+gap+g.pw; s.chairX=-total/2+cw/2; s.artX=total/2-g.pw/2; s.artY=0; s.extentW=total; return; }
   const {h,w}=artBox(s), cw=chairW(s), gap=Math.max(25,Math.min(60,w*0.25));
   s.artY=Math.max(150,h/2+25);                     // centre at 150 cm (museum hang), never closer than 25 cm to the floor
@@ -84,15 +90,15 @@ function roomDefaults(s=R,portrait){
 function roomApply(s,set){ if(!set) return false; let ok=false;
   for(const k of ["artX","artY","chairX"]) if(typeof set[k]==="number"&&isFinite(set[k])){ s[k]=set[k]; ok=true; }
   if(ok&&s.stand){ s.extentW=0; return ok; }
-  if(ok){ const cw=chairW(s), w=artBox(s).w; s.extentW=2*Math.max(Math.abs(s.artX)+w/2,Math.abs(s.chairX)+cw/2); }
+  if(ok){ const w=artBox(s).w; s.extentW=2*Math.max(Math.abs(s.artX)+w/2,chairExt(s)); }
   return ok; }
-const roomSettings=(s=R)=>Object.assign({wall:s.wall,artX:+s.artX.toFixed(2),artY:+s.artY.toFixed(2),chairX:+s.chairX.toFixed(2)},s.cutOff?{cut:"off"}:{},s.plinth==="high"?{plinth:"high"}:{});
+const roomSettings=(s=R)=>Object.assign({wall:s.wall,artX:+s.artX.toFixed(2),artY:+s.artY.toFixed(2),chairX:+s.chairX.toFixed(2)},s.cutOff?{cut:"off"}:{},s.plinth==="high"?{plinth:"high"}:{},s.noChair?{chair:"off"}:{});
 /* layout: px per cm on the wall, wall base line, horizon. fit: frame everything around the composition (static image) */
 function roomFit(s,W,H,dpr,fit){
   if(s.stand) return roomFitStand(s,W,H,dpr);
-  const {h,w}=artBox(s), cw=chairW(s);
+  const {h,w}=artBox(s), cw=s.noChair?0:chairW(s);
   let ext=s.extentW||cw+w+40;
-  if(fit) ext=2*Math.max(Math.abs(s.artX)+w/2,Math.abs(s.chairX)+cw/2);
+  if(fit) ext=2*Math.max(Math.abs(s.artX)+w/2,chairExt(s));
   const needH=Math.max(240,s.artY+h/2+(fit?30:40));
   const needW=Math.max(ext+2*(fit?24:18), 200);
   // the floor stops a few centimetres below the chair's front feet: the eye stays on the wall and the work
@@ -104,11 +110,11 @@ function roomFit(s,W,H,dpr,fit){
 }
 function roomFitStand(s,W,H,dpr){
   const D=ROOM.D, g=standGeom(s), cw=chairW(s), zch=D-ROOM.CHAIR_Z, kc=D/zch, kf=D/g.zf, kc2=D/g.zc;
-  const ext=2*Math.max(Math.abs(s.chairX)*kc+cw/2*kc, Math.abs(s.artX)*kf+g.pw/2*kf);
+  const ext=2*Math.max(s.noChair?0:Math.abs(s.chairX)*kc+cw/2*kc, Math.abs(s.artX)*kf+g.pw/2*kf);
   const needW=Math.max(ext+48,200);
   const top=ROOM.EYE+(g.ph+g.h-ROOM.EYE)*kc2;                       // highest point, in wall centimetres
   const needH=Math.max(190,top+35);
-  const znear=Math.min(D-ROOM.CHAIR_FRONT,g.zf), floorCm=ROOM.EYE*(D/znear-1)+ROOM.FLOOR_MARGIN+(g.floor?0:4);
+  const znear=s.noChair?g.zf:Math.min(D-ROOM.CHAIR_FRONT,g.zf), floorCm=ROOM.EYE*(D/znear-1)+ROOM.FLOOR_MARGIN+(g.floor?0:4);
   const scale=Math.min(H/(needH+floorCm), W/needW);
   Object.assign(s,{W,H,dpr,scale,baseY:H-scale*floorCm,cx:W/2}); s.f=scale*D; s.horizon=s.baseY-scale*ROOM.EYE;
   roomFloor(s); }
@@ -432,7 +438,8 @@ function drawHung(x,s){
       x.drawImage(s.art,(iw-sw)/2,(ih-sh)/2,sw,sh,a.x,a.y,a.w,a.h); } }
 }
 function drawChair(x,s){
-  // chair: contact shadow, then the chair
+  // chair: contact shadow, then the chair (left out when the view is shown without it)
+  if(s.noChair) return;
   const c=chairRect(s); let g;
   x.save(); x.translate(c.x+c.w/2,c.foot-c.h*0.04); x.scale(1,0.16);
   g=x.createRadialGradient(0,0,0,0,0,c.w*0.62); g.addColorStop(0,"rgba(0,0,0,.42)"); g.addColorStop(1,"rgba(0,0,0,0)");
@@ -447,7 +454,7 @@ async function roomRender(w,photo,set,opts){
   const dims=stand?standDims(w):parseDims(w&&w.dimensions); if(!dims) return null;
   opts=opts||{}; const W=opts.W||ROOM.STATIC_W, H=opts.H||ROOM.STATIC_H;
   const [art,chair,parquet]=await Promise.all([roomImg(photo),roomImg(roomAsset("room-chair.webp")),roomImg(roomAsset("room-parquet.jpg"))]);
-  const s={dims,wall:roomWallOk(set&&set.wall),art,chair,parquet};
+  const s={dims,wall:roomWallOk(set&&set.wall),art,chair,parquet,noChair:!!(set&&set.chair==="off")};
   if(stand){ s.stand=true; s.onFloor=ON_FLOOR.test(w.category||""); s.plinth=set&&set.plinth; s.obj=roomObj(art); if(!s.obj) return null; }
   else { s.cutOff=!!(set&&set.cut==="off"); s.cut=s.cutOff?null:roomCut(art,dims); }
   roomDefaults(s,false); roomApply(s,set);
@@ -471,14 +478,14 @@ async function openRoom(w,photo,opt){
   let el=document.getElementById("room"); if(!el){ el=document.createElement("div"); el.id="room"; document.body.appendChild(el); }
   el.hidden=false; R.prevOverflow=document.body.style.overflow; document.body.style.overflow="hidden";
   el.innerHTML=`<div class="rtop"><button id="rBack">← ${resc(rt("back"))}</button><div class="rt"><b><i>${resc(w.title||"")}</i>${w.year?`, ${resc(w.year)}`:""}</b><span>${resc(w.artist)}</span></div><span style="width:62px"></span></div>
-    <div class="rstage" id="rStage"><canvas id="rCv"></canvas><div class="hint" id="rHint">${resc(rt("roomHint"))}</div></div>
+    <div class="rstage" id="rStage"><canvas id="rCv"></canvas><div class="hint" id="rHint">${resc(rt(opt.init&&opt.init.chair==="off"?"roomHintNoChair":"roomHint"))}</div></div>
     <div class="rbar"><div class="sw">${ROOM.walls.map(([k,c])=>`<button data-wall="${k}" title="${resc(rt("walls")[k])}" aria-label="${resc(rt("walls")[k])}" style="background:${c}" class="${k===wall?"on":""}"></button>`).join("")}</div>
       <span class="dim">${stand?`H. ${resc(fmtCm(dims.h))} cm`:`${resc(fmtCm(dims.h))} × ${resc(fmtCm(dims.w))} cm`}</span><span class="rb"><button class="tb" id="rReset">${resc(rt("reset"))}</button><button class="tb ${opt.onSave?"pri":""}" id="rSave">${resc(opt.saveLabel||rt("saveView"))}</button></span></div>`;
   for(const k of Object.keys(R)) delete R[k];
   Object.assign(R,{ w, dims, wall, art:null, chair:null, parquet:null, floor:null, drag:null, open:true, opt });
   const [art,chair,parquet]=await Promise.all([roomImg(photo),roomImg(roomAsset("room-chair.webp")),roomImg(roomAsset("room-parquet.jpg"))]);
   if(!R.open) return;
-  R.art=art; R.chair=chair; R.parquet=parquet;
+  R.art=art; R.chair=chair; R.parquet=parquet; R.noChair=!!(opt.init&&opt.init.chair==="off");
   if(stand){ R.stand=true; R.onFloor=ON_FLOOR.test(w.category||""); R.plinth=opt.init&&opt.init.plinth; R.obj=roomObj(art); }
   else { R.cutOff=!!(opt.init&&opt.init.cut==="off"); R.cut=R.cutOff?null:roomCut(art,dims); }
   const reset=()=>{ const st=document.getElementById("rStage"); roomDefaults(R,!opt.fit&&st&&st.clientWidth<st.clientHeight*0.85); };
@@ -518,7 +525,7 @@ function roomPt(e){ const r=document.getElementById("rCv").getBoundingClientRect
 const inRect=(p,r,pad)=>p.x>=r.x-pad&&p.x<=r.x+r.w+pad&&p.y>=r.y-pad&&p.y<=r.y+r.h+pad;
 function roomDown(e){
   const p=roomPt(e), c=chairRect(), a=R.stand?standHit():artHit();
-  const what=inRect(p,c,4)?"chair":inRect(p,a,8)?"art":null; if(!what) return;
+  const what=(!R.noChair&&inRect(p,c,4))?"chair":inRect(p,a,8)?"art":null; if(!what) return;
   R.drag={what,p0:p,ax:R.artX,ay:R.artY,chx:R.chairX}; e.target.setPointerCapture(e.pointerId); e.target.classList.add("drag");
   const h=document.getElementById("rHint"); if(h) h.style.opacity="0";
 }

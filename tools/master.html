@@ -1881,6 +1881,7 @@ function scaleHTML(a){
     <p class="hint keep" id="scaleNote" hidden style="margin:8px 0 0;max-width:640px"></p>
     <div class="scbar"><div class="sw" role="group" aria-label="Couleur du mur">${ROOM.walls.map(([k,c])=>`<button type="button" data-scwall="${k}" title="${esc(ROOM_TXT.fr.walls[k])}" aria-label="${esc(ROOM_TXT.fr.walls[k])}" style="background:${c}" class="${k===wall?"on":""}"></button>`).join("")}</div>
       ${st&&!ON_FLOOR.test(a.category||"")?`<span class="seg" role="group" aria-label="Socle"><button type="button" data-plinth="low" class="${(a.scaleView&&a.scaleView.plinth==="high"&&canHighPlinth(a))?"":"on"}">Socle bas</button><button type="button" data-plinth="high" class="${(a.scaleView&&a.scaleView.plinth==="high"&&canHighPlinth(a))?"on":""}" ${canHighPlinth(a)?"":`disabled title="Œuvre de plus de 1,20 m : le socle de 90 cm la porterait au-delà de 2,10 m"`}>Socle 90 cm</button></span>`:""}
+      <span class="seg" role="group" aria-label="Chaise"><button type="button" data-chair="on" class="${(a.scaleView&&a.scaleView.chair==="off")?"":"on"}">Avec chaise</button><button type="button" data-chair="off" class="${(a.scaleView&&a.scaleView.chair==="off")?"on":""}">Sans chaise</button></span>
       <button type="button" class="btn" id="scaleAdjust">Ajuster l’emplacement</button><button type="button" class="btn" id="scaleDl">Télécharger</button><label class="provck"><input type="checkbox" id="scalePdfBar" class="keepon" ${a.scalePdf?"checked":""}> Ajouter à la fiche PDF</label>${st?"":`<label class="provck" title="Retire le fond de la photo et accroche l’œuvre selon son angle"><input type="checkbox" id="scaleCut" ${(a.scaleView&&a.scaleView.cut==="off")?"":"checked"}> Détourage automatique</label>`}</div></div>`; }
 let scaleSeq=0, scaleIO=null;
 /* the image is prepared only once its place is on screen, never while the app opens */
@@ -2512,6 +2513,9 @@ document.addEventListener("click",async e=>{
   if(b.dataset.scwall){ const a=state.artworks[state.curArt]; if(a){ a.scaleView=Object.assign({},a.scaleView||{},{wall:b.dataset.scwall}); schedDoc("artworks",a.id); document.querySelectorAll("[data-scwall]").forEach(x=>x.classList.toggle("on",x===b)); scaleRefresh(a); } return; }
   if(b.dataset.plinth){ const a=state.artworks[state.curArt]; if(a){ const v=Object.assign({},a.scaleView||{}); if(b.dataset.plinth==="high") v.plinth="high"; else delete v.plinth; a.scaleView=v; schedDoc("artworks",a.id);
       document.querySelectorAll("[data-plinth]").forEach(x=>x.classList.toggle("on",x===b)); scaleRefresh(a); } return; }
+  if(b.dataset.chair){ const a=state.artworks[state.curArt]; if(a){ const v=Object.assign({},a.scaleView||{}); if(b.dataset.chair==="off") v.chair="off"; else delete v.chair;
+      delete v.artX; delete v.chairX; if(scaleStand(a)) delete v.artY;   // the composition is recentred with or without the chair (height on the wall kept)
+      a.scaleView=v; schedDoc("artworks",a.id); document.querySelectorAll("[data-chair]").forEach(x=>x.classList.toggle("on",x===b)); scaleRefresh(a); } return; }
   if(b.id==="scaleRetry"){ const a=state.artworks[state.curArt]; if(a){ roomAllowRetry(); for(const k in scaleCache) delete scaleCache[k]; scaleRedraw(a); } return; }
   if(b.id==="scaleOpen"){ const a=state.artworks[state.curArt]; if(a) scaleOpenBig(a); return; }
   if(b.id==="scaleAdjust"){ const a=state.artworks[state.curArt]; if(a) scaleAdjust(a); return; }
