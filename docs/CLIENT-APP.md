@@ -32,6 +32,10 @@ Hand-over note: everything needed to resume work in a new conversation. No secre
   channel), minimum-area rectangle of the work → angle + sides matched to the dimensions; openwork (>35 % background inside) loses
   its background everywhere (photo shadows kept as darkening), a solid work only outside its outline. Unclear photo → unchanged.
   Switch per work in the master: « Détourage automatique » (`scaleView.cut = "off"`).
+  **Volumes** (sculptures, objects: NOT_WALL category or depth > 15 cm): `roomObj` cuts the object out of a packshot (flood fill
+  from the border, so white parts enclosed by the outline stay), the tallest part of the dimensions (« Kaikai … · Kiki … ») gives the
+  scale; drawn on a white plinth in perspective beside the chair (height 105 − 0.9·h, 12–90 cm), furniture directly on the parquet.
+  No usable photo → no image and a hint in the master; no tile in the client.
 - **Messages / assistant**: client app « Nous écrire » + « Une question sur cette œuvre » (photo or PDF attachable, bucket `support-files`).
   Edge function **support-chat** (deployed, verify_jwt on): assistant reply (Claude API, model `claude-sonnet-5-5`, needs secret
   `ANTHROPIC_API_KEY` in Edge Functions → Secrets; without it a courteous acknowledgement is sent), category/priority/summary for Dylan,

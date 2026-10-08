@@ -660,7 +660,7 @@ async function openWork(id,keep){
   const acq=[w.acquisition_date?fmtDate(w.acquisition_date):"", w.acquisition_price!=null?fmtMoney(w.acquisition_price,w.acquisition_currency):"", w.acquisition_source||""].filter(Boolean).map(esc).join("\n");
   const ins=w.insured_value!=null?esc(fmtMoney(w.insured_value,w.insured_currency)):"";
   const loc=w.location_text?esc(w.location_text)+(w.location_since?`\n${esc(t("since"))} ${esc(fmtDate(w.location_since))}`:""):"";
-  const scOK=canViewAtScale(w), scSet=scaleGet(w.id), scPdf=scalePdfGet(w.id);
+  const scOK=canViewAtScale(w)||canStand(w), scSet=scaleGet(w.id), scPdf=scalePdfGet(w.id);
   const d=$("#detail"); d.hidden=false; if(!keep) d.scrollTop=0; document.body.style.overflow="hidden";
   d.innerHTML=`<div class="dtop"><button id="dBack">← ${esc(t("back"))}</button><span class="sp"></span>
       ${idx>0?`<button id="dPrev" aria-label="${esc(t("prev"))}">‹</button>`:""}${idx>=0&&idx<list.length-1?`<button id="dNext" aria-label="${esc(t("next"))}">›</button>`:""}</div>
@@ -687,7 +687,9 @@ async function openWork(id,keep){
   /* view at scale: a fixed image made automatically from the main photo and the dimensions (shared engine: tools/room.js) */
   const basePhoto=async()=>(views[0]&&await viewPhoto(views[0].id))||thumbOf(w);
   const scaleURL=async()=>roomRenderURL(w, await basePhoto(), scaleGet(id));
-  const scaleThumb=async()=>{ const u=await scaleURL(); const ti=$("#dScThumb"); if(u&&ti&&S.openId===id) ti.src=u; if(onScale&&u&&S.openId===id) setStage(u); return u; };
+  const scaleThumb=async()=>{ const u=await scaleURL(); const ti=$("#dScThumb"); if(u&&ti&&S.openId===id) ti.src=u; if(onScale&&u&&S.openId===id) setStage(u);
+    if(!u&&S.openId===id){ const t2=$("#dScTile"); if(t2) t2.remove(); const th=d.querySelector(".thumbs"); if(th&&!th.children.length) th.remove(); }   // photo not usable: no tile
+    return u; };
   if(scOK){ scaleThumb();
     $("#dScTile").onclick=async()=>{ onScale=true; d.querySelectorAll("[data-v]").forEach(b=>b.classList.remove("on")); $("#dScTile").classList.add("on"); $("#dScBar").hidden=false; const u=await scaleURL(); if(onScale&&u&&S.openId===id) setStage(u); };
     d.querySelectorAll("[data-scwall]").forEach(b=>b.onclick=()=>{ scaleSet(id,Object.assign({},scaleGet(id),{wall:b.dataset.scwall})); d.querySelectorAll("[data-scwall]").forEach(x=>x.classList.toggle("on",x===b)); scaleThumb(); });

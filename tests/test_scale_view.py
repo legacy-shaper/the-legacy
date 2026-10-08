@@ -49,6 +49,18 @@ def shapes_cut():        # coloured shaped panels on a white wall, the photo cut
     return bg
 def tight():             # whole painting, framed with only a thin strip of wall around it
     bg = backdrop(700); d = ImageDraw.Draw(bg); d.rectangle((14, 160, 686, 540), fill=(40, 70, 130)); d.rectangle((300, 200, 600, 400), fill=(245, 245, 240)); return bg
+def pair():              # two figures (one white like the backdrop) on a studio backdrop with floor shadows
+    W_, H_ = 1164, 936; bg = Image.new("RGB", (W_, H_)); px = bg.load()
+    for y in range(H_):
+        for x in range(W_): v = 236 - int(y * 0.03); px[x, y] = (v, v, v - 1)
+    sh = Image.new("L", (W_, H_), 0); d = ImageDraw.Draw(sh); d.ellipse((250, 790, 560, 840), fill=120); d.ellipse((640, 800, 920, 845), fill=120)
+    bg.paste((150, 150, 150), (0, 0), sh.filter(ImageFilter.GaussianBlur(14))); d = ImageDraw.Draw(bg)
+    def fig(x0, top, bottom, w, col, out):
+        d.rounded_rectangle((x0, top + 120, x0 + w, bottom), 40, fill=col, outline=out, width=3); d.ellipse((x0 - 20, top + 20, x0 + w + 20, top + 200), fill=col, outline=out, width=3)
+        d.ellipse((x0 + 10, top - 60, x0 + 60, top + 60), fill=col, outline=out, width=3); d.ellipse((x0 + w - 60, top - 60, x0 + w - 10, top + 60), fill=col, outline=out, width=3)
+    fig(300, 140, 820, 210, (250, 250, 250), (150, 150, 150)); fig(680, 250, 825, 200, (240, 140, 170), (160, 80, 100))
+    return bg
+PAIR_URL = jpg_url(pair())
 OPEN_URL, SOLID_URL, FULL_URL, CUT_URL, TIGHT_URL = jpg_url(openwork()), jpg_url(solid()), jpg_url(fullframe()), jpg_url(shapes_cut()), jpg_url(tight())
 
 class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -76,13 +88,15 @@ with sync_playwright() as pw:
         {"coll": "artworks", "id": "art1", "data": {"id": "art1", "artist": "Pierre Soulages", "title": "Peinture", "year": "1959", "category": "painting", "dimensions": "130 x 100 cm", "owner": "Collection DL", "photo": THUMB, "primaryViewId": "v1"}, "updated_at": "2026-10-01T00:00:00Z"},
         {"coll": "artworks/art1/views", "id": "v1", "data": {"id": "v1", "photo": HD, "createdAt": "2026-10-01"}, "updated_at": "2026-10-01T00:00:00Z"},
         {"coll": "artworks", "id": "art2", "data": {"id": "art2", "artist": "Alexander Calder", "title": "Mobile", "category": "sculpture", "dimensions": "80 x 120 x 60 cm", "photo": THUMB}, "updated_at": "2026-10-01T00:00:00Z"},
+        {"coll": "artworks", "id": "art4", "data": {"id": "art4", "artist": "Takashi Murakami", "title": "Kaikai & Kiki", "category": "sculpture", "dimensions": "Kaikai: 96.5 x 55.3 x 40 cm | 38 x 21 3/4 x 15 3/4 inches · Kiki: 81.1 x 57.6 x 41 cm | 31 15/16 x 22 11/16 x 16 1/8 inches (including pedestal)", "photo": THUMB, "primaryViewId": "v4"}, "updated_at": "2026-10-01T00:00:00Z"},
+        {"coll": "artworks/art4/views", "id": "v4", "data": {"id": "v4", "photo": "__PAIR__", "createdAt": "2026-10-01"}, "updated_at": "2026-10-01T00:00:00Z"},
         {"coll": "artworks", "id": "art3", "data": {"id": "art3", "artist": "Jean Dubuffet", "title": "Sans titre", "category": "painting", "dimensions": "", "photo": THUMB}, "updated_at": "2026-10-01T00:00:00Z"},
     ], "tables": {"collections": [], "collection_members": [], "profiles": [{"id": "u9", "email": "dylan@legacy-shaper.com", "role": "admin"}]}, "files": {}}
     for name, vp in [("mac", dict(width=1400, height=900)), ("iphone", dict(width=390, height=844))]:
         ctx = b.new_context(service_workers="block", viewport=vp, device_scale_factor=2 if name == "iphone" else 1, accept_downloads=True)
         ctx.route("**/supabase-js@*/**", lambda r: r.fulfill(status=200, content_type="application/javascript", body=MOCK))
         ctx.route(re.compile(r"https://(cdnjs\.cloudflare\.com|fonts\.(googleapis|gstatic)\.com)/.*"), lambda r: r.fulfill(status=200, content_type="application/javascript", body=""))
-        p = ctx.new_page(); p.add_init_script(f"window.__MASTER_SEED={json.dumps(SEED)};")
+        p = ctx.new_page(); p.add_init_script(f"window.__MASTER_SEED={json.dumps(SEED).replace('__PAIR__', PAIR_URL)};")
         p.on("pageerror", lambda e: errors.append(str(e)))
         p.goto("http://127.0.0.1:8771/app/"); p.wait_for_selector("#gEmail")
         p.fill("#gEmail", "dylan@legacy-shaper.com"); p.fill("#gPass", "good-pass"); p.click("#gForm button[type=submit]"); p.wait_for_selector("#gCode")
@@ -203,8 +217,31 @@ with sync_playwright() as pw:
             check(px[1] > px[0] + 10 and px[1] < 120, f"{name}: master — in the card, the photo's white square is gone ({px})")
             p.evaluate("(()=>{ state.artworks.art1.dimensions='130 x 100 cm'; state.views.art1.v1.photo=window.__HD0; })()")
         # works that are not hung on a wall / without dimensions
-        open_art("art2"); p.wait_for_timeout(300)
-        check(p.locator("#scaleBox").count() == 0 and p.locator("#ficheScale").count() == 0, f"{name}: master — no at-scale image for a sculpture")
+        open_art("art2"); p.wait_for_selector("#scaleNote:not([hidden])", timeout=20000)
+        check("fond uni" in p.inner_text("#scaleNote") and p.locator("#scaleOpen img").count() == 0, f"{name}: master — sculpture without a usable photo: no image, the reason is given")
+        # sculptures on a plinth beside the chair
+        open_art("art4"); p.wait_for_selector("#scaleOpen img", timeout=30000)
+        check("sur socle" in p.inner_text("#scaleBox").lower() and p.locator("#scaleCut").count() == 0, f"{name}: master — sculpture: view 'sur socle', no wall cut-out switch")
+        g = p.evaluate("""(async()=>{ const a=state.artworks.art4, im=await roomImg(scaleSrc(a)), o=roomObj(im);
+            const s={stand:true,dims:standDims(a),obj:o,chair:await roomImg('room-chair.webp')}; roomDefaults(s); roomFit(s,1600,1200,1);
+            const gg=standGeom(s), top=roomP(s,s.artX,gg.ph+gg.h,gg.zc)[1], base=roomP(s,s.artX,gg.ph,gg.zc)[1], c=chairRect(s);
+            return {h:standDims(a).h, ph:gg.ph, hcm:(base-top)/(s.f/gg.zc), chair:c.h/c.s, inview: top>0 && roomP(s,s.artX+gg.pw/2,0,gg.zf)[0]<1600 && c.x>0,
+              white:(()=>{ const x=o.canvas.getContext('2d'); const k=o.bh/744; return x.getImageData(Math.round((405-300+o.pad)*k*0+ (405-300)*(o.bw/619)+o.pad), Math.round((520-80)*(o.bh/744)+o.pad),1,1).data[3]; })() }; })()""")
+        check(abs(g["hcm"] - 96.5) < 0.01 and abs(g["chair"] - 80) < 0.01, f"{name}: master — tallest piece at exactly 96.5 cm, chair 80 cm")
+        check(12 <= g["ph"] <= 30 and g["inview"], f"{name}: master — low white plinth ({g['ph']:.0f} cm), everything in view")
+        check(g["white"] == 255, f"{name}: master — the white figure is kept although the backdrop is white")
+        if name == "mac": p.screenshot(path="/tmp/ls-scale-sculpture-card.png")
+        p.click("#scaleAdjust"); p.wait_for_selector("#room:not([hidden]) canvas"); p.wait_for_function("R.W && R.obj && R.chair")
+        a0 = p.evaluate("R.artX"); hb = p.evaluate("standHit()"); box = p.locator("#rCv").bounding_box()
+        x0, y0 = box["x"] + hb["x"] + hb["w"] / 2, box["y"] + hb["y"] + hb["h"] * 0.7
+        p.mouse.move(x0, y0); p.mouse.down(); p.mouse.move(x0 - 40, y0 - 30, steps=5); p.mouse.up()
+        check(p.evaluate("R.artX") < a0, f"{name}: master — sculptures and plinth slide left/right in the editor")
+        if name == "iphone": p.screenshot(path="/tmp/ls-scale-sculpture-editor-iphone.png")
+        p.click("#rSave"); p.wait_for_timeout(1500)
+        check(abs(DOC("art4").get("scaleView", {}).get("artX", 0) - p.evaluate("state.artworks.art4.scaleView.artX")) < 1e-6, f"{name}: master — position saved")
+        p.click("#scaleOpen"); p.wait_for_selector("#scBigImg"); p.wait_for_function("document.querySelector('#scBigImg').naturalWidth===2400")
+        if name == "mac": p.screenshot(path="/tmp/ls-scale-sculpture-big.png")
+        p.keyboard.press("Escape"); p.wait_for_timeout(150)
         open_art("art3"); p.wait_for_timeout(300)
         check("Indiquez les dimensions" in p.inner_text("#scaleWrap"), f"{name}: master — missing dimensions: hint instead of the image")
         p.fill("#k_dimensions", "65 x 54 cm"); p.wait_for_selector("#scaleOpen img", timeout=20000)
@@ -271,9 +308,13 @@ with sync_playwright() as pw:
         p.click("#dScTile"); p.click("#dScAdj"); p.wait_for_selector("#room:not([hidden]) canvas"); p.wait_for_function("R.W && R.art")
         check(p.evaluate("Math.abs(R.artX-40)<1e-6 && Math.abs(R.artY-160)<1e-6 && Math.abs(R.chairX+70)<1e-6"), f"{name}: client — starts from the position set in The Legacy")
         p.click("#rBack"); p.wait_for_timeout(100)
-        # sculpture: no tile
-        p.evaluate("openWork('aur-11')"); p.wait_for_selector("#detail:not([hidden]) .dh")
-        check(p.locator("#dScTile").count() == 0, f"{name}: client — no at-scale image for a volume")
+        # volume whose demo photo is not on a plain backdrop: the tile goes away (or shows a real image)
+        p.evaluate("openWork('aur-11')"); p.wait_for_selector("#detail:not([hidden]) .dh"); p.wait_for_timeout(2500)
+        check(p.locator("#dScTile").count() == 0 or p.evaluate("(()=>{const i=document.querySelector('#dScThumb'); return i&&i.naturalWidth===1600})()"), f"{name}: client — volume: tile only with a usable photo")
+        # a sculpture with a packshot: standing on the plinth in the client app too
+        p.evaluate("(u)=>{ const w=S.data.works.find(x=>x.id==='aur-04'); S.viewPhotos={}; const v=(S.data.views||[]).filter(v=>v.artwork_id==='aur-04'); v.forEach(x=>S.viewPhotos[x.id]=u); w.thumb=u; openWork('aur-04'); }", PAIR_URL)
+        p.wait_for_function("(()=>{const i=document.querySelector('#dScThumb'); return i&&i.complete&&i.naturalWidth===1600})()", timeout=30000)
+        check(True, f"{name}: client — sculpture on its plinth among the views")
         ctx.close()
     # database without the scale_view column (before SQL 005): the collection still opens
     OLDMOCK = CMOCK.replace("select() { return q; },", "select(c) { if (table === 'artworks' && String(c || '').includes('scale_view')) ins = '__nocol'; return q; },")

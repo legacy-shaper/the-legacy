@@ -1726,7 +1726,8 @@ const MAX_VIEWS=10;
    shown with the artwork's photos; wall colour and position adjustable (saved on the artwork: scaleView),
    optional page in the PDF fiche (scalePdf). Engine shared with the client app: tools/room.js ---- */
 window.ROOM_HOST={lang:"fr",base:""};
-const scaleOK=a=>typeof roomRender==="function" && !!a && canViewAtScale(a);
+const scaleOK=a=>typeof roomRender==="function" && !!a && (canViewAtScale(a)||canStand(a));
+const scaleStand=a=>typeof canStand==="function" && !canViewAtScale(a) && canStand(a);
 function scaleSrc(a){ const pv=a.primaryViewId&&(state.views[a.id]||{})[a.primaryViewId]; return pv?pv.photo:(a.photo||""); }
 const scaleCache={};
 async function scaleImage(a,big){
@@ -1737,16 +1738,23 @@ async function scaleImage(a,big){
 function scaleHTML(a){
   if(!scaleOK(a)){ return (typeof parseDims==="function" && !NOT_WALL.test(a.category||"") && !parseDims(a.dimensions)) ? `<div class="scalebox"><div class="sctitle">Vue à l’échelle</div><p class="hint" style="margin:0">Indiquez les dimensions (ex. 100 × 81 cm) pour obtenir automatiquement la vue à l’échelle.</p></div>` : ""; }
   const wall=(a.scaleView&&a.scaleView.wall)||"pearl";
-  return `<div class="scalebox" id="scaleBox"><div class="sctitle">Vue à l’échelle <span class="lock">automatique</span></div>
+  const st=scaleStand(a);
+  return `<div class="scalebox" id="scaleBox"><div class="sctitle">Vue à l’échelle${st?(ON_FLOOR.test(a.category||"")?" · posée au sol":" · sur socle"):""} <span class="lock">automatique</span></div>
     <button type="button" class="scimg" id="scaleOpen" aria-label="Agrandir la vue à l’échelle"><span class="hint">Préparation de la vue…</span></button>
     <p class="hint keep" id="scaleNote" hidden style="margin:8px 0 0;max-width:640px"></p>
     <div class="scbar"><div class="sw" role="group" aria-label="Couleur du mur">${ROOM.walls.map(([k,c])=>`<button type="button" data-scwall="${k}" title="${esc(ROOM_TXT.fr.walls[k])}" aria-label="${esc(ROOM_TXT.fr.walls[k])}" style="background:${c}" class="${k===wall?"on":""}"></button>`).join("")}</div>
-      <button type="button" class="btn" id="scaleAdjust">Ajuster l’emplacement</button><button type="button" class="btn" id="scaleDl">Télécharger</button><label class="provck"><input type="checkbox" id="scalePdfBar" class="keepon" ${a.scalePdf?"checked":""}> Ajouter à la fiche PDF</label><label class="provck" title="Retire le fond de la photo et accroche l’œuvre selon son angle"><input type="checkbox" id="scaleCut" ${(a.scaleView&&a.scaleView.cut==="off")?"":"checked"}> Détourage automatique</label></div></div>`; }
+      <button type="button" class="btn" id="scaleAdjust">Ajuster l’emplacement</button><button type="button" class="btn" id="scaleDl">Télécharger</button><label class="provck"><input type="checkbox" id="scalePdfBar" class="keepon" ${a.scalePdf?"checked":""}> Ajouter à la fiche PDF</label>${st?"":`<label class="provck" title="Retire le fond de la photo et accroche l’œuvre selon son angle"><input type="checkbox" id="scaleCut" ${(a.scaleView&&a.scaleView.cut==="off")?"":"checked"}> Détourage automatique</label>`}</div></div>`; }
 let scaleSeq=0;
 async function scaleRefresh(a){
   if(!a||!scaleOK(a)) return; const my=++scaleSeq;
   const u=await scaleImage(a); if(my!==scaleSeq||state.curArt!==a.id) return;
   const b=$("#scaleOpen"); if(b&&u) b.innerHTML=`<img src="${u}" alt="Vue à l’échelle">`;
+  if(scaleStand(a)){ const n=$("#scaleNote"); if(!n) return; let txt="";
+    if(!u){ const info=roomObjInfo(await roomImg(scaleSrc(a)));
+      txt=info&&info.fail==="edge"?"La photo coupe l’œuvre : pour la poser à l’échelle, il faut une photo de l’œuvre entière, avec un peu de fond tout autour."
+        :"Pour poser l’œuvre à l’échelle, il faut une photo de l’œuvre entière sur un fond uni (mur ou fond studio).";
+      if(b) b.innerHTML=`<span class="hint" style="padding:16px;text-align:center">Vue à l’échelle indisponible avec cette photo</span>`; }
+    if(my!==scaleSeq||state.curArt!==a.id) return; n.textContent=txt; n.hidden=!txt; return; }
   // tell why the work could not be cut out of its photo
   const n=$("#scaleNote"); if(!n) return; let txt="";
   if(!(a.scaleView&&a.scaleView.cut==="off")){ const info=roomCutInfo(await roomImg(scaleSrc(a)),parseDims(a.dimensions));
