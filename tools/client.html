@@ -167,6 +167,67 @@ select.sel{font:inherit;font-size:14px;padding:10px 12px;border-radius:10px;bord
 .install b{font-family:var(--serif);font-size:18px;font-weight:500;display:block}
 .install button{background:none;border:0;color:var(--muted);font-size:20px;line-height:1;padding:0 4px}
 
+/* ---------- view at scale ---------- */
+#room{position:fixed;inset:0;z-index:36;background:#1B1D1B;display:flex;flex-direction:column;color:var(--ivory)}
+#room .rtop{display:flex;align-items:center;gap:10px;padding:calc(10px + var(--safe-t)) 14px 10px;background:var(--deep)}
+#room .rtop button{background:none;border:1px solid rgba(196,160,82,.5);color:var(--gold);border-radius:999px;padding:8px 14px;font-size:13px;flex:none}
+#room .rtop .rt{flex:1;min-width:0;text-align:center;line-height:1.25}
+#room .rtop .rt b{display:block;font-family:var(--serif);font-weight:500;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#room .rtop .rt span{font-size:11px;letter-spacing:1.6px;color:#C9BD9C}
+#room .rstage{flex:1;position:relative;overflow:hidden;touch-action:none;background:#DAD8D3}
+#room canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
+#room canvas.drag{cursor:grabbing}
+#room .hint{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:rgba(22,36,26,.72);color:var(--ivory);font-size:12.5px;padding:7px 13px;border-radius:999px;pointer-events:none;transition:opacity .6s;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+#room .rbar{display:flex;align-items:center;gap:10px;padding:10px 14px calc(10px + var(--safe-b));background:var(--deep);flex-wrap:wrap}
+#room .sw{display:flex;gap:8px;align-items:center}
+#room .sw button{width:26px;height:26px;border-radius:50%;border:2px solid rgba(244,240,230,.25);padding:0}
+#room .sw button.on{border-color:var(--gold);box-shadow:0 0 0 2px rgba(196,160,82,.35)}
+#room .rbar .rb{margin-left:auto;display:flex;gap:8px}
+#room .rbar .tb{background:none;border:1px solid rgba(196,160,82,.5);color:var(--gold);border-radius:10px;padding:8px 12px;font-size:13px}
+#room .rbar .dim{font-size:12px;color:#C9BD9C;letter-spacing:.5px}
+
+/* ---------- assistant ---------- */
+#chatFab{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(18px + var(--safe-b));z-index:25;display:flex;align-items:center;gap:8px;background:var(--deep);color:var(--gold);border:1px solid rgba(196,160,82,.55);border-radius:999px;padding:11px 16px 11px 13px;font-size:13.5px;box-shadow:0 10px 28px rgba(27,57,36,.28)}
+#chatFab svg{flex:none}
+#chatFab .n{background:var(--gold);color:var(--deep);border-radius:999px;min-width:19px;height:19px;font-size:11px;font-weight:600;display:grid;place-items:center;padding:0 5px}
+#chat{position:fixed;inset:0;z-index:38;background:rgba(10,20,13,.45);display:flex;justify-content:flex-end}
+#chat .cp{width:min(440px,100%);height:100%;background:var(--bg);display:flex;flex-direction:column}
+#chat .ch{background:var(--deep);color:var(--ivory);padding:calc(14px + var(--safe-t)) 16px 14px;display:flex;align-items:center;gap:12px}
+#chat .ch .who{flex:1;min-width:0}
+#chat .ch b{display:block;font-family:var(--serif);font-weight:500;font-size:20px;letter-spacing:.3px}
+#chat .ch span{font-size:12px;color:#C9BD9C;display:flex;align-items:center;gap:6px}
+#chat .ch span i{width:7px;height:7px;border-radius:50%;background:#7FA88A;display:inline-block}
+#chat .ch button{background:none;border:1px solid rgba(196,160,82,.5);color:var(--gold);border-radius:999px;width:34px;height:34px;display:grid;place-items:center;flex:none}
+#chat .cl{flex:1;overflow:auto;padding:16px 14px 8px;display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
+#chat .intro{font-size:13px;color:var(--muted);text-align:center;padding:8px 18px 4px;line-height:1.55}
+#chat .m{max-width:84%;padding:10px 13px;border-radius:14px;font-size:14.5px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
+#chat .m small{display:block;font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--gold-text);margin-bottom:3px}
+#chat .m.me{align-self:flex-end;background:var(--deep);color:var(--ivory);border-bottom-right-radius:4px}
+#chat .m.me small{color:#C9BD9C}
+#chat .m.them{align-self:flex-start;background:var(--surface);border:1px solid var(--line);border-bottom-left-radius:4px}
+#chat .m.dylan{border-color:var(--gold)}
+#chat .m .at{display:block;margin-top:6px;font-size:12.5px;text-decoration:underline;text-underline-offset:3px;color:inherit;background:none;border:0;padding:0;text-align:left}
+#chat .m img.ai{border-radius:8px;margin-top:6px;max-height:180px;width:auto}
+#chat .m .about{display:block;font-size:12px;opacity:.75;margin-top:4px;font-style:italic}
+#chat .t{font-size:10.5px;color:var(--faint);margin-top:-6px}
+#chat .t.me{align-self:flex-end}
+#chat .sys{align-self:center;font-size:12px;color:var(--gold-text);font-style:italic;text-align:center;padding:2px 10px}
+#chat .typing{align-self:flex-start;display:flex;gap:4px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+#chat .typing i{width:6px;height:6px;border-radius:50%;background:var(--faint);animation:blink 1.2s infinite}
+#chat .typing i:nth-child(2){animation-delay:.2s}#chat .typing i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+#chat .cf{border-top:1px solid var(--line);background:var(--surface);padding:10px 12px calc(10px + var(--safe-b))}
+#chat .ctx{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin:0 2px 8px}
+#chat .ctx b{font-weight:500;color:var(--ink);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#chat .ctx button{background:none;border:0;color:var(--muted);font-size:16px;padding:0 4px}
+#chat .row{display:flex;gap:8px;align-items:flex-end}
+#chat textarea{flex:1;font:inherit;font-size:16px;line-height:1.4;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);resize:none;max-height:140px;outline:none}
+#chat textarea:focus{border-color:var(--gold)}
+#chat .row button{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line);background:var(--bg);color:var(--deep)}
+#chat .row button.send{background:var(--deep);border-color:var(--deep);color:var(--gold)}
+#chat .row button[disabled]{opacity:.45}
+#chat .note{font-size:12px;color:var(--gold-text);min-height:0;margin:6px 2px 0}
+
 /* ---------- print: inventory sheet ---------- */
 #print{display:none}
 @media print{
@@ -201,6 +262,9 @@ select.sel{font:inherit;font-size:14px;padding:10px 12px;border-radius:10px;bord
 </div>
 <div id="detail" hidden></div>
 <div id="sheet" hidden></div>
+<div id="room" hidden></div>
+<button id="chatFab" type="button" hidden><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4A2.5 2.5 0 0 1 3 13.5"/></svg><span class="l"></span><span class="n" hidden></span></button>
+<div id="chat" hidden></div>
 <div id="print"></div>
 
 <script>
@@ -239,6 +303,13 @@ const I18N={
    installMac:"In Safari, choose File › Add to Dock. In Chrome, use the install icon at the end of the address bar.",
    installOther:"In your browser menu, choose “Install app” or “Add to Home screen”.",
    pick:"Your collections",latest:"Latest acquisitions",seeAll:"All works",shareOf:"share",ok:"Close",
+   chatFab:"Write to us",chatTitle:"Legacy Shaper",chatStatus:"At your service",chatDylan:"Dylan Lessel is with you",
+   chatIntro:"Write to us here: a question, a correction to make, a document to receive. Your message reaches the Legacy Shaper team at once.",
+   chatPh:"Your message…",chatSend:"Send",chatAttach:"Add a photo or a PDF",chatAbout:"About",chatMe:"You",chatAi:"Legacy Shaper",chatDylanName:"Dylan Lessel",
+   chatOffline:"Messages will be available as soon as the connection is back.",chatFail:"Your message could not leave yet. Please try again in a moment.",
+   chatTooBig:"This file is larger than 15 MB.",askWork:"A question about this work",
+   atScale:"View at scale",roomHint:"Move the work and the chair with your finger",reset:"Reset",saveView:"Save image",
+   walls:{pearl:"Pearl grey",white:"Gallery white",linen:"Linen",green:"Legacy green"},
    foot:"Legacy Shaper Collection · Dubai",sheetFoot:"Inventory sheet · Legacy Shaper Collection Office"},
  fr:{access:"Accès privé",intro:"Saisissez l’adresse e-mail enregistrée chez Legacy Shaper. Un code d’accès vous sera envoyé.",email:"Adresse e-mail",getCode:"Recevoir mon code",
    sending:"Envoi…",codeTitle:"Votre code",codeIntro:"Un code d’accès a été envoyé à",verify:"Ouvrir ma collection",verifying:"Ouverture…",resend:"Recevoir un nouveau code",other:"Utiliser une autre adresse",
@@ -266,6 +337,13 @@ const I18N={
    installMac:"Dans Safari, choisissez Fichier › Ajouter au Dock. Dans Chrome, utilisez l’icône d’installation au bout de la barre d’adresse.",
    installOther:"Dans le menu de votre navigateur, choisissez « Installer l’application » ou « Ajouter à l’écran d’accueil ».",
    pick:"Vos collections",latest:"Dernières acquisitions",seeAll:"Toutes les œuvres",shareOf:"de la propriété",ok:"Fermer",
+   chatFab:"Nous écrire",chatTitle:"Legacy Shaper",chatStatus:"À votre écoute",chatDylan:"Dylan Lessel est avec vous",
+   chatIntro:"Écrivez-nous ici : une question, une correction à apporter, un document à recevoir. Votre message parvient aussitôt à l’équipe Legacy Shaper.",
+   chatPh:"Votre message…",chatSend:"Envoyer",chatAttach:"Ajouter une photo ou un PDF",chatAbout:"À propos de",chatMe:"Vous",chatAi:"Legacy Shaper",chatDylanName:"Dylan Lessel",
+   chatOffline:"La messagerie sera disponible dès le retour de la connexion.",chatFail:"Votre message n’a pas encore pu partir. Réessayez dans un instant.",
+   chatTooBig:"Ce fichier dépasse 15 Mo.",askWork:"Une question sur cette œuvre",
+   atScale:"Voir à l’échelle",roomHint:"Déplacez l’œuvre et la chaise du doigt",reset:"Recentrer",saveView:"Enregistrer l’image",
+   walls:{pearl:"Gris perle",white:"Blanc galerie",linen:"Lin",green:"Vert Legacy"},
    foot:"Legacy Shaper Collection · Dubaï",sheetFoot:"Fiche d’inventaire · Legacy Shaper Collection Office"}
 };
 let LANG=(()=>{ try{ const s=localStorage.getItem("ls-lang"); if(s) return s; }catch(e){} return /^fr/i.test(navigator.language||"")?"fr":"en"; })();
@@ -418,7 +496,7 @@ async function openCollection(cid){
   const cached=await idb.get(`snap:${S.user.id}:${cid}`);
   if(cached){ S.data=cached.data; S.stamp=cached.at; S.online=false; showApp(); }
   try{ const data=await fetchCollection(cid); S.data=data; S.stamp=Date.now(); S.online=true;
-    await idb.set(`snap:${S.user.id}:${cid}`,{at:S.stamp,data}); showApp(); prefetchPhotos();
+    await idb.set(`snap:${S.user.id}:${cid}`,{at:S.stamp,data}); showApp(); prefetchPhotos(); chatProbe();
   }catch(e){ console.warn(e); if(!cached){ gateOffline(false); return; } S.online=false; renderStatus(); }
 }
 async function refresh(silent){
@@ -427,6 +505,7 @@ async function refresh(silent){
     S.data=data; S.stamp=Date.now(); S.online=true; await idb.set(`snap:${S.user.id}:${S.cid}`,{at:S.stamp,data});
     if(changed){ render(); if(S.openId) openWork(S.openId,true); prefetchPhotos(); } else renderStatus();
     if(!silent) toast(t("live"));
+    chatProbe();
   }catch(e){ S.online=false; renderStatus(); }
 }
 async function viewPhoto(vid){
@@ -593,7 +672,7 @@ async function openWork(id,keep){
       <dl class="facts">${fact("medium",esc(w.medium))}${fact("dims",esc(dimsLine(w.dimensions)))}${fact("edition",esc(editionLine(w)))}
         ${fact("ownership",esc(ownershipLine(w)))}${fact("location",loc)}${fact("acquisition",acq)}${fact("insurance",ins)}${fact("condition",esc(w.condition))}
         ${fact("provenance",esc(w.provenance))}${fact("exhibitions",esc(w.exhibitions))}${fact("literature",esc(w.literature))}${fact("notes",esc(w.notes))}${fact("ref",esc(w.ref))}</dl>
-      <div class="acts"><button id="dPdf">${esc(t("sheetPdf"))}</button><button class="alt" id="dImgDl">${esc(t("image"))}</button></div>
+      <div class="acts">${canViewAtScale(w)?`<button id="dRoom">${esc(t("atScale"))}</button>`:""}<button id="dPdf">${esc(t("sheetPdf"))}</button><button class="alt" id="dImgDl">${esc(t("image"))}</button>${C.ok?`<button class="alt" id="dAsk">${esc(t("askWork"))}</button>`:""}</div>
       ${exps.length?`<div class="sec"><h4>${esc(t("linkedExp"))}</h4><section class="block">${exps.map(expLine).join("")}<div class="tot"><span>${esc(t("total"))}</span><span>${esc(curLine(sumByCur(exps,"amount","currency")))}</span></div></section></div>`:""}
       ${docs.length?`<div class="sec"><h4>${esc(t("linkedDocs"))}</h4>${docs.map(docLine).join("")}</div>`:""}
     </div></div>`;
@@ -606,6 +685,8 @@ async function openWork(id,keep){
   if(current) show(current);
   d.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>show(b.dataset.v));
   d.querySelectorAll("[data-vt]").forEach(async im=>{ const p=await viewPhoto(im.dataset.vt); if(p) im.src=p; });
+  if($("#dAsk")) $("#dAsk").onclick=()=>openChat(id);
+  if($("#dRoom")) $("#dRoom").onclick=async()=>openRoom(w, current?await viewPhoto(current):thumbOf(w));
   $("#dPdf").onclick=async()=>printSheet(w, current?await viewPhoto(current):thumbOf(w));
   $("#dImgDl").onclick=async()=>{ const p=(current&&await viewPhoto(current))||thumbOf(w); if(!p) return; const a=document.createElement("a"); a.href=p; a.download=fileBase(w)+".jpg"; document.body.appendChild(a); a.click(); a.remove(); };
 }
@@ -630,6 +711,289 @@ async function downloadDoc(id){
   if(!blob){ try{ const {data,error}=await sb.storage.from(CFG.bucket).download(doc.storage_path); if(error) throw error; blob=data; idb.set("doc:"+id,blob); }catch(e){ toast(t("docErr")); return; } }
   const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=doc.name||"document"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
 }
+
+/* ---------------- view at scale ----------------
+   One wall, a Versailles parquet and a Pierre Jeanneret-style cane chair as a fixed reference (80 cm high).
+   Everything is drawn in real centimetres with one camera: wall at D cm, eye at EYE cm above the floor.
+   The work moves left/right and up/down on the wall; the chair moves left/right only. */
+const ROOM={ D:500, EYE:140, CHAIR_H:80, CHAIR_Z:30, CHAIR_FRONT:55, PANEL:100,
+  walls:[["pearl","#DAD8D3"],["white","#EEECE7"],["linen","#D8CFC0"],["green","#33503B"]] };
+const NOT_WALL=/sculpt|furniture|mobili|object|objet|install|design|ceramic|céram/i;
+function parseDims(str){
+  if(!str) return null;
+  const part=String(str).split(/[|·]/)[0].replace(/,/g,".");
+  const frac=s=>s.replace(/(\d+)\s+(\d+)\/(\d+)/g,(m,a,b,c)=>String(+a + b/c)).replace(/(\d+)\/(\d+)/g,(m,b,c)=>String(b/c));
+  const txt=frac(part);
+  const nums=(txt.match(/\d+(\.\d+)?/g)||[]).map(Number).filter(n=>n>0);
+  if(nums.length<2) return null;
+  const inch=/\b(in|inch|inches)\b|"/i.test(txt)&&!/cm/i.test(txt);
+  const k=inch?2.54:(/mm/i.test(txt)&&!/cm/i.test(txt)?0.1:(/\bm\b/i.test(txt)&&!/cm|mm/i.test(txt)?100:1));
+  const [h,w,d]=nums.map(n=>n*k);
+  return {h,w,d:d||0};
+}
+function canViewAtScale(w){
+  if(!w) return false; if(NOT_WALL.test(w.category||"")) return false;
+  const d=parseDims(w.dimensions); if(!d) return false;
+  if(d.d>15) return false;                 // a volume, not a work hung on a wall
+  return d.h>=3&&d.w>=3&&d.h<=1200&&d.w<=2400;
+}
+const roomAssets={};
+function roomImg(src){ return roomAssets[src]||(roomAssets[src]=new Promise((res)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>res(null); i.src=src; })); }
+const R={};   // live state of the open view
+async function openRoom(w,photo){
+  const dims=parseDims(w.dimensions); if(!dims) return;
+  let wall="pearl"; try{ wall=localStorage.getItem("ls-wall")||"pearl"; }catch(e){}
+  const el=$("#room"); el.hidden=false; document.body.style.overflow="hidden";
+  el.innerHTML=`<div class="rtop"><button id="rBack">← ${esc(t("back"))}</button><div class="rt"><b><i>${esc(w.title||"")}</i>${w.year?`, ${esc(w.year)}`:""}</b><span>${esc(w.artist)}</span></div><span style="width:62px"></span></div>
+    <div class="rstage" id="rStage"><canvas id="rCv"></canvas><div class="hint" id="rHint">${esc(t("roomHint"))}</div></div>
+    <div class="rbar"><div class="sw">${ROOM.walls.map(([k,c])=>`<button data-wall="${k}" title="${esc(t("walls")[k])}" aria-label="${esc(t("walls")[k])}" style="background:${c}" class="${k===wall?"on":""}"></button>`).join("")}</div>
+      <span class="dim">${esc(fmtCm(dims.h))} × ${esc(fmtCm(dims.w))} cm</span><span class="rb"><button class="tb" id="rReset">${esc(t("reset"))}</button><button class="tb" id="rSave">${esc(t("saveView"))}</button></span></div>`;
+  Object.assign(R,{ w, dims, wall, art:null, chair:null, parquet:null, floor:null, drag:null, open:true });
+  const [art,chair,parquet]=await Promise.all([roomImg(photo||thumbOf(w)),roomImg("room-chair.webp"),roomImg("room-parquet.jpg")]);
+  if(!R.open) return;
+  R.art=art; R.chair=chair; R.parquet=parquet;
+  roomDefaults(); roomLayout();
+  $("#rBack").onclick=closeRoom;
+  $("#rReset").onclick=()=>{ roomDefaults(); roomDraw(); };
+  $("#rSave").onclick=roomSave;
+  el.querySelectorAll("[data-wall]").forEach(b=>b.onclick=()=>{ R.wall=b.dataset.wall; try{ localStorage.setItem("ls-wall",R.wall); }catch(e){}
+    el.querySelectorAll("[data-wall]").forEach(x=>x.classList.toggle("on",x===b)); roomDraw(); });
+  const cv=$("#rCv");
+  cv.addEventListener("pointerdown",roomDown); cv.addEventListener("pointermove",roomMove);
+  cv.addEventListener("pointerup",roomUp); cv.addEventListener("pointercancel",roomUp);
+  R.onResize=()=>{ if(R.open) roomLayout(); }; window.addEventListener("resize",R.onResize);
+  setTimeout(()=>{ const h=$("#rHint"); if(h) h.style.opacity="0"; },3200);
+}
+function closeRoom(){ R.open=false; const el=$("#room"); el.hidden=true; el.innerHTML=""; if(R.onResize) window.removeEventListener("resize",R.onResize); if(!S.openId) document.body.style.overflow=""; }
+const fmtCm=v=>(Math.round(v*10)/10).toLocaleString(LANG==="fr"?"fr-FR":"en-GB",{maximumFractionDigits:1});
+function chairW(){ return R.chair?ROOM.CHAIR_H*R.chair.width/R.chair.height:66; }
+function roomDefaults(){
+  const {h,w}=R.dims, cw=chairW(), gap=Math.max(25,Math.min(60,w*0.25));
+  const total=cw+gap+w;
+  R.artX=-total/2+cw+gap+w/2;                      // composition centred: chair on the left, work on the right
+  R.chairX=-total/2+cw/2;
+  R.artY=Math.max(150,h/2+25);                     // centre at 150 cm (museum hang), never closer than 25 cm to the floor
+}
+/* layout: px per cm on the wall, wall base line, horizon */
+function roomLayout(){
+  const st=$("#rStage"), cv=$("#rCv"); if(!st||!cv) return;
+  const W=st.clientWidth, H=st.clientHeight, dpr=Math.min(window.devicePixelRatio||1,3);
+  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+  const {h,w}=R.dims, cw=chairW();
+  const gap=Math.max(25,Math.min(60,w*0.25));
+  const needH=Math.max(240,R.artY+h/2+40);          // floor to a little above the work
+  const needW=Math.max(cw+gap+w+2*20, 260);          // chair, space, work, and a margin either side
+  const floorMin=0.15, floorMax=0.34;
+  let scale=Math.min((1-floorMin)*H/needH, W/needW);
+  const floorPx=Math.max(floorMin*H,Math.min(floorMax*H,H-scale*needH));
+  Object.assign(R,{W,H,dpr,scale,baseY:H-floorPx,cx:W/2});
+  R.f=scale*ROOM.D; R.horizon=R.baseY-scale*ROOM.EYE;
+  roomFloor(); roomDraw();
+}
+/* parquet in perspective, computed once per layout (device pixels) */
+function roomFloor(){
+  const {W,H,dpr,baseY,horizon,f,cx}=R; const D=ROOM.D, E=ROOM.EYE, P=ROOM.PANEL;
+  const fw=Math.round(W*dpr), y0=Math.floor(baseY*dpr), fh=Math.round(H*dpr)-y0;
+  if(fw<=0||fh<=0||!R.parquet){ R.floor=null; return; }
+  if(!R.mips){ R.mips=[]; let size=R.parquet.width; let src=R.parquet;
+    while(size>=16){ const c=document.createElement("canvas"); c.width=c.height=size; const x=c.getContext("2d"); x.imageSmoothingQuality="high"; x.drawImage(src,0,0,size,size);
+      R.mips.push({size,data:x.getImageData(0,0,size,size).data}); src=c; size=size>>1; } }
+  const out=new ImageData(fw,fh), o=out.data, mips=R.mips, L=mips.length;
+  for(let j=0;j<fh;j++){
+    let acc=null;
+    for(let ss=0;ss<2;ss++){
+      const ypx=(y0+j+0.25+ss*0.5)/dpr; const dy=ypx-horizon; if(dy<=0) continue;
+      const Z=f*E/dy;                                   // depth of this floor row (cm)
+      const cmPerPx=Z/f/dpr;                             // footprint across
+      const dzPerPx=Z*Z/(f*E)/dpr;                       // footprint in depth
+      const fp=Math.sqrt(cmPerPx*dzPerPx);
+      let lv=Math.round(Math.log2(Math.max(1,fp*mips[0].size/P))); lv=Math.max(0,Math.min(L-1,lv));
+      const m=mips[lv], sz=m.size, d=m.data, k=sz/P;
+      let tz=((D-Z)%P+P)%P; const ty=Math.floor(tz*k)%sz;
+      const ao=1-0.28*Math.exp(-(D-Z)/18);              // soft shadow where floor meets wall
+      const near=Math.min(1,(Z-ROOM.D*0.55)/(ROOM.D*0.45)); const light=(0.9+0.12*Math.max(0,near))*ao;
+      if(!acc) acc=new Float32Array(fw*3);
+      for(let i=0;i<fw;i++){
+        const X=((i+0.5)/dpr-cx)*Z/f;
+        const tx=Math.floor((((X+P*1000)%P))*k)%sz; const q=(ty*sz+tx)*4;
+        const vig=1-0.10*Math.pow(Math.abs((i/fw)-0.5)*2,2);
+        acc[i*3]+=d[q]*light*vig; acc[i*3+1]+=d[q+1]*light*vig; acc[i*3+2]+=d[q+2]*light*vig;
+      }
+    }
+    if(!acc) continue;
+    for(let i=0;i<fw;i++){ const q=(j*fw+i)*4; o[q]=acc[i*3]/2; o[q+1]=acc[i*3+1]/2; o[q+2]=acc[i*3+2]/2; o[q+3]=255; }
+  }
+  const c=document.createElement("canvas"); c.width=fw; c.height=fh; c.getContext("2d").putImageData(out,0,0);
+  R.floor={c,y0};
+}
+const shade=(hex,k)=>{ const n=parseInt(hex.slice(1),16); const f=v=>Math.max(0,Math.min(255,Math.round(v*k))); return `rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`; };
+function artRect(){ const {scale,cx,baseY}=R, {h,w}=R.dims; return { x:cx+(R.artX-w/2)*scale, y:baseY-(R.artY+h/2)*scale, w:w*scale, h:h*scale }; }
+function chairRect(){ const {f,cx,horizon}=R; const zc=ROOM.D-ROOM.CHAIR_Z, s=f/zc; const hh=ROOM.CHAIR_H*s, ww=chairW()*s;
+  const foot=horizon+f*ROOM.EYE/(ROOM.D-ROOM.CHAIR_FRONT); return { x:cx+R.chairX*s-ww/2, y:foot-hh, w:ww, h:hh, s, foot }; }
+function roomDraw(cvs,opts){
+  const cv=cvs||$("#rCv"); if(!cv||!R.W) return; const x=cv.getContext("2d"); const k=cv.width/R.W;
+  x.setTransform(k,0,0,k,0,0);
+  const {W,H,baseY}=R; const col=(ROOM.walls.find(v=>v[0]===R.wall)||ROOM.walls[0])[1];
+  // wall: soft light from above, a little shade towards the floor and the sides
+  let g=x.createLinearGradient(0,0,0,baseY); g.addColorStop(0,shade(col,1.035)); g.addColorStop(0.75,col); g.addColorStop(1,shade(col,0.9));
+  x.fillStyle=g; x.fillRect(0,0,W,baseY+1);
+  g=x.createLinearGradient(0,0,W,0); g.addColorStop(0,"rgba(0,0,0,.07)"); g.addColorStop(0.25,"rgba(0,0,0,0)"); g.addColorStop(0.75,"rgba(0,0,0,0)"); g.addColorStop(1,"rgba(0,0,0,.07)");
+  x.fillStyle=g; x.fillRect(0,0,W,baseY+1);
+  // floor
+  if(R.floor){ x.drawImage(R.floor.c,0,R.floor.y0/R.dpr,W,R.floor.c.height/R.dpr); } else { x.fillStyle="#6E4E36"; x.fillRect(0,baseY,W,H-baseY); }
+  g=x.createLinearGradient(0,baseY-2,0,baseY+3); g.addColorStop(0,"rgba(0,0,0,0)"); g.addColorStop(0.5,"rgba(0,0,0,.18)"); g.addColorStop(1,"rgba(0,0,0,0)");
+  x.fillStyle=g; x.fillRect(0,baseY-2,W,5);
+  // the work, with the shadow of a hung piece
+  const a=artRect();
+  x.save(); x.shadowColor="rgba(0,0,0,.28)"; x.shadowBlur=Math.max(6,a.w*0.035); x.shadowOffsetX=Math.max(2,a.w*0.012); x.shadowOffsetY=Math.max(3,a.w*0.02);
+  x.fillStyle="#fff"; x.fillRect(a.x,a.y,a.w,a.h); x.restore();
+  if(R.art){ // cover the exact dimensions without distorting the image
+    const iw=R.art.width, ih=R.art.height, r=Math.max(a.w/iw,a.h/ih), sw=a.w/r, sh=a.h/r;
+    x.drawImage(R.art,(iw-sw)/2,(ih-sh)/2,sw,sh,a.x,a.y,a.w,a.h); }
+  // chair: contact shadow, then the chair
+  const c=chairRect();
+  x.save(); x.translate(c.x+c.w/2,c.foot-c.h*0.04); x.scale(1,0.16);
+  g=x.createRadialGradient(0,0,0,0,0,c.w*0.62); g.addColorStop(0,"rgba(0,0,0,.42)"); g.addColorStop(1,"rgba(0,0,0,0)");
+  x.fillStyle=g; x.beginPath(); x.arc(0,0,c.w*0.62,0,Math.PI*2); x.fill(); x.restore();
+  if(R.chair) x.drawImage(R.chair,c.x,c.y,c.w,c.h);
+  if(opts&&opts.caption){ x.fillStyle="rgba(22,36,26,.62)"; x.font=`500 ${Math.max(11,W/90)}px "Hanken Grotesk",sans-serif`; x.textBaseline="bottom"; x.fillText(opts.caption,14,H-10); }
+}
+/* dragging */
+function roomPt(e){ const r=$("#rCv").getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; }
+const inRect=(p,r,pad)=>p.x>=r.x-pad&&p.x<=r.x+r.w+pad&&p.y>=r.y-pad&&p.y<=r.y+r.h+pad;
+function roomDown(e){
+  const p=roomPt(e), c=chairRect(), a=artRect();
+  const what=inRect(p,c,4)?"chair":inRect(p,a,8)?"art":null; if(!what) return;
+  R.drag={what,p0:p,ax:R.artX,ay:R.artY,chx:R.chairX}; e.target.setPointerCapture(e.pointerId); e.target.classList.add("drag");
+  const h=$("#rHint"); if(h) h.style.opacity="0";
+}
+function roomMove(e){
+  if(!R.drag) return; const p=roomPt(e), dx=p.x-R.drag.p0.x, dy=p.y-R.drag.p0.y; const {h,w}=R.dims;
+  const halfW=R.W/2/R.scale;
+  if(R.drag.what==="art"){
+    R.artX=Math.max(-halfW-w/2+w*0.2, Math.min(halfW+w/2-w*0.2, R.drag.ax+dx/R.scale));   // keep at least a fifth of the work in view
+    const top=(R.baseY)/R.scale;                                   // visible wall height (cm)
+    R.artY=Math.max(h/2+2, Math.min(top-h/2*0.2, R.drag.ay-dy/R.scale));
+  } else {
+    const s=chairRect().s; const lim=R.W/2/s;
+    R.chairX=Math.max(-lim, Math.min(lim, R.drag.chx+dx/s));
+  }
+  roomDraw();
+}
+function roomUp(e){ if(!R.drag) return; R.drag=null; try{ e.target.releasePointerCapture(e.pointerId); }catch(x){} e.target.classList.remove("drag"); }
+async function roomSave(){
+  const w=R.w; const c=document.createElement("canvas"); const k=Math.max(2,R.dpr);
+  c.width=Math.round(R.W*k); c.height=Math.round(R.H*k);
+  roomDraw(c,{caption:`${w.artist}${w.title?", "+w.title:""}${w.year?", "+w.year:""} · ${fmtCm(R.dims.h)} × ${fmtCm(R.dims.w)} cm · Legacy Shaper`});
+  const name=`${fileBase(w)} - ${t("atScale")}.jpg`;
+  const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",0.92)); if(!blob) return;
+  try{ const file=new File([blob],name,{type:"image/jpeg"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})&&/iPhone|iPad|Android/.test(navigator.userAgent)){ await navigator.share({files:[file],title:name}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
+  const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
+}
+
+/* ---------------- assistant: messages with Legacy Shaper ----------------
+   One conversation per collector and collection. The assistant answers at once; Dylan can join at any moment. */
+const C={ ok:false, thread:null, msgs:[], open:false, about:null, file:null, ch:null, poll:null, waiting:0, cid:null };
+async function chatProbe(){
+  // the feature shows only once the conversation tables exist and the collector is online
+  if(!sb||!S.cid||navigator.onLine===false||!S.user||S.isAdmin) return;
+  try{ const {data,error}=await sb.from("support_threads").select("id,unread_client,mode,human_last_at").eq("collection_id",S.cid);
+    if(error) { C.ok=false; chatFabRender(); return; }
+    C.ok=true; if(data&&data[0]&&(!C.thread||C.thread.id===data[0].id)) C.thread=Object.assign(C.thread||{},data[0]);
+  }catch(e){ C.ok=false; }
+  chatFabRender();
+}
+function chatFabRender(){
+  const b=$("#chatFab"); if(!b) return; b.hidden=!C.ok||C.open;
+  b.querySelector(".l").textContent=t("chatFab");
+  const n=(C.thread&&C.thread.unread_client)||0; const nb=b.querySelector(".n"); nb.hidden=!n; nb.textContent=n>9?"9+":String(n);
+}
+const chatHuman=()=>!!(C.thread&&C.thread.mode==="human");
+async function openChat(about){
+  if(navigator.onLine===false){ toast(t("chatOffline")); return; }
+  C.open=true; C.about=about||null; C.file=null; chatFabRender();
+  const el=$("#chat"); el.hidden=false; document.body.style.overflow="hidden";
+  el.innerHTML=`<div class="cp" role="dialog" aria-label="${esc(t("chatTitle"))}"><div class="ch"><div class="who"><b>${esc(t("chatTitle"))}</b><span id="cState"></span></div><button id="cClose" aria-label="${esc(t("ok"))}">✕</button></div>
+    <div class="cl" id="cList"><div class="intro">${esc(t("chatIntro"))}</div></div>
+    <div class="cf"><div class="ctx" id="cCtx" hidden></div>
+      <div class="row"><button id="cAtt" aria-label="${esc(t("chatAttach"))}" title="${esc(t("chatAttach"))}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 11.5l-8 8a5 5 0 01-7-7l8.5-8.5a3.3 3.3 0 014.7 4.7L9.7 17.2a1.7 1.7 0 01-2.4-2.4L15 7"/></svg></button>
+        <textarea id="cIn" rows="1" placeholder="${esc(t("chatPh"))}" maxlength="3800"></textarea>
+        <button class="send" id="cSend" aria-label="${esc(t("chatSend"))}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12l16-8-6 16-2.5-6.5z"/></svg></button></div>
+      <input type="file" id="cFile" accept="image/*,application/pdf" hidden><div class="note" id="cNote"></div></div></div>`;
+  $("#cClose").onclick=closeChat; el.onclick=e=>{ if(e.target===el) closeChat(); };
+  const inp=$("#cIn"); inp.oninput=()=>{ inp.style.height="auto"; inp.style.height=Math.min(140,inp.scrollHeight)+"px"; };
+  inp.onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey&&!/iPhone|iPad|Android/.test(navigator.userAgent)){ e.preventDefault(); chatSend(); } };
+  $("#cSend").onclick=chatSend; $("#cAtt").onclick=()=>$("#cFile").click();
+  $("#cFile").onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>15*1024*1024){ $("#cNote").textContent=t("chatTooBig"); return; } C.file=f; chatCtx(); };
+  chatCtx(); chatState();
+  try{ const {data,error}=await sb.rpc("support_open_thread",{cid:S.cid,lng:LANG}); if(error) throw error;
+    C.thread=Array.isArray(data)?data[0]:data; await chatLoad(); chatLive(); sb.rpc("support_mark_read",{tid:C.thread.id}).then(()=>{ if(C.thread) C.thread.unread_client=0; chatFabRender(); });
+  }catch(e){ console.warn(e); $("#cNote").textContent=t("chatFail"); }
+  setTimeout(()=>{ try{ inp.focus({preventScroll:true}); }catch(x){} },60);
+}
+function closeChat(){ C.open=false; const el=$("#chat"); el.hidden=true; el.innerHTML=""; if(!S.openId&&!R.open) document.body.style.overflow="";
+  if(C.ch){ try{ sb.removeChannel(C.ch); }catch(e){} C.ch=null; } clearInterval(C.poll); C.poll=null; chatFabRender(); }
+function chatCtx(){ const c=$("#cCtx"); if(!c) return; const w=C.about&&workById(C.about);
+  const parts=[]; if(w) parts.push(`<span>${esc(t("chatAbout"))}</span><b>${esc(w.artist)}, <i>${esc(w.title)}</i></b><button data-x="about" aria-label="✕">✕</button>`);
+  if(C.file) parts.push(`<span>📎</span><b>${esc(C.file.name)}</b><button data-x="file" aria-label="✕">✕</button>`);
+  c.hidden=!parts.length; c.innerHTML=parts.join("");
+  c.querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>{ if(b.dataset.x==="about") C.about=null; else { C.file=null; $("#cFile").value=""; } chatCtx(); }); }
+function chatState(){ const s=$("#cState"); if(s) s.innerHTML=`<i></i>${esc(chatHuman()?t("chatDylan"):t("chatStatus"))}`; }
+async function chatLoad(){
+  if(!C.thread) return; const {data,error}=await sb.from("support_messages").select("id,author,body,artwork_id,attachment_path,attachment_name,attachment_type,created_at").eq("thread_id",C.thread.id).order("created_at");
+  if(error) return; const before=C.msgs.length; C.msgs=data||[];
+  const {data:th}=await sb.from("support_threads").select("id,mode,human_last_at,unread_client").eq("id",C.thread.id);
+  if(th&&th[0]) Object.assign(C.thread,th[0]);
+  if(C.open&&C.thread.unread_client){ C.thread.unread_client=0; sb.rpc("support_mark_read",{tid:C.thread.id}).then(null,()=>{}); }   // read as it arrives
+  if(C.waiting&&C.msgs.length&&C.msgs[C.msgs.length-1].author!=="client") C.waiting=0;
+  chatRender(C.msgs.length!==before);
+}
+function chatLive(){
+  try{ C.ch=sb.channel("support-"+C.thread.id)
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"support_messages",filter:`thread_id=eq.${C.thread.id}`},()=>chatLoad())
+    .on("postgres_changes",{event:"UPDATE",schema:"public",table:"support_threads",filter:`id=eq.${C.thread.id}`},p=>{ if(p&&p.new){ Object.assign(C.thread,{mode:p.new.mode}); chatState(); } })
+    .subscribe(); }catch(e){}
+  clearInterval(C.poll); C.poll=setInterval(()=>{ if(C.open&&document.visibilityState==="visible") chatLoad(); }, window.LS_CHAT_POLL_MS||8000);
+}
+const chatTime=d=>new Date(d).toLocaleString(LANG==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+function chatRender(scroll){
+  const l=$("#cList"); if(!l) return; chatState();
+  const html=C.msgs.map(m=>{
+    if(m.author==="system") return `<div class="sys">${esc(m.body)}</div>`;
+    const me=m.author==="client"; const w=m.artwork_id&&workById(m.artwork_id);
+    const who=me?t("chatMe"):m.author==="dylan"?t("chatDylanName"):t("chatAi");
+    const att=m.attachment_path?(/^image\//.test(m.attachment_type||"")?`<img class="ai" data-att="${esc(m.attachment_path)}" alt="${esc(m.attachment_name||"")}">`:`<button class="at" data-dl="${esc(m.attachment_path)}" data-n="${esc(m.attachment_name||"document")}">📎 ${esc(m.attachment_name||"document")}</button>`):"";
+    return `<div class="m ${me?"me":"them"} ${m.author==="dylan"?"dylan":""}"><small>${esc(who)}</small>${esc(m.body)}${w?`<span class="about">${esc(t("chatAbout"))} ${esc(w.artist)}, ${esc(w.title)}</span>`:""}${att}</div><div class="t ${me?"me":""}">${esc(chatTime(m.created_at))}</div>`;
+  }).join("");
+  l.innerHTML=`<div class="intro">${esc(t("chatIntro"))}</div>${html}${C.waiting&&!chatHuman()?`<div class="typing"><i></i><i></i><i></i></div>`:""}`;
+  l.querySelectorAll("[data-att]").forEach(async im=>{ const u=await chatFileUrl(im.dataset.att); if(u) im.src=u; });
+  l.querySelectorAll("[data-dl]").forEach(b=>b.onclick=async()=>{ const u=await chatFileUrl(b.dataset.dl); if(!u) return; const a=document.createElement("a"); a.href=u; a.download=b.dataset.n; document.body.appendChild(a); a.click(); a.remove(); });
+  if(scroll!==false) l.scrollTop=l.scrollHeight;
+}
+const chatUrls={};
+async function chatFileUrl(path){ if(chatUrls[path]) return chatUrls[path];
+  try{ const {data,error}=await sb.storage.from("support-files").download(path); if(error||!data) return null; return chatUrls[path]=URL.createObjectURL(data); }catch(e){ return null; } }
+let chatSending=false;
+async function chatSend(){
+  const inp=$("#cIn"); const body=(inp.value||"").trim(); if((!body&&!C.file)||chatSending||!C.thread) return;
+  if(navigator.onLine===false){ $("#cNote").textContent=t("chatOffline"); return; }
+  chatSending=true; $("#cSend").disabled=true; $("#cNote").textContent="";
+  try{
+    const row={thread_id:C.thread.id,author:"client",body:body||(C.file?C.file.name:""),artwork_id:C.about||null};
+    if(C.file){ const safe=C.file.name.replace(/[^\w.\-]+/g,"_").slice(-80); const path=`${S.user.id}/${Date.now().toString(36)}-${safe}`;
+      const {error}=await sb.storage.from("support-files").upload(path,C.file,{contentType:C.file.type||"application/octet-stream"}); if(error) throw error;
+      Object.assign(row,{attachment_path:path,attachment_name:C.file.name,attachment_type:C.file.type||""}); }
+    const {error}=await sb.from("support_messages").insert(row); if(error) throw error;
+    inp.value=""; inp.style.height="auto"; C.file=null; C.about=null; const fi=$("#cFile"); if(fi) fi.value=""; chatCtx(); haptic();
+    C.waiting=Date.now(); await chatLoad();
+    const ask=()=>sb.functions.invoke("support-chat",{body:{action:"reply",threadId:C.thread.id}});
+    ask().then(r=>{ if(r&&r.error) setTimeout(()=>ask().catch(()=>{}),3000); }).catch(()=>setTimeout(()=>ask().catch(()=>{}),3000)).finally(()=>setTimeout(()=>{ if(C.open) chatLoad(); },600));
+    setTimeout(()=>{ if(C.waiting){ C.waiting=0; chatRender(false); } },30000);
+  }catch(e){ console.warn(e); $("#cNote").textContent=t("chatFail"); }
+  finally{ chatSending=false; const b=$("#cSend"); if(b) b.disabled=false; }
+}
+$("#chatFab").onclick=()=>openChat();
 
 /* ---------------- export ---------------- */
 async function imgData(p){ if(!p) return null; if(p.startsWith("data:")) return p.split(",")[1]; try{ const r=await fetch(p); return r.ok?await r.blob():null; }catch(e){ return null; } }
@@ -678,7 +1042,7 @@ function openMenu(){
   $("#mExport").onclick=()=>{ close(); exportAll(); };
   if($("#mInstall")) $("#mInstall").onclick=async()=>{ if(deferredPrompt){ deferredPrompt.prompt(); deferredPrompt=null; close(); return; } close(); toast(installText(),7000); };
   if($("#mSwitch")) $("#mSwitch").onclick=()=>{ close(); try{ localStorage.removeItem("ls-coll:"+S.user.id); }catch(e){} showPicker(); };
-  $("#mLang").onclick=()=>{ setLang(LANG==="fr"?"en":"fr"); close(); render(); if(S.openId) openWork(S.openId,true); };
+  $("#mLang").onclick=()=>{ setLang(LANG==="fr"?"en":"fr"); close(); render(); chatFabRender(); if(S.openId) openWork(S.openId,true); };
   $("#mOut").onclick=()=>{ close(); signOut(); };
 }
 $("#btnMenu").onclick=openMenu;
@@ -689,7 +1053,7 @@ async function signOut(){
   try{ sessionStorage.removeItem("ls-shared"); }catch(e){}
   location.reload();
 }
-document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&S.openId) closeWork(); });
+document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return; if(C.open) closeChat(); else if(R.open) closeRoom(); else if(S.openId) closeWork(); });
 
 /* ---------------- start ---------------- */
 const within=(pr,ms)=>Promise.race([pr,new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),ms))]);

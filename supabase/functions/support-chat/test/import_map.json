@@ -1,0 +1,1 @@
+{ "imports": { "npm:@supabase/supabase-js@2.45.4": "./stub_supabase.ts" } }

@@ -33,3 +33,20 @@ self.addEventListener("fetch", e => {
     try { const r = await fetch(req); if (r.ok && (url.origin === self.location.origin || EXTERNAL.includes(req.url))) { const c = await caches.open(VERSION); c.put(req, r.clone()); } return r; }
     catch (err) { return Response.error(); } })());
 });
+// Notifications: messages from collectors (sent by the support-chat function). Touching one opens the conversation.
+self.addEventListener("push", e => {
+  let d = {}; try { d = e.data ? e.data.json() : {}; } catch (err) { d = { body: e.data ? e.data.text() : "" }; }
+  e.waitUntil(self.registration.showNotification(d.title || "The Legacy", {
+    body: d.body || "", tag: d.tag || "messages", renotify: true, icon: "../icon-192.png", badge: "../icon-192.png",
+    data: { url: d.url || "./#messages" } }));
+});
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || "./#messages";
+  const tid = (url.match(/#messages\/([\w-]+)/) || [])[1] || null;
+  e.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of all) { if (new URL(c.url).pathname.startsWith(new URL(self.registration.scope).pathname)) { c.postMessage({ type: "open-messages", threadId: tid }); return c.focus(); } }
+    return self.clients.openWindow(url);
+  })());
+});

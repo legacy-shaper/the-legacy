@@ -15,6 +15,22 @@ Hand-over note: everything needed to resume work in a new conversation. No secre
   inventory sheet (print), image download. Export zip (CSV + images). EN/FR.
 - Co-owners (other session, commit 63591f1, SQL 003 applied): client sees names + % only, per-work visibility switch.
 
+## Added 8 Oct 2026
+- **View at scale** (client app, work page → « Voir à l’échelle »): one wall, Versailles parquet, reference chair 80 cm (Dylan's choice,
+  cut out from his image: `assets/room/room-chair.webp`; parquet texture made by `tools/room_parquet.py` → `assets/room/room-parquet.jpg`).
+  Real centimetres with one camera (wall at 500 cm, eye 140 cm). Work moves left/right/up/down, chair left/right only; wall colours
+  (gris perle, blanc galerie, lin, vert Legacy); « Enregistrer l’image » (share sheet on iPhone). Hidden for sculptures/furniture and volumes (depth > 15 cm).
+  Tests: `tests/test_client_room.py`.
+- **Messages / assistant**: client app « Nous écrire » + « Une question sur cette œuvre » (photo or PDF attachable, bucket `support-files`).
+  Edge function **support-chat** (deployed, verify_jwt on): assistant reply (Claude API, model `claude-sonnet-5-5`, needs secret
+  `ANTHROPIC_API_KEY` in Edge Functions → Secrets; without it a courteous acknowledgement is sent), category/priority/summary for Dylan,
+  web push to Dylan's devices (VAPID public key in master.html and the function; private key in Vault secret `vapid_private`).
+  Master app: « Messages » (top bar + home 05): list, conversation, « Prendre le relais » / « Rendre la main », « Marquer comme traité »,
+  Réglages (activate notifications on this device, test, all/important, quiet hours, hand-back delay). Assistant resumes alone after the delay.
+  SQL `supabase/004_support_chat.sql` (Dylan runs it). Before it runs, both apps hide the feature.
+  Tests: `tests/test_client_chat.py`, `tests/test_master_messages.py`, `supabase/functions/support-chat/push_test.ts` (RFC 8291 vector),
+  `supabase/functions/support-chat/test/function_test.ts` (`deno run --allow-env --import-map=import_map.json function_test.ts`).
+
 ## Back office (master app The Legacy)
 - Société → **Collections clients**: create a collection, rename, give access by email ("Donner l'accès"), remove access.
 - Artwork card → "Collection client" block (collectionId + client fields). Expense editor → collection + "visible par le collectionneur".
@@ -31,7 +47,8 @@ Hand-over note: everything needed to resume work in a new conversation. No secre
 
 ## Tests (zero failure before publishing)
 - `python3 tests/test_client.py` (62 checks, Supabase mock), `python3 tests/test_client_offline.py` (real service worker, no network, photos),
-  `python3 tests/test_master_collections.py`, `python3 tests/test_master_coowners.py`.
+  `python3 tests/test_master_collections.py`, `python3 tests/test_master_coowners.py`,
+  `python3 tests/test_client_room.py`, `python3 tests/test_client_chat.py`, `python3 tests/test_master_messages.py`.
 
 ## Next steps
 1. Design review of the client app with Dylan on his iPhone (he dictates remarks; fix, test, publish).

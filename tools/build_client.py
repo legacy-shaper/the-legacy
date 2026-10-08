@@ -27,7 +27,7 @@ assert "__LOGO_" not in page
 SW = r'''/* Legacy Shaper — client app service worker.
    The app opens instantly and offline; collection data never passes through this cache (Supabase is always live). */
 const VERSION = "ls-client-__BUILD__";
-const APP = ["./", "./index.html", "./manifest.webmanifest", "./apple-touch-icon.png", "./icon-192.png", "./icon-512.png"];
+const APP = ["./", "./index.html", "./manifest.webmanifest", "./apple-touch-icon.png", "./icon-192.png", "./icon-512.png", "./room-chair.webp", "./room-parquet.jpg"];
 const EXTERNAL = [
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js",
@@ -60,7 +60,8 @@ self.addEventListener("fetch", e => {
     catch (err) { return Response.error(); } })());
 });
 '''
-build = hashlib.sha1((page + SW).encode()).hexdigest()[:8]
+ROOM_ASSETS = [os.path.join(R, "assets", "room", f) for f in ("room-chair.webp", "room-parquet.jpg")]
+build = hashlib.sha1((page + SW).encode() + b"".join(open(f, "rb").read() for f in ROOM_ASSETS)).hexdigest()[:8]
 page = page.replace("</body></html>", f'<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v{build}</div>\n</body></html>')
 
 os.makedirs(OUT, exist_ok=True)
@@ -68,6 +69,8 @@ open(os.path.join(OUT, "index.html"), "w", encoding="utf-8").write(page)
 open(os.path.join(OUT, "sw.js"), "w", encoding="utf-8").write(SW.replace("__BUILD__", build))
 for f in ("apple-touch-icon.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png"):
     shutil.copy(os.path.join(R, f), os.path.join(OUT, f))
+for f in ROOM_ASSETS:
+    shutil.copy(f, os.path.join(OUT, os.path.basename(f)))
 manifest = {"name": "Legacy Shaper", "short_name": "Legacy Shaper", "description": "Legacy Shaper — Collection Office",
             "lang": "en", "start_url": "./", "scope": "./", "display": "standalone", "orientation": "any",
             "background_color": "#1B3924", "theme_color": "#1B3924",
