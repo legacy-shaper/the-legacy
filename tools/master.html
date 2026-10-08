@@ -501,7 +501,11 @@ body[data-view="contacts"] .listbtn,body[data-view="artworks"] .listbtn{display:
 .avwrap{display:flex;flex-direction:column;align-items:center;gap:2px}
 .avwrap .lnk{font-size:11px}
 .av-s{width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle;margin:-4px 7px -2px 0;display:inline-block}
-body.viewer .av{pointer-events:none}body.viewer #ctPhotoDel{display:none!important}
+body.viewer .av:not(.has){pointer-events:none}body.viewer #ctPhotoDel,body.viewer #ctPhotoChg{display:none!important}
+.av.has{cursor:zoom-in}
+.ctbig .lbox{width:min(520px,100%);text-align:center}
+.ctbig .lbox img{width:100%;max-height:70vh;object-fit:contain;border-radius:14px;background:var(--surface)}
+.ctbig .cap{font:500 22px/1.2 var(--serif);margin:12px 0 2px}.ctbig .cap2{color:var(--muted);font-size:13px;margin-bottom:10px}
 .card.private{border-style:dashed;border-color:var(--line-2)}
 .lock{font:500 10.5px/1 var(--sans);letter-spacing:.06em;text-transform:none;color:var(--gold);background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:4px 10px}
 .subh{font:600 10.5px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin:18px 0 10px;padding-top:14px;border-top:1px solid var(--line)}
@@ -1009,7 +1013,8 @@ $("#fileIn").addEventListener("change",async e=>{
     const cx=cv.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,S,S);
     cx.drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,S,S);
     const durl=cv.toDataURL("image/jpeg",0.82);
-    if(ctT){ ctT.photo=durl; schedDoc("contacts",ctT.id); renderAlt(); return; }
+    if(ctT){ ctT.photo=durl; ctT.photoHd=""; schedDoc("contacts",ctT.id); renderAlt();
+      try{ const big=await resizeImage(f,1000); await saveCtBig(ctT,big); ctT.photoHd="1"; schedDoc("contacts",ctT.id); }catch(e){} return; }
     if(artT){ artT.photo=durl; try{ await loadViews(artT.id); const full=await resizeImage(f,900); const v={id:uid(),photo:full,createdAt:new Date().toISOString()}; await saveView(artT,v); artT.primaryViewId=v.id; }catch(e){} schedDoc("artworks",artT.id); renderAlt(); } else { inv.items[photoTarget].photo=durl; touch({editor:true}); }
   }catch(err){ setSave("Image illisible, essayez un JPEG ou un PNG",true); }
 });
@@ -1179,7 +1184,9 @@ async function exportData(){
 async function fullBackupZip(onStep){
   if(!window.JSZip) throw new Error("zip");
   for(const id of Object.keys(state.artworks)) await loadViews(id);
+  for(const c of Object.values(state.contacts)) if(c.photoHd) await loadCtBig(c.id);
   const zip=new JSZip(), j=o=>JSON.stringify(o,null,1);
+  for(const [cid,u] of Object.entries(state.ctBig)) if(u&&state.contacts[cid]) zip.file(`contacts/${cid}/photo/main.json`, j({photo:u}));
   zip.file("settings/company.json", j(state.company));
   for(const coll of ["invoices","contacts","artworks","expenses"]) for(const [id,o] of Object.entries(state[coll]||{})) zip.file(`${coll}/${id}.json`, j(o));
   for(const [aid,vs] of Object.entries(state.views||{})) for(const [vid,v] of Object.entries(vs||{})) zip.file(`artworks/${aid}/views/${vid}.json`, j(v));
@@ -1212,7 +1219,8 @@ async function zipToBackup(file, z){
     if(!/\.json$/.test(path)) continue; const o=JSON.parse(await entry.async("string")); const id=parts[parts.length-1].replace(/\.json$/,"");
     if(parts[0]==="settings" && id==="company") d.company=o;
     else if(parts.length===2 && d[parts[0]] && parts[0]!=="views" && parts[0]!=="assets") d[parts[0]][id]=o;
-    else if(parts[0]==="artworks" && parts[2]==="views"){ (d.views[parts[1]]=d.views[parts[1]]||{})[id]=o; } }
+    else if(parts[0]==="artworks" && parts[2]==="views"){ (d.views[parts[1]]=d.views[parts[1]]||{})[id]=o; }
+    else if(parts[0]==="contacts" && parts[2]==="photo" && o && o.photo){ (d.ctPhotos=d.ctPhotos||{})[parts[1]]=o.photo; } }
   return d;
 }
 async function uploadBackupAssets(d, z){
@@ -1244,6 +1252,7 @@ function showImport(d,z,done){
         if(db){ await db.doc("settings/company").set(clone(state.company));
           for(const [coll,src] of [["invoices",d.invoices],["contacts",d.contacts],["artworks",d.artworks],["expenses",d.expenses]]) for(const id of Object.keys(src||{})) await db.collection(coll).doc(id).set(clone(src[id]));
           for(const [aid,vs] of Object.entries(d.views||{})) for(const [vid,v] of Object.entries(vs||{})) await db.collection("artworks/"+aid+"/views").doc(vid).set(clone(v));
+          for(const [cid,u] of Object.entries(d.ctPhotos||{})) if(state.contacts[cid]) await saveCtBig(state.contacts[cid],u);
           if(d.assets) await uploadBackupAssets(d,z);
           if(window.LEGACY_SB && window.LEGACY_SB.client) await window.LEGACY_SB.client.rpc("legacy_resync"); }
         else await local.write();
@@ -1489,7 +1498,7 @@ function renderDetail(){
     if(!c){ el.innerHTML=`<div class="card"><h2>Contacts</h2><p class="msg">Créez vos clients à l’avance avec « Nouveau contact » : vous les retrouverez ensuite en un clic dans chaque facture.</p></div>`; return; }
     const invs=contactInvoices(c); ctNorm(c);
     const PRI=[["pro","Pro"],["perso","Perso"]];
-    el.innerHTML=`${back}<div class="ehead"><div class="ctid"><div class="avwrap"><button type="button" class="av ${c.photo?"has":""}" id="ctPhoto" aria-label="${c.photo?"Changer la photo":"Ajouter une photo"}" title="${c.photo?"Changer la photo":"Ajouter une photo"}">${c.photo?`<img src="${c.photo}" alt="">`:"Photo"}</button>${c.photo?`<button type="button" class="lnk" id="ctPhotoDel">Retirer</button>`:""}</div><div><h1>${esc(c.name||c.company||"Nouveau contact")}</h1><div class="sub">${invs.length} facture${invs.length>1?"s":""}</div></div></div>
+    el.innerHTML=`${back}<div class="ehead"><div class="ctid"><div class="avwrap"><button type="button" class="av ${c.photo?"has":""}" id="ctPhoto" aria-label="${c.photo?"Agrandir la photo":"Ajouter une photo"}" title="${c.photo?"Agrandir la photo":"Ajouter une photo"}">${c.photo?`<img src="${c.photo}" alt="">`:"Photo"}</button>${c.photo?`<span><button type="button" class="lnk" id="ctPhotoChg">Changer</button> · <button type="button" class="lnk" id="ctPhotoDel">Retirer</button></span>`:""}</div><div><h1>${esc(c.name||c.company||"Nouveau contact")}</h1><div class="sub">${invs.length} facture${invs.length>1?"s":""}</div></div></div>
       <div class="eacts"><button type="button" class="btn primary" id="ctInvoice">+ Facture pour ce contact</button><button type="button" class="btn danger" id="ctDel">${ICON.trash}Supprimer</button></div></div>
       <div class="card"><h2>Coordonnées</h2><div class="grid">
         ${kf("Nom","name",c.name,"s3",{ph:"Prénom Nom"})}${kf("Société (facultatif)","company",c.company)}
@@ -1717,6 +1726,24 @@ async function makePrimary(a,vid){
   if(a.photo && !(a.primaryViewId && state.views[a.id][a.primaryViewId])){ const old={id:uid(),photo:a.photo,createdAt:"0000"}; await saveView(a,old); }
   const v=state.views[a.id][vid]; if(!v) return;
   a.primaryViewId=vid; a.photo=await squareThumb(v.photo); schedDoc("artworks",a.id); setSave("Photo principale changée");
+}
+/* Contact portrait: c.photo = 200x200 thumbnail (lists, fiche); the larger copy (long side 1000 px) lives in
+   contacts/<id>/photo/main and is only loaded when the portrait is enlarged. */
+state.ctBig={};
+async function saveCtBig(c,big){ state.ctBig[c.id]=big; if(db) await db.collection("contacts/"+c.id+"/photo").doc("main").set({photo:big,createdAt:new Date().toISOString()}); else await local.write(); }
+async function loadCtBig(id){ if(id in state.ctBig) return state.ctBig[id]; let u=""; if(db){ try{ const d=await db.collection("contacts/"+id+"/photo").doc("main").get(); u=(d.exists&&d.data()&&d.data().photo)||""; }catch(e){} } state.ctBig[id]=u; return u; }
+async function dropCtBig(id){ delete state.ctBig[id]; if(db){ try{ await db.collection("contacts/"+id+"/photo").doc("main").delete(); }catch(e){} } }
+function openCtPhoto(c){
+  if(!c||!c.photo) return;
+  $("#modal").innerHTML=`<div class="ov lb ctbig" id="ovct"><div class="lbox" role="dialog" aria-label="Photo de ${esc(c.name||c.company||"contact")}">
+    <img id="ctBigImg" src="${state.ctBig[c.id]||c.photo}" alt="">
+    <div class="cap">${esc(c.name||c.company||"")}</div>${c.name&&c.company?`<div class="cap2">${esc(c.company)}</div>`:""}
+    <div class="eacts" style="justify-content:center"><button type="button" class="btn" id="ctBigClose">Fermer</button></div></div></div>`;
+  const close=()=>{ $("#modal").innerHTML=""; document.removeEventListener("keydown",esc_); };
+  const esc_=e=>{ if(e.key==="Escape") close(); };
+  document.addEventListener("keydown",esc_);
+  $("#ctBigClose").onclick=close; $("#ovct").onclick=e=>{ if(e.target.id==="ovct"||e.target.id==="ctBigImg") close(); };
+  if(c.photoHd && !state.ctBig[c.id]) loadCtBig(c.id).then(u=>{ const im=$("#ctBigImg"); if(u&&im) im.src=u; });
 }
 async function loadViews(id){ if(state.views[id]) return state.views[id]; const m={}; if(db){ try{ const snap=await db.collection("artworks/"+id+"/views").get(); snap.docs.forEach(d=>{ m[d.id]=d.data(); }); }catch(e){} } state.views[id]=m; return m; }
 function resizeImage(file,max){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onerror=rej; r.onload=()=>{ const im=new Image(); im.onerror=rej; im.onload=()=>{ const k=Math.min(1,max/Math.max(im.width,im.height)); const cv=document.createElement("canvas"); cv.width=Math.round(im.width*k); cv.height=Math.round(im.height*k); const cx=cv.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,cv.width,cv.height); cx.drawImage(im,0,0,cv.width,cv.height); res(cv.toDataURL("image/jpeg",0.8)); }; im.src=r.result; }; r.readAsDataURL(file); }); }
@@ -2243,14 +2270,15 @@ document.addEventListener("click",async e=>{
   if(b.dataset.viewOpen){ openView(b.dataset.viewOpen); return; }
   if(b.id==="artPhoto" && state.artworks[state.curArt]?.photo){ const a=state.artworks[state.curArt]; await loadViews(a.id); openView(a.primaryViewId && (state.views[a.id]||{})[a.primaryViewId] ? a.primaryViewId : "__main"); return; }
   if(b.id==="artPhoto"){ photoTarget="art"; $("#fileIn").value=""; $("#fileIn").click(); return; }
-  if(b.id==="ctPhoto"){ photoTarget="ct"; $("#fileIn").value=""; $("#fileIn").click(); return; }
-  if(b.id==="ctPhotoDel"){ const c=state.contacts[state.curContact]; if(c){ c.photo=""; schedDoc("contacts",c.id); renderAlt(); } return; }
+  if(b.id==="ctPhoto"){ const c=state.contacts[state.curContact]; if(c&&c.photo){ openCtPhoto(c); return; } photoTarget="ct"; $("#fileIn").value=""; $("#fileIn").click(); return; }
+  if(b.id==="ctPhotoChg"){ photoTarget="ct"; $("#fileIn").value=""; $("#fileIn").click(); return; }
+  if(b.id==="ctPhotoDel"){ const c=state.contacts[state.curContact]; if(c){ c.photo=""; c.photoHd=""; schedDoc("contacts",c.id); renderAlt(); dropCtBig(c.id); } return; }
   if(b.id==="artReplace"){ photoTarget="art"; $("#fileIn").value=""; $("#fileIn").click(); return; }
   if(b.id==="artRmPhoto"){ const a=state.artworks[state.curArt]; if(a){ a.photo=""; schedDoc("artworks",a.id); renderAlt(); } return; }
   if(b.id==="ctDel"||b.id==="artDel"){
     if(!b.classList.contains("arm")){ b.classList.add("arm"); b.lastChild.textContent="Confirmer la suppression"; setTimeout(()=>{ if(b.isConnected){ b.classList.remove("arm"); b.lastChild.textContent="Supprimer"; } },4000); return; }
     const coll=b.id==="ctDel"?"contacts":"artworks", id=coll==="contacts"?state.curContact:state.curArt;
-    try{ if(coll==="artworks"){ const vs=await loadViews(id); if(db) for(const vid of Object.keys(vs)) await db.collection("artworks/"+id+"/views").doc(vid).delete(); delete state.views[id]; } await removeDoc(coll,id); setSave(coll==="contacts"?"Contact supprimé":"Œuvre supprimée"); }catch(err){ setSave("Échec de la suppression",true); }
+    try{ if(coll==="contacts") await dropCtBig(id); if(coll==="artworks"){ const vs=await loadViews(id); if(db) for(const vid of Object.keys(vs)) await db.collection("artworks/"+id+"/views").doc(vid).delete(); delete state.views[id]; } await removeDoc(coll,id); setSave(coll==="contacts"?"Contact supprimé":"Œuvre supprimée"); }catch(err){ setSave("Échec de la suppression",true); }
     if(coll==="contacts") state.curContact=null; else state.curArt=null; document.body.classList.remove("alt-detail"); renderAlt(); return;
   }
 });

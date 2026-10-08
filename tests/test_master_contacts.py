@@ -108,12 +108,51 @@ with sync_playwright() as pw:
     check(p.locator("[data-ct=ct2] img.av-s").count() == 1 and p.locator("[data-ct=ct1] img.av-s").count() == 0, "small avatar shown in the contact list")
     check(p.evaluate("getComputedStyle(document.querySelector('#ctPhoto')).borderRadius") == "50%", "avatar is round")
     check(D("ct2")["email"] == "pamela@plw.paris" and D("ct2")["emailPerso"] == "pamela.wahnich@gmail.com", "photo upload leaves the other fields intact")
+    BIG = "(__mockDB().docs.find(x=>x.coll==='contacts/ct2/photo'&&x.id==='main')||{}).data"
+    big = p.evaluate(BIG) or {}
+    bdims = p.evaluate("u=>new Promise(r=>{const i=new Image();i.onload=()=>r([i.width,i.height]);i.src=u;})", big.get("photo", ""))
+    check(bdims == [1000, 667], f"larger copy stored apart, uncropped ({bdims})")
+    check(D("ct2").get("photoHd") == "1" and "data:" not in json.dumps({k: v for k, v in D("ct2").items() if k != "photo"}), "contact record only flags the larger copy (stays light)")
+    # click the avatar -> enlarged in the middle of the app
+    p.click("#ctPhoto"); p.wait_for_selector("#ovct #ctBigImg")
+    check("Raphaël Wertheimer" in p.inner_text("#ovct"), "enlarged view shows the name")
+    w = p.evaluate("document.querySelector('#ctBigImg').getBoundingClientRect().width")
+    check(w > 300, f"photo shown large ({int(w)} px wide)")
+    p.wait_for_function("document.querySelector('#ctBigImg').naturalWidth===1000")
+    check(True, "enlarged view uses the larger copy")
+    p.keyboard.press("Escape"); p.wait_for_timeout(200)
+    check(p.locator("#ovct").count() == 0, "Escape closes the enlarged photo")
+    # fresh session: larger copy loaded on demand
+    p.evaluate("state.ctBig={}"); p.click("#ctPhoto"); p.wait_for_function("document.querySelector('#ctBigImg') && document.querySelector('#ctBigImg').naturalWidth===1000")
+    check(True, "larger copy fetched on demand when not in memory")
+    p.click("#ctBigClose"); check(p.locator("#ovct").count() == 0, "Fermer closes it")
+    p.click("#ctPhoto"); p.wait_for_selector("#ovct"); p.mouse.click(10, 10); p.wait_for_timeout(200)
+    check(p.locator("#ovct").count() == 0, "click outside closes it")
+    with p.expect_file_chooser() as fc: p.click("#ctPhotoChg")
+    fc.value.set_files(files=[{"name": "face.png", "mimeType": "image/png", "buffer": png(500, 500)}])
+    p.wait_for_function("(__mockDB().docs.find(x=>x.coll==='contacts/ct2/photo'&&x.id==='main')||{data:{}}).data.photo && (()=>{const i=new Image(); i.src=__mockDB().docs.find(x=>x.coll==='contacts/ct2/photo').data.photo; return true;})()")
+    p.wait_for_timeout(1200)
+    nd = p.evaluate("u=>new Promise(r=>{const i=new Image();i.onload=()=>r([i.width,i.height]);i.src=u;})", (p.evaluate(BIG) or {}).get("photo", ""))
+    check(nd == [500, 500], "Changer replaces the photo")
     p.click("#ctPhotoDel"); p.wait_for_timeout(1500)
     check(D("ct2")["photo"] == "" and p.locator("#ctPhoto img").count() == 0, "photo removed")
+    check(not p.evaluate(BIG), "larger copy removed too")
     with p.expect_file_chooser() as fc: p.click("#ctPhoto")
     fc.value.set_files(files=[{"name": "face.png", "mimeType": "image/png", "buffer": png(600, 900)}])
     p.wait_for_selector("#ctPhoto img"); p.wait_for_timeout(1500)
     check(D("ct2")["photo"].startswith("data:image/jpeg"), "photo added again (portrait image)")
+
+    # backup: the larger portrait goes into the zip and comes back on import
+    p.wait_for_timeout(1500)
+    if not p.evaluate("!!window.JSZip"): p.add_script_tag(path="/opt/npm-tools/node_modules/jszip/dist/jszip.min.js")
+    n = p.evaluate("""async()=>{ const blob=await fullBackupZip(); const d=await zipToBackup(blob); return Object.keys(d.ctPhotos||{}); }""")
+    check(n == ["ct2"], "larger portrait included in the backup zip and read back")
+    # enlarged view on iPhone width
+    p.set_viewport_size({"width": 390, "height": 844}); open_ct("ct2")
+    p.click("#ctPhoto"); p.wait_for_selector("#ovct #ctBigImg")
+    r = p.evaluate("(()=>{const b=document.querySelector('#ctBigImg').getBoundingClientRect(); return [b.left,b.right,b.width]})()")
+    check(r[0] >= 0 and r[1] <= 390 and r[2] > 250, f"enlarged photo fits the iPhone screen ({[int(x) for x in r]})")
+    p.keyboard.press("Escape"); p.set_viewport_size({"width": 1400, "height": 900})
 
     # new contact has empty channels, primary pro
     p.evaluate("const c=newContact(); state.contacts[c.id]=c; state.curContact=c.id; renderAlt();"); p.wait_for_selector("#k_emailPro")
