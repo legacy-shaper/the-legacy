@@ -21,3 +21,9 @@ can read it. No secret is stored here.
 Export the artifact database (settings, invoices, contacts, artworks, expenses,
 artworks/<id>/views; receipts to <export>/assets/<asset_id>.<ext>), then
 `python3 tools/publish.py <export>`, commit data.enc (+ files/), push.
+
+## View at scale: cut-out masks
+White or silver sculptures on a white backdrop are cut out with a mask Claude computes once per photo
+(`tools/cutout.py`, ISNet model, pedestals measured on the photo with `--base`), checked by eye, then stored on the
+artwork as `scaleView.cutout` = {w, h, mask, srcLen, srcTail}. `tools/room.js` combines it with its own edge detection;
+the mask is tied to its exact photo. Test: `tests/test_cutout_mask.py`.

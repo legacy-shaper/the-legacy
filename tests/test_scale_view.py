@@ -313,6 +313,13 @@ with sync_playwright() as pw:
         check(DOC("art4").get("scaleView", {}).get("chair") == "off", f"{name}: master — 'sans chaise' kept after adjusting")
         p.click("[data-chair=on]"); p.wait_for_timeout(1500)
         check("chair" not in DOC("art4").get("scaleView", {}), f"{name}: master — back to 'Avec chaise'")
+        # the cut-out mask prepared by Claude stays on the work through every adjustment
+        p.evaluate("(()=>{ const a=state.artworks.art4; a.scaleView=Object.assign({},a.scaleView||{},{cutout:{w:1,h:1,mask:'data:image/png;base64,AAAA',srcLen:1}}); schedDoc('artworks',a.id); })()"); p.wait_for_timeout(1500)
+        p.click("[data-chair=off]"); p.wait_for_timeout(1200); p.click("[data-plinth=high]"); p.wait_for_timeout(1200)
+        p.click("#scaleAdjust"); p.wait_for_selector("#room:not([hidden]) canvas"); p.wait_for_function("R.W && R.obj"); p.click("#rSave"); p.wait_for_timeout(1500)
+        sv = DOC("art4").get("scaleView", {})
+        check(sv.get("cutout", {}).get("srcLen") == 1 and sv.get("chair") == "off" and sv.get("plinth") == "high", f"{name}: master — mask kept after chair, plinth and position changes")
+        p.evaluate("(()=>{ const a=state.artworks.art4; const v=Object.assign({},a.scaleView); delete v.cutout; delete v.chair; delete v.plinth; a.scaleView=v; schedDoc('artworks',a.id); })()"); p.wait_for_timeout(1500)
         # a painting without the chair too
         hp = p.evaluate("""(async()=>{ const ch=await roomImg('room-chair.webp'); const s={dims:{h:100,w:81},chair:ch,noChair:true}; roomDefaults(s,false); roomApply(s,{chair:'off'}); roomFit(s,1600,1200,1,true);
             const a=artRect(s); return {centred:Math.abs(a.x+a.w/2-800)<1, inview:a.x>0&&a.x+a.w<1600&&a.y>0, set:roomSettings(Object.assign(s,{wall:'pearl'}))}; })()""")

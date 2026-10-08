@@ -1927,7 +1927,7 @@ async function scaleOpenBig(a){
 async function scaleAdjust(a){
   await loadViews(a.id);
   openRoom(a, scaleSrc(a), { fit:true, init:Object.assign({wall:"pearl"},a.scaleView||{}), saveLabel:"Enregistrer",
-    onSave:st=>{ a.scaleView=st; schedDoc("artworks",a.id); setSave("Vue à l’échelle enregistrée"); scaleRedraw(a); } }); }
+    onSave:st=>{ const cut=a.scaleView&&a.scaleView.cutout; a.scaleView=cut?Object.assign({},st,{cutout:cut}):st; schedDoc("artworks",a.id); setSave("Vue à l’échelle enregistrée"); scaleRedraw(a); } }); }
 function viewsList(id){ return Object.values(state.views[id]||{}).sort((x,y)=>(x.createdAt||"").localeCompare(y.createdAt||"")); }
 function galleryOf(a){ const v=viewsList(a.id); const legacy=a.photo && !(a.primaryViewId && (state.views[a.id]||{})[a.primaryViewId]); if(legacy) return [{id:"__main",photo:a.photo}].concat(v); const pi=v.findIndex(x=>x.id===a.primaryViewId); if(pi>0) v.unshift(v.splice(pi,1)[0]); return v; }
 function isPrimary(a,x){ return x.id==="__main" || x.id===a.primaryViewId; }

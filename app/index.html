@@ -2264,7 +2264,7 @@ function roomGuarded(img,kind,fn){
   const sig=roomSig(img,kind), busy=roomBusyList(); if(busy.includes(sig)) return {fail:"skipped"};
   try{ localStorage.setItem(ROOM_BUSY,busy.concat(sig).slice(-20).join("|")); }catch(e){}
   try{ return fn(); } finally { try{ const b=roomBusyList().filter(x=>x!==sig); if(b.length) localStorage.setItem(ROOM_BUSY,b.join("|")); else localStorage.removeItem(ROOM_BUSY); }catch(e){} } }
-function roomAllowRetry(){ try{ localStorage.removeItem(ROOM_BUSY); }catch(e){} roomCuts=new WeakMap(); roomObjs=new WeakMap(); }
+function roomAllowRetry(){ try{ localStorage.removeItem(ROOM_BUSY); }catch(e){} roomCuts=new WeakMap(); roomObjs=new WeakMap(); roomObjsM=new WeakMap(); }
 let roomCuts=new WeakMap();
 function roomCut(img,dims){
   if(!img||!dims) return null; const key=dims.w.toFixed(2)+"x"+dims.h.toFixed(2);
@@ -2273,7 +2273,49 @@ function roomCut(img,dims){
 /* why a photo was not cut out (for a hint to Dylan): {fail:"edge", sides:[...]} the photo cuts the work,
    {fail:"ratio", ar, dr} the outline's proportions differ from the dimensions; null when cut out or for an ordinary photo */
 function roomCutInfo(img,dims){ roomCut(img,dims); if(!img||!dims) return null; const m=roomCuts.get(img); const r=m&&m[dims.w.toFixed(2)+"x"+dims.h.toFixed(2)]; return r&&r.fail?r:null; }
-function roomPrep(img,MAX){
+/* union of the edge-based cut and Claude's mask, then everything the union encloses (a piece has no holes);
+   the mask alone when the edge-based cut was unsure */
+function roomWithMask(sg,mk,W,H,st){
+  const c=document.createElement("canvas"); c.width=W; c.height=H; const x=c.getContext("2d",{willReadFrequently:true});
+  x.imageSmoothingEnabled=true; x.imageSmoothingQuality="high"; x.drawImage(mk,0,0,W,H); const md=x.getImageData(0,0,W,H).data, N=W*H;
+  const fill=new Uint8Array(N); let any=0; for(let i=0;i<N;i++){ if(md[i*4]>=128||(sg.fill&&sg.fill[i])){ fill[i]=1; any++; } }
+  if(any<N*0.01) return sg.fail?sg:{fail:"plain"};
+  const out=new Uint8Array(N); let sp=0; const push=i=>{ if(!out[i]&&!fill[i]){ out[i]=1; st[sp++]=i; } };
+  for(let xx=0;xx<W;xx++){ push(xx); push((H-1)*W+xx); } for(let y=0;y<H;y++){ push(y*W); push(y*W+W-1); }
+  while(sp){ const i=st[--sp], xx=i%W; if(xx>0) push(i-1); if(xx<W-1) push(i+1); if(i>=W) push(i-W); if(i<N-W) push(i+W); }
+  // enclosed areas: filled when the model leans towards the piece or when they are only specks; a real opening
+  // (between two legs, the model sure it is backdrop) keeps showing the wall
+  const seen=new Uint8Array(N), lim=Math.max(30,Math.round(N*0.0004));
+  for(let i=0;i<N;i++){ if(out[i]||fill[i]||seen[i]) continue; const reg=[]; seen[i]=1; st[sp++]=i;
+    while(sp){ const j=st[--sp]; reg.push(j); const xx=j%W; for(const k of [xx>0?j-1:-1,xx<W-1?j+1:-1,j>=W?j-W:-1,j<N-W?j+W:-1]) if(k>=0&&!out[k]&&!fill[k]&&!seen[k]){ seen[k]=1; st[sp++]=k; } }
+    let mm=0; for(const j of reg) mm+=md[j*4]; mm/=reg.length;            // the model's own confidence over the area
+    if(reg.length<=lim||mm>=50) for(const j of reg) fill[j]=1; }
+  roomBaseHull(fill,W,H);
+  let x0=W,y0=H,x1=-1,y1=-1; for(let i=0;i<N;i++){ if(fill[i]){ const xx=i%W, y=(i-xx)/W; if(xx<x0)x0=xx; if(xx>x1)x1=xx; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  return {lab:sg.lab||null,keep:sg.keep||null,x0,y0,x1,y1,fill}; }
+/* a pedestal is convex: at the foot of each piece, the band of wide, solid rows (the base) is completed to its convex hull,
+   which restores the back of a white base lost against a white backdrop. Two feet apart are not a base and stay as they are. */
+function roomBaseHull(fill,W,H){
+  const colOn=new Uint8Array(W); for(let i=0;i<W*H;i++) if(fill[i]) colOn[i%W]=1;
+  for(let xa=0;xa<W;){ if(!colOn[xa]){ xa++; continue; } let xb=xa; while(xb<W&&colOn[xb]) xb++; const X0=xa, X1=xb-1; xa=xb;
+    if(X1-X0<W*0.04) continue;
+    const L=new Int32Array(H).fill(-1), R=new Int32Array(H).fill(-1), n=new Int32Array(H);
+    for(let y=0;y<H;y++) for(let xx=X0;xx<=X1;xx++) if(fill[y*W+xx]){ if(L[y]<0) L[y]=xx; R[y]=xx; n[y]++; }
+    let yb=H-1; while(yb>=0&&L[yb]<0) yb--; let yt=0; while(yt<H&&L[yt]<0) yt++; if(yb<0||yb-yt<20) continue;
+    // the widest row near the foot (an oval base narrows towards its front edge), then upwards while the rows stay wide
+    let wmax=0, yw=yb; for(let y=yb;y>=yb-Math.round((yb-yt)*0.2)&&y>=0;y--) if(L[y]>=0&&R[y]-L[y]+1>wmax){ wmax=R[y]-L[y]+1; yw=y; }
+    let top=yw, solid=0, rows=0;
+    for(let y=yw;y>=yt;y--){ if(L[y]<0||R[y]-L[y]+1<wmax*0.85) break; top=y; rows++; if(n[y]>=0.9*(R[y]-L[y]+1)) solid++; }
+    if(rows<4||top-yt<(yb-yt)*0.5||solid<rows*0.6) continue;   // no base, or the band is the whole piece
+    const pts=[]; for(let y=top;y<=yb;y++){ pts.push([L[y],y]); pts.push([R[y],y]); }
+    pts.sort((p,q)=>p[0]-q[0]||p[1]-q[1]); const cr=(o,a2,b2)=>(a2[0]-o[0])*(b2[1]-o[1])-(a2[1]-o[1])*(b2[0]-o[0]);
+    const lo=[],up=[]; for(const p of pts){ while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0) lo.pop(); lo.push(p); }
+    for(let k=pts.length-1;k>=0;k--){ const p=pts[k]; while(up.length>=2&&cr(up[up.length-2],up[up.length-1],p)<=0) up.pop(); up.push(p); }
+    const hull=lo.slice(0,-1).concat(up.slice(0,-1)), m=hull.length; if(m<3) continue;
+    for(let y=top;y<=yb;y++){ let a2=Infinity,b2=-Infinity;
+      for(let k=0;k<m;k++){ const p=hull[k], q=hull[(k+1)%m]; if((p[1]<=y&&q[1]>=y)||(q[1]<=y&&p[1]>=y)){ if(p[1]===q[1]){ a2=Math.min(a2,p[0],q[0]); b2=Math.max(b2,p[0],q[0]); } else { const xx=p[0]+(y-p[1])*(q[0]-p[0])/(q[1]-p[1]); a2=Math.min(a2,xx); b2=Math.max(b2,xx); } } }
+      for(let xx=Math.ceil(a2);xx<=Math.floor(b2);xx++) fill[y*W+xx]=1; } } }
+function roomPrep(img,MAX,lenient){   // lenient: a mask from Claude is there, a backdrop that is not plain (floor, room) is accepted
   MAX=MAX||1600; const k0=Math.min(1,MAX/Math.max(img.width,img.height)), W=Math.max(8,Math.round(img.width*k0)), H=Math.max(8,Math.round(img.height*k0));
   const c=document.createElement("canvas"); c.width=W; c.height=H; const x=c.getContext("2d",{willReadFrequently:true});
   x.imageSmoothingEnabled=true; x.imageSmoothingQuality="high"; x.drawImage(img,0,0,W,H);
@@ -2290,16 +2332,16 @@ function roomPrep(img,MAX){
   const res=(m,p)=>Math.max(...[0,1,2].map(ch=>Math.abs(p[2+ch]-(m[ch][0]+m[ch][1]*p[0]+m[ch][2]*p[1]))));
   let model=fit(pts); if(!model) return null;
   const r1=pts.map(p=>res(model,p)).sort((a,b)=>a-b), cut1=Math.max(12,r1[Math.floor(r1.length*0.6)]*3);
-  const inl=pts.filter(p=>res(model,p)<=cut1); if(inl.length<pts.length*0.5) return null;   // border mostly not plain: not a packshot
-  model=fit(inl)||model;
-  const plain=pts.filter(p=>res(model,p)<22).length/pts.length; if(plain<0.5) return null;
-  if(model.some(m=>Math.abs(m[1])>45||Math.abs(m[2])>45)) return null;   // a wall's lighting varies gently, not from one colour to another
+  let plainBg=true; const inl=pts.filter(p=>res(model,p)<=cut1); if(inl.length<pts.length*0.5){ if(!lenient) return null; plainBg=false; }   // border mostly not plain: not a packshot
+  model=(inl.length>=3&&fit(inl))||model;
+  const plain=pts.filter(p=>res(model,p)<22).length/pts.length; if(plain<0.5){ if(!lenient) return null; plainBg=false; }
+  if(model.some(m=>Math.abs(m[1])>45||Math.abs(m[2])>45)){ if(!lenient) return null; plainBg=false; }   // a wall's lighting varies gently, not from one colour to another
   // the wall must show on every side of the photo (a work cut by the frame still leaves wall between its parts)
   const sideOk=f=>{ const q=pts.filter(f); return q.length && q.filter(p=>res(model,p)<22).length/q.length>=0.3; };
   const bx=band/W, by=band/H;
-  if(!(sideOk(p=>p[1]<by)&&sideOk(p=>p[1]>=1-by)&&sideOk(p=>p[0]<bx)&&sideOk(p=>p[0]>=1-bx))) return null;
+  if(!(sideOk(p=>p[1]<by)&&sideOk(p=>p[1]>=1-by)&&sideOk(p=>p[0]<bx)&&sideOk(p=>p[0]>=1-bx))){ if(!lenient) return null; plainBg=false; }
   const bgAt=(ch,fx,fy)=>model[ch][0]+model[ch][1]*fx+model[ch][2]*fy;
-  return {c,x,id,d,W,H,model,bgAt,step}; }
+  return {c,x,id,d,W,H,model,bgAt,step,plainBg}; }
 function roomCutCompute(img,dims){
   const P0=roomPrep(img); if(!P0) return null; const {c,x,id,d,W,H,model,bgAt,step}=P0;
   // 2) difference to the background → alpha
@@ -2356,13 +2398,26 @@ function roomCutCompute(img,dims){
 /* cut-out of a volume: background (and the photo's floor shadows) reached from the border is removed; everything enclosed
    by the object's outline stays, even if it is white like the backdrop. Small specks are dropped. */
 let roomObjs=new WeakMap();
-function roomObj(img){ if(!img) return null; if(roomObjs.has(img)){ const r=roomObjs.get(img); return r&&!r.fail?r:null; }
-  let r=null; try{ r=roomGuarded(img,"obj",()=>roomObjCompute(img)); }catch(e){ r=null; } roomObjs.set(img,r); return r&&!r.fail?r:null; }
+/* mk: optional cut-out mask prepared by Claude for this photo (scaleView.cutout, see roomCutoutOf): a white piece on a white
+   backdrop is told apart reliably by it; the edge detection below still completes it (bases, thin parts) */
+function roomObj(img,mk){ if(!img) return null; const C=mk?(roomObjsM.get(mk)||(roomObjsM.set(mk,new WeakMap()),roomObjsM.get(mk))):roomObjs;
+  if(C.has(img)){ const r=C.get(img); return r&&!r.fail?r:null; }
+  let r=null; try{ r=roomGuarded(img,"obj",()=>roomObjCompute(img,mk)); }catch(e){ r=null; } C.set(img,r); return r&&!r.fail?r:null; }
+let roomObjsM=new WeakMap();
+/* the mask stored with the artwork, only when it was made for a photo of the same proportions */
+function roomCutoutOf(w){ const sv=w&&((w.scaleView&&typeof w.scaleView==="object"&&w.scaleView)||(w.scale_view&&typeof w.scale_view==="object"&&w.scale_view)); const c=sv&&sv.cutout;
+  return (c&&typeof c.mask==="string"&&c.mask.startsWith("data:image/")&&c.w>0&&c.h>0)?c:null; }
+async function roomMaskFor(w,img){ const c=roomCutoutOf(w); if(!c||!img) return null; if(Math.abs(c.w/c.h-img.width/img.height)>0.01*(img.width/img.height)) return null;
+  // tied to the exact photo it was made for (length and end of its data URL): a replaced photo never gets an old mask
+  const src=String(img.src||""); if(c.srcLen&&src.startsWith("data:")&&(src.length!==c.srcLen||(c.srcTail&&!src.endsWith(c.srcTail)))) return null;
+  return await roomImg(c.mask); }
 function roomObjInfo(img){ roomObj(img); const r=img&&roomObjs.get(img); return r&&r.fail?r:(r?null:{fail:"plain"}); }
 function roomSkipped(img,dims){ if(!img) return false; const o=roomObjs.get(img); if(o&&o.fail==="skipped") return true;
   const m=roomCuts.get(img), r=m&&dims&&m[dims.w.toFixed(2)+"x"+dims.h.toFixed(2)]; return !!(r&&r.fail==="skipped"); }
-function roomObjCompute(img){
-  const P0=roomPrep(img,1200); if(!P0) return {fail:"plain"}; const {c,x,id,d,W,H,bgAt}=P0;
+function roomObjCompute(img,mk){
+  const P0=roomPrep(img,1200,!!mk); if(!P0) return {fail:"plain"}; const {c,x,id,d,W,H,bgAt}=P0;
+  const N0=W*H, st0=new Int32Array(N0);
+  if(mk&&P0.plainBg===false) return roomObjFinish(P0,roomWithMask({fail:"plain"},mk,W,H,st0),false);   // floor or room behind the piece: Claude's mask alone
   const N=W*H, cls=new Uint8Array(N);   // 1 background-like, 2 shadow-like, 0 object
   for(let y=0;y<H;y++){ const fy=y/H; for(let xx=0;xx<W;xx++){ const fx=xx/W, i=y*W+xx, q=i*4;
     const b0=bgAt(0,fx,fy), b1=bgAt(1,fx,fy), b2=bgAt(2,fx,fy), Lb=Math.max(8,0.299*b0+0.587*b1+0.114*b2), L=0.299*d[q]+0.587*d[q+1]+0.114*d[q+2];
@@ -2447,6 +2502,12 @@ function roomObjCompute(img){
     return {lab,keep,x0,y0,x1,y1,area,fill};
   };
   let sg=null; for(const R0 of [R00,R00*2,R00*3]){ sg=segment(R0); if(!sg.fail||sg.fail!=="unsure") break; }
+  if(mk) sg=roomWithMask(sg,mk,W,H,st);
+  return roomObjFinish(P0,sg,true);
+}
+/* from the piece's mask to the cut-out image: soft edge, and the backdrop removed from the edge pixels (only on a plain backdrop) */
+function roomObjFinish(P0,sg,clean){
+  const {d,W,H,bgAt}=P0, N=W*H;
   if(sg.fail) return {fail:sg.fail};
   const {lab,keep,x0,y0,x1,y1,fill}=sg;
   const sides=[]; if(y0<=1) sides.push("top"); if(y1>=H-2) sides.push("bottom"); if(x0<=1) sides.push("left"); if(x1>=W-2) sides.push("right");
@@ -2458,10 +2519,10 @@ function roomObjCompute(img){
   for(let y=0;y<ch;y++){ const sy=y+y0-pad; if(sy<0||sy>=H) continue; for(let xx=0;xx<cw;xx++){ const sx=xx+x0-pad; if(sx<0||sx>=W) continue;
     const i=sy*W+sx; let a=0,n=0; for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){ const yy=sy+dy, xq=sx+dx; if(yy<0||yy>=H||xq<0||xq>=W) continue; a+=m[yy*W+xq]; n++; }
     a=m[i]?Math.max(0.5,a/n):a/n*0.5; if(a<0.02) continue; const q=i*4, t=(y*cw+xx)*4;
-    for(let c2=0;c2<3;c2++){ let v=d[q+c2]; if(a<1){ const bg=bgAt(c2,sx/W,sy/H); v=(v-(1-a)*bg)/a; } o[t+c2]=Math.max(0,Math.min(255,Math.round(v))); }
+    for(let c2=0;c2<3;c2++){ let v=d[q+c2]; if(a<1&&clean){ const bg=bgAt(c2,sx/W,sy/H); v=(v-(1-a)*bg)/a; } o[t+c2]=Math.max(0,Math.min(255,Math.round(v))); }
     o[t+3]=Math.round(a*255); } }
   ox.putImageData(od,0,0);
-  return { canvas:out, bw:x1-x0+1, bh:y1-y0+1, pad };
+  return { canvas:out, bw:x1-x0+1, bh:y1-y0+1, pad, x0, y0 };
 }
 const shade=(hex,k)=>{ const n=parseInt(hex.slice(1),16); const f=v=>Math.max(0,Math.min(255,Math.round(v*k))); return `rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`; };
 function artHit(s=R){ const {scale,cx,baseY}=s, {h,w}=artBox(s); return { x:cx+(s.artX-w/2)*scale, y:baseY-(s.artY+h/2)*scale, w:w*scale, h:h*scale }; }
@@ -2519,7 +2580,7 @@ async function roomRender(w,photo,set,opts){
   opts=opts||{}; const W=opts.W||ROOM.STATIC_W, H=opts.H||ROOM.STATIC_H;
   const [art,chair,parquet]=await Promise.all([roomImg(photo),roomImg(roomAsset("room-chair.webp")),roomImg(roomAsset("room-parquet.jpg"))]);
   const s={dims,wall:roomWallOk(set&&set.wall),art,chair,parquet,noChair:!!(set&&set.chair==="off")};
-  if(stand){ s.stand=true; s.onFloor=ON_FLOOR.test(w.category||""); s.plinth=set&&set.plinth; s.obj=roomObj(art); if(!s.obj) return null; }
+  if(stand){ s.stand=true; s.onFloor=ON_FLOOR.test(w.category||""); s.plinth=set&&set.plinth; s.obj=roomObj(art,await roomMaskFor(w,art)); if(!s.obj) return null; }
   else { s.cutOff=!!(set&&set.cut==="off"); s.cut=s.cutOff?null:roomCut(art,dims); }
   roomDefaults(s,false); roomApply(s,set);
   roomFit(s,W,H,1,true);
@@ -2536,7 +2597,7 @@ async function openRoom(w,photo,opt){
   opt=opt||{};
   const stand=!canViewAtScale(w)&&canStand(w);
   const dims=stand?standDims(w):parseDims(w.dimensions); if(!dims) return;
-  if(stand){ const im=await roomImg(photo); if(!roomObj(im)) return; }
+  let mk=null; if(stand){ const im=await roomImg(photo); mk=await roomMaskFor(w,im); if(!roomObj(im,mk)) return; }
   let wall="pearl"; try{ wall=localStorage.getItem("ls-wall")||"pearl"; }catch(e){}
   if(opt.init&&opt.init.wall) wall=opt.init.wall; wall=roomWallOk(wall);
   let el=document.getElementById("room"); if(!el){ el=document.createElement("div"); el.id="room"; document.body.appendChild(el); }
@@ -2550,7 +2611,7 @@ async function openRoom(w,photo,opt){
   const [art,chair,parquet]=await Promise.all([roomImg(photo),roomImg(roomAsset("room-chair.webp")),roomImg(roomAsset("room-parquet.jpg"))]);
   if(!R.open) return;
   R.art=art; R.chair=chair; R.parquet=parquet; R.noChair=!!(opt.init&&opt.init.chair==="off");
-  if(stand){ R.stand=true; R.onFloor=ON_FLOOR.test(w.category||""); R.plinth=opt.init&&opt.init.plinth; R.obj=roomObj(art); }
+  if(stand){ R.stand=true; R.onFloor=ON_FLOOR.test(w.category||""); R.plinth=opt.init&&opt.init.plinth; R.obj=roomObj(art,mk); }
   else { R.cutOff=!!(opt.init&&opt.init.cut==="off"); R.cut=R.cutOff?null:roomCut(art,dims); }
   const reset=()=>{ const st=document.getElementById("rStage"); roomDefaults(R,!opt.fit&&st&&st.clientWidth<st.clientHeight*0.85); };
   reset(); if(opt.init) roomApply(R,opt.init);
@@ -2689,7 +2750,7 @@ async function scaleOpenBig(a){
 async function scaleAdjust(a){
   await loadViews(a.id);
   openRoom(a, scaleSrc(a), { fit:true, init:Object.assign({wall:"pearl"},a.scaleView||{}), saveLabel:"Enregistrer",
-    onSave:st=>{ a.scaleView=st; schedDoc("artworks",a.id); setSave("Vue à l’échelle enregistrée"); scaleRedraw(a); } }); }
+    onSave:st=>{ const cut=a.scaleView&&a.scaleView.cutout; a.scaleView=cut?Object.assign({},st,{cutout:cut}):st; schedDoc("artworks",a.id); setSave("Vue à l’échelle enregistrée"); scaleRedraw(a); } }); }
 function viewsList(id){ return Object.values(state.views[id]||{}).sort((x,y)=>(x.createdAt||"").localeCompare(y.createdAt||"")); }
 function galleryOf(a){ const v=viewsList(a.id); const legacy=a.photo && !(a.primaryViewId && (state.views[a.id]||{})[a.primaryViewId]); if(legacy) return [{id:"__main",photo:a.photo}].concat(v); const pi=v.findIndex(x=>x.id===a.primaryViewId); if(pi>0) v.unshift(v.splice(pi,1)[0]); return v; }
 function isPrimary(a,x){ return x.id==="__main" || x.id===a.primaryViewId; }
@@ -3713,6 +3774,6 @@ if("serviceWorker" in navigator){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">veeedbc43</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v9b50676d</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>

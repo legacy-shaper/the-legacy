@@ -753,7 +753,7 @@ const fileBase=w=>[w.artist,w.title,w.year].filter(Boolean).join(" - ").replace(
 /* starts from the composition Legacy Shaper set for the work (scale_view); what the viewer adjusts is kept on this device */
 function scaleGet(id){ let v=null; try{ v=JSON.parse(localStorage.getItem("ls-scale:"+id)||"null"); }catch(e){}
   if(v&&typeof v==="object") return v; const w=workById(id); return (w&&w.scale_view&&typeof w.scale_view==="object")?Object.assign({},w.scale_view):{}; }
-function scaleSet(id,v){ try{ localStorage.setItem("ls-scale:"+id,JSON.stringify(v)); }catch(e){} }
+function scaleSet(id,v){ const c=Object.assign({},v); delete c.cutout; try{ localStorage.setItem("ls-scale:"+id,JSON.stringify(c)); }catch(e){} }   // the cut-out mask stays on the work (scale_view), never copied here
 function scalePdfGet(id){ try{ return localStorage.getItem("ls-scalepdf:"+id)==="1"; }catch(e){ return false; } }
 function scalePdfSet(id,on){ try{ if(on) localStorage.setItem("ls-scalepdf:"+id,"1"); else localStorage.removeItem("ls-scalepdf:"+id); }catch(e){} }
 function printSheet(w,img,scaleImg){
