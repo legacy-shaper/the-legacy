@@ -678,6 +678,14 @@ body[data-view="contacts"] .listbtn,body[data-view="artworks"] .listbtn{display:
 .arth i{font-style:italic}
 .artcard{display:grid;grid-template-columns:180px 1fr;gap:20px;align-items:start}
 .ph.big{width:180px;height:180px}
+.ehead .ctid{display:flex;align-items:center;gap:16px}
+.av{width:64px;height:64px;flex:0 0 64px;border-radius:50%;border:1px dashed var(--line-2);background:var(--surface);color:var(--faint);font-size:10.5px;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:0;position:relative;cursor:pointer;line-height:1.15;text-align:center}
+.av.has{border:1px solid var(--line)}
+.av img{width:100%;height:100%;object-fit:cover;display:block}
+.avwrap{display:flex;flex-direction:column;align-items:center;gap:2px}
+.avwrap .lnk{font-size:11px}
+.av-s{width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle;margin:-4px 7px -2px 0;display:inline-block}
+body.viewer .av{pointer-events:none}body.viewer #ctPhotoDel{display:none!important}
 .card.private{border-style:dashed;border-color:var(--line-2)}
 .lock{font:500 10.5px/1 var(--sans);letter-spacing:.06em;text-transform:none;color:var(--gold);background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:4px 10px}
 .subh{font:600 10.5px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin:18px 0 10px;padding-top:14px;border-top:1px solid var(--line)}
@@ -1175,14 +1183,15 @@ document.addEventListener("click",async e=>{
 let photoTarget=-1;
 let expProofMode=false;
 $("#fileIn").addEventListener("change",async e=>{
-  const f=e.target.files?.[0]; const inv=state.invoices[state.current]; const artT=photoTarget==="art"?state.artworks[state.curArt]:null; if(!f||(!artT&&(!inv||photoTarget<0))) return;
+  const f=e.target.files?.[0]; const inv=state.invoices[state.current]; const artT=photoTarget==="art"?state.artworks[state.curArt]:null; const ctT=photoTarget==="ct"?state.contacts[state.curContact]:null; if(!f||(!artT&&!ctT&&(!inv||photoTarget<0))) return;
   try{
     const url=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); });
     const img=await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=url; });
-    const S=300, s=Math.min(img.width,img.height), cv=document.createElement("canvas"); cv.width=cv.height=S;
+    const S=ctT?200:300, s=Math.min(img.width,img.height), cv=document.createElement("canvas"); cv.width=cv.height=S;
     const cx=cv.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,S,S);
     cx.drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,S,S);
     const durl=cv.toDataURL("image/jpeg",0.82);
+    if(ctT){ ctT.photo=durl; schedDoc("contacts",ctT.id); renderAlt(); return; }
     if(artT){ artT.photo=durl; try{ await loadViews(artT.id); const full=await resizeImage(f,900); const v={id:uid(),photo:full,createdAt:new Date().toISOString()}; await saveView(artT,v); artT.primaryViewId=v.id; }catch(e){} schedDoc("artworks",artT.id); renderAlt(); } else { inv.items[photoTarget].photo=durl; touch({editor:true}); }
   }catch(err){ setSave("Image illisible, essayez un JPEG ou un PNG",true); }
 });
@@ -1629,7 +1638,7 @@ function renderSide(){
     el.innerHTML=`<input class="search" id="q2" type="search" placeholder="Rechercher un contact…" value="${esc(q2)}">
       <div class="lh" style="margin-top:16px"><span>Contacts</span><span>${all.length}</span></div>
       <div class="inv-list">${rows.map(c=>{ const n=contactInvoices(c).length; return `<button type="button" class="inv ${c.id===state.curContact?"on":""}" data-ct="${c.id}">
-        <span class="n">${esc(c.name||c.company||"Nouveau contact")}</span><span class="a">${[n?n+" fact.":"",(c.docs||[]).length?(c.docs.length+" doc."):""].filter(Boolean).join(" · ")}</span>
+        <span class="n">${c.photo?`<img class="av-s" src="${c.photo}" alt="">`:""}${esc(c.name||c.company||"Nouveau contact")}</span><span class="a">${[n?n+" fact.":"",(c.docs||[]).length?(c.docs.length+" doc."):""].filter(Boolean).join(" · ")}</span>
         <span class="c">${esc([c.name?c.company:"",c.email].filter(Boolean).join(" · ")||"—")}</span><span></span></button>`;}).join("") || `<div class="empty">${all.length?"Aucun résultat.":"Aucun contact pour l’instant."}</div>`}</div>
       ${!all.length && Object.keys(clientNames()).length?`<button type="button" class="btn" id="importClients" style="margin-top:10px">Importer les clients de mes factures</button>`:""}`;
   } else {
@@ -1662,7 +1671,7 @@ function renderDetail(){
     if(!c){ el.innerHTML=`<div class="card"><h2>Contacts</h2><p class="msg">Créez vos clients à l’avance avec « Nouveau contact » : vous les retrouverez ensuite en un clic dans chaque facture.</p></div>`; return; }
     const invs=contactInvoices(c); ctNorm(c);
     const PRI=[["pro","Pro"],["perso","Perso"]];
-    el.innerHTML=`${back}<div class="ehead"><div><h1>${esc(c.name||c.company||"Nouveau contact")}</h1><div class="sub">${invs.length} facture${invs.length>1?"s":""}</div></div>
+    el.innerHTML=`${back}<div class="ehead"><div class="ctid"><div class="avwrap"><button type="button" class="av ${c.photo?"has":""}" id="ctPhoto" aria-label="${c.photo?"Changer la photo":"Ajouter une photo"}" title="${c.photo?"Changer la photo":"Ajouter une photo"}">${c.photo?`<img src="${c.photo}" alt="">`:"Photo"}</button>${c.photo?`<button type="button" class="lnk" id="ctPhotoDel">Retirer</button>`:""}</div><div><h1>${esc(c.name||c.company||"Nouveau contact")}</h1><div class="sub">${invs.length} facture${invs.length>1?"s":""}</div></div></div>
       <div class="eacts"><button type="button" class="btn primary" id="ctInvoice">+ Facture pour ce contact</button><button type="button" class="btn danger" id="ctDel">${ICON.trash}Supprimer</button></div></div>
       <div class="card"><h2>Coordonnées</h2><div class="grid">
         ${kf("Nom","name",c.name,"s3",{ph:"Prénom Nom"})}${kf("Société (facultatif)","company",c.company)}
@@ -2416,6 +2425,8 @@ document.addEventListener("click",async e=>{
   if(b.dataset.viewOpen){ openView(b.dataset.viewOpen); return; }
   if(b.id==="artPhoto" && state.artworks[state.curArt]?.photo){ const a=state.artworks[state.curArt]; await loadViews(a.id); openView(a.primaryViewId && (state.views[a.id]||{})[a.primaryViewId] ? a.primaryViewId : "__main"); return; }
   if(b.id==="artPhoto"){ photoTarget="art"; $("#fileIn").value=""; $("#fileIn").click(); return; }
+  if(b.id==="ctPhoto"){ photoTarget="ct"; $("#fileIn").value=""; $("#fileIn").click(); return; }
+  if(b.id==="ctPhotoDel"){ const c=state.contacts[state.curContact]; if(c){ c.photo=""; schedDoc("contacts",c.id); renderAlt(); } return; }
   if(b.id==="artReplace"){ photoTarget="art"; $("#fileIn").value=""; $("#fileIn").click(); return; }
   if(b.id==="artRmPhoto"){ const a=state.artworks[state.curArt]; if(a){ a.photo=""; schedDoc("artworks",a.id); renderAlt(); } return; }
   if(b.id==="ctDel"||b.id==="artDel"){
@@ -2582,6 +2593,6 @@ if("serviceWorker" in navigator){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v80711ccb</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v3e681246</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>

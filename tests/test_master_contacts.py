@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests of contact channels (email / phone pro + perso, primary, newsletters) in The Legacy master app.
+"""Tests of contact channels (email / phone pro + perso, primary, newsletters) and profile photo in The Legacy master app.
    Run: python3 tests/test_master_contacts.py"""
 import json, os, sys, threading, http.server, functools, re
 from playwright.sync_api import sync_playwright
@@ -89,6 +89,31 @@ with sync_playwright() as pw:
     # re-render keeps values
     open_ct("ct2")
     check(p.input_value("#k_emailPerso") == "pamela.wahnich@gmail.com" and p.input_value("#k_primaryEmail") == "pro", "values kept after reopening")
+
+    # profile photo: small round thumbnail, cropped square, shown in the list, removable
+    import base64, struct, zlib
+    def png(w, h):
+        raw = b"".join(b"\x00" + bytes([200, 120, 60]) * w for _ in range(h))
+        ch = lambda t, d: struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
+        return b"\x89PNG\r\n\x1a\n" + ch(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)) + ch(b"IDAT", zlib.compress(raw)) + ch(b"IEND", b"")
+    open_ct("ct2")
+    check("Photo" in p.inner_text("#ctPhoto") and p.locator("#ctPhotoDel").count() == 0, "empty avatar invites to add a photo")
+    with p.expect_file_chooser() as fc: p.click("#ctPhoto")
+    fc.value.set_files(files=[{"name": "face.png", "mimeType": "image/png", "buffer": png(1200, 800)}])
+    p.wait_for_selector("#ctPhoto img"); p.wait_for_timeout(1500)
+    ph = D("ct2").get("photo", "")
+    dims = p.evaluate("u=>new Promise(r=>{const i=new Image();i.onload=()=>r([i.width,i.height]);i.src=u;})", ph)
+    check(ph.startswith("data:image/jpeg") and dims == [200, 200], "photo saved as a 200x200 JPEG thumbnail")
+    check(len(ph) < 40000, f"thumbnail stays small ({len(ph)} chars)")
+    check(p.locator("[data-ct=ct2] img.av-s").count() == 1 and p.locator("[data-ct=ct1] img.av-s").count() == 0, "small avatar shown in the contact list")
+    check(p.evaluate("getComputedStyle(document.querySelector('#ctPhoto')).borderRadius") == "50%", "avatar is round")
+    check(D("ct2")["email"] == "pamela@plw.paris" and D("ct2")["emailPerso"] == "pamela.wahnich@gmail.com", "photo upload leaves the other fields intact")
+    p.click("#ctPhotoDel"); p.wait_for_timeout(1500)
+    check(D("ct2")["photo"] == "" and p.locator("#ctPhoto img").count() == 0, "photo removed")
+    with p.expect_file_chooser() as fc: p.click("#ctPhoto")
+    fc.value.set_files(files=[{"name": "face.png", "mimeType": "image/png", "buffer": png(600, 900)}])
+    p.wait_for_selector("#ctPhoto img"); p.wait_for_timeout(1500)
+    check(D("ct2")["photo"].startswith("data:image/jpeg"), "photo added again (portrait image)")
 
     # new contact has empty channels, primary pro
     p.evaluate("const c=newContact(); state.contacts[c.id]=c; state.curContact=c.id; renderAlt();"); p.wait_for_selector("#k_emailPro")
