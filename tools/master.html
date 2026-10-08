@@ -570,6 +570,18 @@ body.viewer .av:not(.has){pointer-events:none}body.viewer #ctPhotoDel,body.viewe
 .owntot{margin-top:10px;display:flex;flex-direction:column;gap:2px}.owntot .hint{margin-top:0}.ownok{font-size:12px;color:var(--ok)}
 .ownshow{margin-top:12px;padding:0}
 @media(max-width:600px){.ownrow{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) 28px}.ownrow>.f:first-child{grid-column:1/-1}.ownrow.main>span{display:none}}
+/* view at scale in the artwork's photos */
+.scalebox{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+.sctitle{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;gap:8px;align-items:center}
+.scimg{display:flex;align-items:center;justify-content:center;width:min(440px,100%);aspect-ratio:4/3;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface-2);padding:0;cursor:zoom-in;position:relative}
+.scimg img{width:100%;height:100%;object-fit:cover;display:block}
+.scbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
+.scbar .sw{display:flex;gap:8px;align-items:center}
+.scbar .sw button{width:26px;height:26px;border-radius:50%;border:2px solid var(--line-2);padding:0;cursor:pointer}
+.scbar .sw button.on{border-color:var(--gold);box-shadow:0 0 0 2px rgba(196,160,82,.35)}
+.scbig .lbox{width:min(1100px,100%)}.scbig .lbox img{width:100%;height:auto;max-height:78vh;object-fit:contain;border-radius:8px}
+body.viewer .scbar .sw,body.viewer #scaleAdjust{display:none!important}
+/*@@ROOM_CSS@@*/
 </style>
 
 <section id="home" aria-label="Accueil">
@@ -1516,7 +1528,7 @@ function renderDetail(){
     if(!a){ el.innerHTML=`<div class="card"><h2>Œuvres</h2><p class="msg">Enregistrez vos œuvres avec leur photo et leur fiche : vous les ajouterez ensuite à une facture en un clic, sans tout retaper.</p></div>`; return; }
     const invs=artworkInvoices(a);
     el.innerHTML=`${back}<div class="ehead"><div><h1 class="arth"><span>${esc(a.artist||"Artiste")}</span><i>${esc(a.title||"Sans titre")}</i>${a.year?", "+esc(a.year):""}</h1><div class="sub">${[catLabel(a.category),editionText(a)].filter(Boolean).map(esc).join(" · ")}${(a.category||a.editionType)?" · ":""}${ART_STATUS[artStatus(a)]}${ownerName(a)?" · "+esc(ownerName(a)):""}${a.price?" · "+esc(money(num(a.price),a.currency,"en")):""}</div></div>
-      <div class="eacts"><button type="button" class="btn" id="artFiche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>Fiche PDF</button><button type="button" class="btn" id="artFicheViews" title="Fiche en page 1, puis chaque vue supplémentaire en pleine page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>Fiche + additional views…</button><label class="provck" title="Ajouter la provenance sur la fiche PDF"><input type="checkbox" id="ficheProv" class="keepon" ${state.ficheProv?"checked":""}> Provenance sur la fiche</label><button type="button" class="btn primary" id="artInvoice">+ Facture avec cette œuvre</button><button type="button" class="btn danger" id="artDel">${ICON.trash}Supprimer</button></div></div>
+      <div class="eacts"><button type="button" class="btn" id="artFiche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>Fiche PDF</button><button type="button" class="btn" id="artFicheViews" title="Fiche en page 1, puis chaque vue supplémentaire en pleine page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>Fiche + additional views…</button><label class="provck" title="Ajouter la provenance sur la fiche PDF"><input type="checkbox" id="ficheProv" class="keepon" ${state.ficheProv?"checked":""}> Provenance sur la fiche</label>${scaleOK(a)?`<label class="provck" title="Ajouter une page avec la vue à l’échelle dans la fiche PDF"><input type="checkbox" id="ficheScale" class="keepon" ${a.scalePdf?"checked":""}> Vue à l’échelle dans le PDF</label>`:""}<button type="button" class="btn primary" id="artInvoice">+ Facture avec cette œuvre</button><button type="button" class="btn danger" id="artDel">${ICON.trash}Supprimer</button></div></div>
       <div class="card artcard">
         <div class="phwrap"><button type="button" class="ph big" id="artPhoto" aria-label="${a.photo?"Changer la photo":"Ajouter une photo"}">${a.photo?`<img src="${a.photo}" alt="">`:`${ICON.img}<span>Ajouter<br>la photo</span>`}</button>${a.photo?`<button type="button" class="lnk" id="artReplace">Nouvelle photo principale</button>`:""}</div>
         <div class="grid">
@@ -1530,7 +1542,7 @@ function renderDetail(){
           ${kf("Provenance","provenance",a.provenance||"","s6",{area:1,rows:3,ph:"Une ligne par étape, ex. : Chandigarh, Inde"})}
         </div>
       </div>
-      <div class="card"><h2>Photos · additional views <span class="lock" id="viewsCount">${(()=>{ const n=galleryOf(a).length; return n+" photo"+(n>1?"s":""); })()}</span></h2><div class="views" id="viewsBox">${viewsHTML(a)}</div></div>
+      <div class="card"><h2>Photos · additional views <span class="lock" id="viewsCount">${(()=>{ const n=galleryOf(a).length; return n+" photo"+(n>1?"s":""); })()}</span></h2><div class="views" id="viewsBox">${viewsHTML(a)}</div><div id="scaleWrap">${scaleHTML(a)}</div></div>
       <div class="card"><h2>Suivi</h2><div class="grid">
         ${kf("Disponibilité","status",artStatus(a),"s2 half",{select:Object.entries(ART_STATUS)})}
         ${locField(a)}
@@ -1553,6 +1565,7 @@ function renderDetail(){
       </div>
       <div id="marginBox">${marginHTML(a)}</div></div>
       <div class="card"><h2>Historique de facturation</h2>${invRows(invs)}</div>${artLinks(a)}`;
+    scaleRefresh(a);
   }
 }
 function isConsigned(a){ return !!a.ownerContactId || (!!a.owner && a.owner!=="Collection DL") || artStatus(a)==="consignment"; }
@@ -1708,11 +1721,52 @@ function locField(a){
       ${other||window.__locOther?`<input id="k_location" data-k="location" value="${esc(a.location||"")}" placeholder="Saisir l’emplacement">`:""}</div>`;
 }
 const MAX_VIEWS=10;
+/*@@ROOM_JS@@*/
+/* ---- view at scale in The Legacy: a fixed image computed automatically from the main photo and the dimensions,
+   shown with the artwork's photos; wall colour and position adjustable (saved on the artwork: scaleView),
+   optional page in the PDF fiche (scalePdf). Engine shared with the client app: tools/room.js ---- */
+window.ROOM_HOST={lang:"fr",base:""};
+const scaleOK=a=>typeof roomRender==="function" && !!a && canViewAtScale(a);
+function scaleSrc(a){ const pv=a.primaryViewId&&(state.views[a.id]||{})[a.primaryViewId]; return pv?pv.photo:(a.photo||""); }
+const scaleCache={};
+async function scaleImage(a,big){
+  await loadViews(a.id); const src=scaleSrc(a); const set=a.scaleView||null;
+  const key=[JSON.stringify(set),a.dimensions,a.category,src.length,src.slice(-64)].join("|"), ck=a.id+(big?":big":"");
+  if(scaleCache[ck]&&scaleCache[ck].key===key) return scaleCache[ck].u;
+  const u=await roomRenderURL(a,src,set,big?{W:2400,H:1800}:{}); scaleCache[ck]={key,u}; return u; }
+function scaleHTML(a){
+  if(!scaleOK(a)){ return (typeof parseDims==="function" && !NOT_WALL.test(a.category||"") && !parseDims(a.dimensions)) ? `<div class="scalebox"><div class="sctitle">Vue à l’échelle</div><p class="hint" style="margin:0">Indiquez les dimensions (ex. 100 × 81 cm) pour obtenir automatiquement la vue à l’échelle.</p></div>` : ""; }
+  const wall=(a.scaleView&&a.scaleView.wall)||"pearl";
+  return `<div class="scalebox" id="scaleBox"><div class="sctitle">Vue à l’échelle <span class="lock">automatique</span></div>
+    <button type="button" class="scimg" id="scaleOpen" aria-label="Agrandir la vue à l’échelle"><span class="hint">Préparation de la vue…</span></button>
+    <div class="scbar"><div class="sw" role="group" aria-label="Couleur du mur">${ROOM.walls.map(([k,c])=>`<button type="button" data-scwall="${k}" title="${esc(ROOM_TXT.fr.walls[k])}" aria-label="${esc(ROOM_TXT.fr.walls[k])}" style="background:${c}" class="${k===wall?"on":""}"></button>`).join("")}</div>
+      <button type="button" class="btn" id="scaleAdjust">Ajuster l’emplacement</button><button type="button" class="btn" id="scaleDl">Télécharger</button><label class="provck"><input type="checkbox" id="scalePdfBar" class="keepon" ${a.scalePdf?"checked":""}> Ajouter à la fiche PDF</label></div></div>`; }
+let scaleSeq=0;
+async function scaleRefresh(a){
+  if(!a||!scaleOK(a)) return; const my=++scaleSeq;
+  const u=await scaleImage(a); if(my!==scaleSeq||state.curArt!==a.id) return;
+  const b=$("#scaleOpen"); if(b&&u) b.innerHTML=`<img src="${u}" alt="Vue à l’échelle">`; }
+function scaleRedraw(a){ const w=$("#scaleWrap"); if(w) w.innerHTML=scaleHTML(a); scaleRefresh(a); }
+async function scaleDownload(a){
+  const u=await scaleImage(a,true); if(!u) return;
+  const fb=[a.artist,a.title,a.year].filter(Boolean).join(" - ").replace(/[\\/:*?"<>|]+/g,"").slice(0,120)||"oeuvre";
+  try{ await saveFile(`${fb} - à l’échelle.jpg`, await (await fetch(u)).blob()); }catch(e){ if(e?.code!=="declined") setSave("Téléchargement indisponible dans cette vue",true); } }
+async function scaleOpenBig(a){
+  const u=await scaleImage(a,true); if(!u) return;
+  $("#modal").innerHTML=`<div class="ov lb scbig" id="ovsc"><div class="lbox" role="dialog" aria-label="Vue à l’échelle"><img id="scBigImg" src="${u}" alt="">
+    <div class="eacts" style="justify-content:center"><button type="button" class="btn" id="scBigDl">Télécharger</button><button type="button" class="btn" id="scBigClose">Fermer</button></div></div></div>`;
+  const close=()=>{ $("#modal").innerHTML=""; document.removeEventListener("keydown",k); }; const k=e=>{ if(e.key==="Escape") close(); };
+  document.addEventListener("keydown",k); $("#scBigClose").onclick=close; $("#scBigDl").onclick=()=>scaleDownload(a);
+  $("#ovsc").onclick=e=>{ if(e.target.id==="ovsc") close(); }; }
+async function scaleAdjust(a){
+  await loadViews(a.id);
+  openRoom(a, scaleSrc(a), { fit:true, init:Object.assign({wall:"pearl"},a.scaleView||{}), saveLabel:"Enregistrer",
+    onSave:st=>{ a.scaleView=st; schedDoc("artworks",a.id); setSave("Vue à l’échelle enregistrée"); scaleRedraw(a); } }); }
 function viewsList(id){ return Object.values(state.views[id]||{}).sort((x,y)=>(x.createdAt||"").localeCompare(y.createdAt||"")); }
 function galleryOf(a){ const v=viewsList(a.id); const legacy=a.photo && !(a.primaryViewId && (state.views[a.id]||{})[a.primaryViewId]); if(legacy) return [{id:"__main",photo:a.photo}].concat(v); const pi=v.findIndex(x=>x.id===a.primaryViewId); if(pi>0) v.unshift(v.splice(pi,1)[0]); return v; }
 function isPrimary(a,x){ return x.id==="__main" || x.id===a.primaryViewId; }
 function viewsHTML(a){
-  if(db && !state.views[a.id]){ loadViews(a.id).then(()=>{ const b=$("#viewsBox"); if(b && state.curArt===a.id){ b.innerHTML=viewsHTML(a); } }); return `<span class="hint">Chargement des photos…</span>`; }
+  if(db && !state.views[a.id]){ loadViews(a.id).then(()=>{ const b=$("#viewsBox"); if(b && state.curArt===a.id){ b.innerHTML=viewsHTML(a); scaleRefresh(a); } }); return `<span class="hint">Chargement des photos…</span>`; }
   const g=galleryOf(a); const n=viewsList(a.id).length; const c=$("#viewsCount"); if(c) c.textContent=`${g.length} photo${g.length>1?"s":""}`;
   return g.map(x=>`<button type="button" class="vw ${isPrimary(a,x)?"primary":""}" data-view-open="${x.id}" aria-label="Agrandir"><img src="${x.photo}" alt="">${isPrimary(a,x)?`<span class="pbadge">Primary</span>`:""}</button>`).join("")
     + (n<MAX_VIEWS?`<button type="button" class="vw add" id="viewAdd" aria-label="Ajouter des photos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14"/></svg><span>Add views</span></button>`:"");
@@ -1794,11 +1848,12 @@ async function exportFiche(chosen){
   try{
     await loadViews(a.id); const pv=a.primaryViewId && (state.views[a.id]||{})[a.primaryViewId]; const img=pv?pv.photo:(a.photo||"");
     const extra=withViews? chosen.map(id=>(state.views[a.id]||{})[id]).filter(Boolean).map(v=>v.photo) : [];
+    const scaleU=(a.scalePdf && scaleOK(a)) ? await scaleImage(a,true) : "";
     const cap=`${a.artist||""}${a.artist?", ":""}${a.title||"Untitled"}${a.year?", "+a.year:""}`;
     const u=s=>String(s||"").replace(/[\\/:*?"<>|]+/g," ").trim().replace(/\s+/g,"_");
     const base=`${u(a.artist)}_-_${u(a.title||"Untitled")}${a.year?"_"+u(a.year):""}_-_Legacy_Shaper${extra.length?"_-_views":""}`;
     if(STANDALONE && !(window.html2canvas && window.jspdf)){
-      const old=document.title; document.title=base; $("#printArea").innerHTML=ficheHTML(a,img,withProv)+extra.map((v,i)=>`<div class="fview"><img src="${v}" alt=""><span>${esc(cap)} · view ${i+2}</span></div>`).join("");
+      const old=document.title; document.title=base; $("#printArea").innerHTML=ficheHTML(a,img,withProv)+extra.map((v,i)=>`<div class="fview"><img src="${v}" alt=""><span>${esc(cap)} · view ${i+2}</span></div>`).join("")+(scaleU?`<div class="fview"><img src="${scaleU}" alt=""><span>${esc(cap)} · at scale</span></div>`:"");
       await Promise.all([...$("#printArea").querySelectorAll("img")].map(im=>im.complete?0:new Promise(r=>{im.onload=im.onerror=r;})));
       window.print(); setTimeout(()=>{ document.title=old; $("#printArea").innerHTML=""; },500); return;
     }
@@ -1816,6 +1871,10 @@ async function exportFiche(chosen){
       pdf.setFont("helvetica","normal"); pdf.setFontSize(8.5); pdf.setTextColor(120);
       pdf.text(`${cap} · view ${i+2}`, PW/2, PH-M+4, {align:"center"});
     }
+    if(scaleU){ const M=42, BOT=34, bw=PW-2*M, bh=PH-2*M-BOT, k=Math.min(bw/2400, bh/1800), w=2400*k, h=1800*k;
+      pdf.addPage(); pdf.addImage(scaleU,"JPEG",(PW-w)/2,M+(bh-h)/2,w,h);
+      pdf.setFont("helvetica","normal"); pdf.setFontSize(8.5); pdf.setTextColor(120);
+      pdf.text(`${cap} · at scale`, PW/2, PH-M+4, {align:"center"}); }
     pdf.setProperties({title:`${a.artist||""} — ${a.title||""}`,author:"Legacy Shaper",creator:"Legacy Shaper"});
     stage.innerHTML="";
     await saveFile(base+".pdf", pdf.output("blob")); setSave("Fiche PDF enregistrée");
@@ -2237,6 +2296,7 @@ document.addEventListener("input",e=>{
   const k=e.target.dataset?.k; if(!k) return;
   const coll=state.view==="contacts"?"contacts":"artworks", id=coll==="contacts"?state.curContact:state.curArt, o=state[coll][id]; if(!o) return;
   o[k]=e.target.value; if(coll==="contacts" && /^(email|phone)(Pro|Perso)$|^primary(Email|Phone)$/.test(k)) ctSync(o); schedDoc(coll,id); renderSide();
+  if(coll==="artworks" && ["dimensions","category","title","artist","year"].includes(k)){ clearTimeout(window.__scT); window.__scT=setTimeout(()=>{ if(state.curArt===id) scaleRedraw(o); },450); }
   if(coll==="artworks" && ["price","cost","brokerValue","discValue"].includes(k)){ const mb=$("#marginBox"); if(mb) mb.innerHTML=marginHTML(o); }
   const h=document.querySelector("#detail .ehead h1"); if(h && ["name","company","artist","title","year"].includes(k)){ if(coll==="contacts") h.textContent=o.name||o.company||"Nouveau contact"; else h.innerHTML=`<span>${esc(o.artist||"Artiste")}</span><i>${esc(o.title||"Sans titre")}</i>${o.year?", "+esc(o.year):""}`; }
 });
@@ -2283,6 +2343,10 @@ document.addEventListener("click",async e=>{
   if(b.id==="ctPhoto"){ const c=state.contacts[state.curContact]; if(c&&c.photo){ openCtPhoto(c); return; } photoTarget="ct"; $("#fileIn").value=""; $("#fileIn").click(); return; }
   if(b.id==="ctPhotoChg"){ photoTarget="ct"; $("#fileIn").value=""; $("#fileIn").click(); return; }
   if(b.id==="ctPhotoDel"){ const c=state.contacts[state.curContact]; if(c){ c.photo=""; c.photoHd=""; schedDoc("contacts",c.id); renderAlt(); dropCtBig(c.id); } return; }
+  if(b.dataset.scwall){ const a=state.artworks[state.curArt]; if(a){ a.scaleView=Object.assign({},a.scaleView||{},{wall:b.dataset.scwall}); schedDoc("artworks",a.id); document.querySelectorAll("[data-scwall]").forEach(x=>x.classList.toggle("on",x===b)); scaleRefresh(a); } return; }
+  if(b.id==="scaleOpen"){ const a=state.artworks[state.curArt]; if(a) scaleOpenBig(a); return; }
+  if(b.id==="scaleAdjust"){ const a=state.artworks[state.curArt]; if(a) scaleAdjust(a); return; }
+  if(b.id==="scaleDl"){ const a=state.artworks[state.curArt]; if(a) scaleDownload(a); return; }
   if(b.id==="artReplace"){ photoTarget="art"; $("#fileIn").value=""; $("#fileIn").click(); return; }
   if(b.id==="artRmPhoto"){ const a=state.artworks[state.curArt]; if(a){ a.photo=""; schedDoc("artworks",a.id); renderAlt(); } return; }
   if(b.id==="ctDel"||b.id==="artDel"){
@@ -2294,6 +2358,7 @@ document.addEventListener("click",async e=>{
 });
 document.addEventListener("change",e=>{
   if(e.target.id==="ficheProv"){ state.ficheProv=e.target.checked; return; }
+  if(e.target.id==="ficheScale"||e.target.id==="scalePdfBar"){ const a=state.artworks[state.curArt]; if(a){ a.scalePdf=e.target.checked?"1":""; schedDoc("artworks",a.id); ["ficheScale","scalePdfBar"].forEach(i=>{ const x=$("#"+i); if(x) x.checked=e.target.checked; }); } return; }
   if(e.target.id==="ctDocFile"){ const fs=[...(e.target.files||[])]; e.target.value=""; if(fs.length) addContactDocs(fs); return; }
   if(e.target.id==="pickContact"){ const c=state.contacts[e.target.value], inv=state.invoices[state.current]; if(c&&inv){ inv.client=clientFromContact(c); inv.contactId=c.id; touch({editor:true}); } return; }
   if(e.target.dataset && e.target.dataset.brksel!==undefined){ const a=state.artworks[state.curArt]; if(!a) return; const v=e.target.value;

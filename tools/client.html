@@ -139,6 +139,16 @@ select.sel{font:inherit;font-size:14px;padding:10px 12px;border-radius:10px;bord
 .thumbs button{border:1px solid var(--line);padding:0;border-radius:8px;overflow:hidden;width:62px;height:62px;flex:none;background:var(--surface-2)}
 .thumbs button.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
 .thumbs img{width:100%;height:100%;object-fit:cover}
+.thumbs button.sct{width:84px;position:relative}
+.thumbs button.sct span{position:absolute;left:3px;right:3px;bottom:3px;background:rgba(27,57,36,.82);color:#F4F0E6;font-size:9px;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 0;text-align:center}
+.scbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
+.scbar[hidden]{display:none}
+.scbar .sw{display:flex;gap:8px}
+.scbar .sw button{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);padding:0}
+.scbar .sw button.on{border-color:var(--gold);box-shadow:0 0 0 2px rgba(196,160,82,.35)}
+.scbar .tb{border:1px solid var(--gold);background:none;color:var(--gold-text);border-radius:10px;padding:8px 12px;font-size:13px}
+.scbar label{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
+.scbar label input{width:16px;height:16px;accent-color:var(--gold)}
 .dh .artist{font-weight:600;font-size:19px}
 .dh .title{font-family:var(--serif);font-size:30px;line-height:1.15;margin:2px 0 8px}
 .dh .title i{font-style:italic}
@@ -167,24 +177,7 @@ select.sel{font:inherit;font-size:14px;padding:10px 12px;border-radius:10px;bord
 .install b{font-family:var(--serif);font-size:18px;font-weight:500;display:block}
 .install button{background:none;border:0;color:var(--muted);font-size:20px;line-height:1;padding:0 4px}
 
-/* ---------- view at scale ---------- */
-#room{position:fixed;inset:0;z-index:36;background:#1B1D1B;display:flex;flex-direction:column;color:var(--ivory)}
-#room .rtop{display:flex;align-items:center;gap:10px;padding:calc(10px + var(--safe-t)) 14px 10px;background:var(--deep)}
-#room .rtop button{background:none;border:1px solid rgba(196,160,82,.5);color:var(--gold);border-radius:999px;padding:8px 14px;font-size:13px;flex:none}
-#room .rtop .rt{flex:1;min-width:0;text-align:center;line-height:1.25}
-#room .rtop .rt b{display:block;font-family:var(--serif);font-weight:500;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#room .rtop .rt span{font-size:11px;letter-spacing:1.6px;color:#C9BD9C}
-#room .rstage{flex:1;position:relative;overflow:hidden;touch-action:none;background:#DAD8D3}
-#room canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
-#room canvas.drag{cursor:grabbing}
-#room .hint{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:rgba(22,36,26,.72);color:var(--ivory);font-size:12.5px;padding:7px 13px;border-radius:999px;pointer-events:none;transition:opacity .6s;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis}
-#room .rbar{display:flex;align-items:center;gap:10px;padding:10px 14px calc(10px + var(--safe-b));background:var(--deep);flex-wrap:wrap}
-#room .sw{display:flex;gap:8px;align-items:center}
-#room .sw button{width:26px;height:26px;border-radius:50%;border:2px solid rgba(244,240,230,.25);padding:0}
-#room .sw button.on{border-color:var(--gold);box-shadow:0 0 0 2px rgba(196,160,82,.35)}
-#room .rbar .rb{margin-left:auto;display:flex;gap:8px}
-#room .rbar .tb{background:none;border:1px solid rgba(196,160,82,.5);color:var(--gold);border-radius:10px;padding:8px 12px;font-size:13px}
-#room .rbar .dim{font-size:12px;color:#C9BD9C;letter-spacing:.5px}
+/*@@ROOM_CSS@@*/
 
 /* ---------- assistant ---------- */
 #chatFab{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(18px + var(--safe-b));z-index:25;display:flex;align-items:center;gap:8px;background:var(--deep);color:var(--gold);border:1px solid rgba(196,160,82,.55);border-radius:999px;padding:11px 16px 11px 13px;font-size:13.5px;box-shadow:0 10px 28px rgba(27,57,36,.28)}
@@ -244,6 +237,9 @@ select.sel{font:inherit;font-size:14px;padding:10px 12px;border-radius:10px;bord
   #print td{padding:2.2mm 0;border-bottom:.4pt solid #E2D9C6;vertical-align:top}
   #print td:first-child{width:44mm;font-size:7.5pt;letter-spacing:1.6pt;text-transform:uppercase;color:#7A6332}
   #print .pf{margin-top:6mm;font-size:7.5pt;color:#6A6656;text-align:center}
+  #print .pscale{break-before:page;page-break-before:always;text-align:center;padding-top:10mm}
+  #print .pscale img{width:100%;max-height:220mm;object-fit:contain}
+  #print .pscale div{margin-top:4mm;font-size:8pt;color:#6A6656}
 }
 </style>
 </head><body>
@@ -308,7 +304,7 @@ const I18N={
    chatPh:"Your message…",chatSend:"Send",chatAttach:"Add a photo or a PDF",chatAbout:"About",chatMe:"You",chatAi:"Legacy Shaper",chatDylanName:"Dylan Lessel",
    chatOffline:"Messages will be available as soon as the connection is back.",chatFail:"Your message could not leave yet. Please try again in a moment.",
    chatTooBig:"This file is larger than 15 MB.",askWork:"A question about this work",
-   atScale:"View at scale",roomHint:"Move the work and the chair with your finger",reset:"Reset",saveView:"Save image",
+   atScale:"View at scale",scaleTile:"At scale",scaleAdjust:"Adjust position",scaleInPdf:"Add to the PDF sheet",scaleSave:"Save",roomHint:"Move the work and the chair with your finger",reset:"Reset",saveView:"Save image",
    walls:{pearl:"Pearl grey",white:"Gallery white",linen:"Linen",green:"Legacy green"},
    foot:"Legacy Shaper Collection · Dubai",sheetFoot:"Inventory sheet · Legacy Shaper Collection Office"},
  fr:{access:"Accès privé",intro:"Saisissez l’adresse e-mail enregistrée chez Legacy Shaper. Un code d’accès vous sera envoyé.",email:"Adresse e-mail",getCode:"Recevoir mon code",
@@ -342,7 +338,7 @@ const I18N={
    chatPh:"Votre message…",chatSend:"Envoyer",chatAttach:"Ajouter une photo ou un PDF",chatAbout:"À propos de",chatMe:"Vous",chatAi:"Legacy Shaper",chatDylanName:"Dylan Lessel",
    chatOffline:"La messagerie sera disponible dès le retour de la connexion.",chatFail:"Votre message n’a pas encore pu partir. Réessayez dans un instant.",
    chatTooBig:"Ce fichier dépasse 15 Mo.",askWork:"Une question sur cette œuvre",
-   atScale:"Voir à l’échelle",roomHint:"Déplacez l’œuvre et la chaise du doigt",reset:"Recentrer",saveView:"Enregistrer l’image",
+   atScale:"Voir à l’échelle",scaleTile:"À l’échelle",scaleAdjust:"Ajuster l’emplacement",scaleInPdf:"Ajouter à la fiche PDF",scaleSave:"Enregistrer",roomHint:"Déplacez l’œuvre et la chaise du doigt",reset:"Recentrer",saveView:"Enregistrer l’image",
    walls:{pearl:"Gris perle",white:"Blanc galerie",linen:"Lin",green:"Vert Legacy"},
    foot:"Legacy Shaper Collection · Dubaï",sheetFoot:"Fiche d’inventaire · Legacy Shaper Collection Office"}
 };
@@ -663,11 +659,14 @@ async function openWork(id,keep){
   const acq=[w.acquisition_date?fmtDate(w.acquisition_date):"", w.acquisition_price!=null?fmtMoney(w.acquisition_price,w.acquisition_currency):"", w.acquisition_source||""].filter(Boolean).map(esc).join("\n");
   const ins=w.insured_value!=null?esc(fmtMoney(w.insured_value,w.insured_currency)):"";
   const loc=w.location_text?esc(w.location_text)+(w.location_since?`\n${esc(t("since"))} ${esc(fmtDate(w.location_since))}`:""):"";
+  const scOK=canViewAtScale(w), scSet=scaleGet(w.id), scPdf=scalePdfGet(w.id);
   const d=$("#detail"); d.hidden=false; if(!keep) d.scrollTop=0; document.body.style.overflow="hidden";
   d.innerHTML=`<div class="dtop"><button id="dBack">← ${esc(t("back"))}</button><span class="sp"></span>
       ${idx>0?`<button id="dPrev" aria-label="${esc(t("prev"))}">‹</button>`:""}${idx>=0&&idx<list.length-1?`<button id="dNext" aria-label="${esc(t("next"))}">›</button>`:""}</div>
     <div class="dwrap"><div><div class="stage" id="dStage">${thumbOf(w)?`<img id="dImg" src="${thumbOf(w)}" alt="">`:""}</div>
-      ${views.length>1?`<div class="thumbs">${views.map((v,i)=>`<button data-v="${esc(v.id)}" class="${i===0?"on":""}"><img alt="" data-vt="${esc(v.id)}"></button>`).join("")}</div>`:""}</div>
+      ${(views.length>1||scOK)?`<div class="thumbs">${views.map((v,i)=>`<button data-v="${esc(v.id)}" class="${i===0?"on":""}"><img alt="" data-vt="${esc(v.id)}"></button>`).join("")}${scOK?`<button class="sct" id="dScTile" aria-label="${esc(t("atScale"))}"><img alt="" id="dScThumb"><span>${esc(t("scaleTile"))}</span></button>`:""}</div>`:""}
+      ${scOK?`<div class="scbar" id="dScBar" hidden><div class="sw">${ROOM.walls.map(([k,c])=>`<button data-scwall="${k}" title="${esc(t("walls")[k])}" aria-label="${esc(t("walls")[k])}" style="background:${c}" class="${k===scSet.wall?"on":""}"></button>`).join("")}</div>
+        <button class="tb" id="dScAdj">${esc(t("scaleAdjust"))}</button><label><input type="checkbox" id="dScPdf" ${scPdf?"checked":""}> ${esc(t("scaleInPdf"))}</label></div>`:""}</div>
     <div class="dh"><div class="artist">${esc(w.artist)}</div><div class="title"><i>${esc(w.title)}</i>${w.year?`, ${esc(w.year)}`:""}</div>
       <dl class="facts">${fact("medium",esc(w.medium))}${fact("dims",esc(dimsLine(w.dimensions)))}${fact("edition",esc(editionLine(w)))}
         ${fact("ownership",esc(ownershipLine(w)))}${fact("location",loc)}${fact("acquisition",acq)}${fact("insurance",ins)}${fact("condition",esc(w.condition))}
@@ -680,19 +679,35 @@ async function openWork(id,keep){
   if($("#dPrev")) $("#dPrev").onclick=()=>openWork(list[idx-1].id);
   if($("#dNext")) $("#dNext").onclick=()=>openWork(list[idx+1].id);
   d.querySelectorAll("[data-doc]").forEach(b=>b.onclick=()=>downloadDoc(b.dataset.doc));
-  let current=views[0]&&views[0].id;
-  const show=async vid=>{ current=vid; d.querySelectorAll("[data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v===vid)); const p=await viewPhoto(vid); if(p&&S.openId===id&&current===vid){ const img=$("#dImg"); if(img) img.src=p; else $("#dStage").innerHTML=`<img id="dImg" src="${p}" alt="">`; } };
+  let current=views[0]&&views[0].id, onScale=false;
+  const setStage=p=>{ const img=$("#dImg"); if(img) img.src=p; else $("#dStage").innerHTML=`<img id="dImg" src="${p}" alt="">`; };
+  const show=async vid=>{ current=vid; onScale=false; const sb=$("#dScBar"); if(sb) sb.hidden=true; const st=$("#dScTile"); if(st) st.classList.remove("on");
+    d.querySelectorAll("[data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v===vid)); const p=await viewPhoto(vid); if(p&&S.openId===id&&current===vid&&!onScale) setStage(p); };
+  /* view at scale: a fixed image made automatically from the main photo and the dimensions (shared engine: tools/room.js) */
+  const basePhoto=async()=>(views[0]&&await viewPhoto(views[0].id))||thumbOf(w);
+  const scaleURL=async()=>roomRenderURL(w, await basePhoto(), scaleGet(id));
+  const scaleThumb=async()=>{ const u=await scaleURL(); const ti=$("#dScThumb"); if(u&&ti&&S.openId===id) ti.src=u; if(onScale&&u&&S.openId===id) setStage(u); return u; };
+  if(scOK){ scaleThumb();
+    $("#dScTile").onclick=async()=>{ onScale=true; d.querySelectorAll("[data-v]").forEach(b=>b.classList.remove("on")); $("#dScTile").classList.add("on"); $("#dScBar").hidden=false; const u=await scaleURL(); if(onScale&&u&&S.openId===id) setStage(u); };
+    d.querySelectorAll("[data-scwall]").forEach(b=>b.onclick=()=>{ scaleSet(id,Object.assign({},scaleGet(id),{wall:b.dataset.scwall})); d.querySelectorAll("[data-scwall]").forEach(x=>x.classList.toggle("on",x===b)); scaleThumb(); });
+    $("#dScAdj").onclick=async()=>openRoom(w, await basePhoto(), { fit:true, init:Object.assign({wall:"pearl"},scaleGet(id)), saveLabel:t("scaleSave"), onSave:st=>{ scaleSet(id,st); d.querySelectorAll("[data-scwall]").forEach(x=>x.classList.toggle("on",x.dataset.scwall===st.wall)); scaleThumb(); } });
+    $("#dScPdf").onchange=e=>scalePdfSet(id,e.target.checked); }
   if(current) show(current);
   d.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>show(b.dataset.v));
   d.querySelectorAll("[data-vt]").forEach(async im=>{ const p=await viewPhoto(im.dataset.vt); if(p) im.src=p; });
   if($("#dAsk")) $("#dAsk").onclick=()=>openChat(id);
   if($("#dRoom")) $("#dRoom").onclick=async()=>openRoom(w, current?await viewPhoto(current):thumbOf(w));
-  $("#dPdf").onclick=async()=>printSheet(w, current?await viewPhoto(current):thumbOf(w));
-  $("#dImgDl").onclick=async()=>{ const p=(current&&await viewPhoto(current))||thumbOf(w); if(!p) return; const a=document.createElement("a"); a.href=p; a.download=fileBase(w)+".jpg"; document.body.appendChild(a); a.click(); a.remove(); };
+  $("#dPdf").onclick=async()=>printSheet(w, current?await viewPhoto(current):thumbOf(w), (scOK&&scalePdfGet(id))?await scaleURL():"");
+  $("#dImgDl").onclick=async()=>{ const p=onScale?await scaleURL():((current&&await viewPhoto(current))||thumbOf(w)); if(!p) return; const a=document.createElement("a"); a.href=p; a.download=fileBase(w)+(onScale?" - "+t("scaleTile"):"")+".jpg"; document.body.appendChild(a); a.click(); a.remove(); };
 }
 function closeWork(){ S.openId=null; const d=$("#detail"); d.hidden=true; d.innerHTML=""; document.body.style.overflow=""; }
 const fileBase=w=>[w.artist,w.title,w.year].filter(Boolean).join(" - ").replace(/[\\/:*?"<>|]+/g,"").slice(0,120)||"artwork";
-function printSheet(w,img){
+/* view-at-scale settings chosen by this viewer (wall, position), kept on this device */
+function scaleGet(id){ try{ return JSON.parse(localStorage.getItem("ls-scale:"+id)||"null")||{}; }catch(e){ return {}; } }
+function scaleSet(id,v){ try{ localStorage.setItem("ls-scale:"+id,JSON.stringify(v)); }catch(e){} }
+function scalePdfGet(id){ try{ return localStorage.getItem("ls-scalepdf:"+id)==="1"; }catch(e){ return false; } }
+function scalePdfSet(id,on){ try{ if(on) localStorage.setItem("ls-scalepdf:"+id,"1"); else localStorage.removeItem("ls-scalepdf:"+id); }catch(e){} }
+function printSheet(w,img,scaleImg){
   const p=$("#print"); const rows=[["medium",w.medium],["dims",dimsLine(w.dimensions)],["edition",editionLine(w)],["ownership",ownershipLine(w)],
     ["location",(w.location_text||"")+(w.location_since?` (${t("since")} ${fmtDate(w.location_since)})`:"")],
     ["acquisition",[w.acquisition_date?fmtDate(w.acquisition_date):"",w.acquisition_price!=null?fmtMoney(w.acquisition_price,w.acquisition_currency):"",w.acquisition_source||""].filter(Boolean).join(" · ")],
@@ -700,7 +715,7 @@ function printSheet(w,img){
   p.innerHTML=`<img class="pl" src="${LOGO_GREEN}" alt="Legacy Shaper">${img?`<img class="pimg" src="${img}" alt="">`:""}
     <div class="pa">${esc(w.artist)}</div><div class="pt"><i>${esc(w.title)}</i>${w.year?`, ${esc(w.year)}`:""}</div>
     <table>${rows.map(r=>`<tr><td>${esc(t(r[0]))}</td><td style="white-space:pre-line">${esc(r[1])}</td></tr>`).join("")}</table>
-    <div class="pf">${esc(S.data.coll.name)} · ${esc(t("sheetFoot"))} · ${esc(fmtDate(new Date().toISOString()))}</div>`;
+    <div class="pf">${esc(S.data.coll.name)} · ${esc(t("sheetFoot"))} · ${esc(fmtDate(new Date().toISOString()))}</div>${scaleImg?`<div class="pscale"><img src="${scaleImg}" alt=""><div>${esc(w.artist)}${w.title?", "+esc(w.title):""}${w.year?", "+esc(w.year):""} · ${esc(t("atScale"))}</div></div>`:""}`;
   const prevTitle=document.title; document.title=fileBase(w);
   const go=()=>{ window.print(); setTimeout(()=>{ document.title=prevTitle; },500); };
   const imgs=[...p.querySelectorAll("img")]; Promise.all(imgs.map(i=>i.complete?1:new Promise(r=>{ i.onload=i.onerror=r; }))).then(go);
@@ -712,191 +727,8 @@ async function downloadDoc(id){
   const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=doc.name||"document"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
 }
 
-/* ---------------- view at scale ----------------
-   One wall, a Versailles parquet and a Pierre Jeanneret-style cane chair as a fixed reference (80 cm high).
-   Everything is drawn in real centimetres with one camera: wall at D cm, eye at EYE cm above the floor.
-   The work moves left/right and up/down on the wall; the chair moves left/right only. */
-const ROOM={ D:500, EYE:140, CHAIR_H:80, CHAIR_Z:30, CHAIR_FRONT:55, FLOOR_MARGIN:7, PANEL:100,
-  walls:[["pearl","#DAD8D3"],["white","#EEECE7"],["linen","#D8CFC0"],["green","#33503B"]] };
-const NOT_WALL=/sculpt|furniture|mobili|object|objet|install|design|ceramic|céram/i;
-function parseDims(str){
-  if(!str) return null;
-  const part=String(str).split(/[|·]/)[0].replace(/,/g,".");
-  const frac=s=>s.replace(/(\d+)\s+(\d+)\/(\d+)/g,(m,a,b,c)=>String(+a + b/c)).replace(/(\d+)\/(\d+)/g,(m,b,c)=>String(b/c));
-  const txt=frac(part);
-  const nums=(txt.match(/\d+(\.\d+)?/g)||[]).map(Number).filter(n=>n>0);
-  if(nums.length<2) return null;
-  const inch=/\b(in|inch|inches)\b|"/i.test(txt)&&!/cm/i.test(txt);
-  const k=inch?2.54:(/mm/i.test(txt)&&!/cm/i.test(txt)?0.1:(/\bm\b/i.test(txt)&&!/cm|mm/i.test(txt)?100:1));
-  const [h,w,d]=nums.map(n=>n*k);
-  return {h,w,d:d||0};
-}
-function canViewAtScale(w){
-  if(!w) return false; if(NOT_WALL.test(w.category||"")) return false;
-  const d=parseDims(w.dimensions); if(!d) return false;
-  if(d.d>15) return false;                 // a volume, not a work hung on a wall
-  return d.h>=3&&d.w>=3&&d.h<=1200&&d.w<=2400;
-}
-const roomAssets={};
-function roomImg(src){ return roomAssets[src]||(roomAssets[src]=new Promise((res)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>res(null); i.src=src; })); }
-const R={};   // live state of the open view
-async function openRoom(w,photo){
-  const dims=parseDims(w.dimensions); if(!dims) return;
-  let wall="pearl"; try{ wall=localStorage.getItem("ls-wall")||"pearl"; }catch(e){}
-  const el=$("#room"); el.hidden=false; document.body.style.overflow="hidden";
-  el.innerHTML=`<div class="rtop"><button id="rBack">← ${esc(t("back"))}</button><div class="rt"><b><i>${esc(w.title||"")}</i>${w.year?`, ${esc(w.year)}`:""}</b><span>${esc(w.artist)}</span></div><span style="width:62px"></span></div>
-    <div class="rstage" id="rStage"><canvas id="rCv"></canvas><div class="hint" id="rHint">${esc(t("roomHint"))}</div></div>
-    <div class="rbar"><div class="sw">${ROOM.walls.map(([k,c])=>`<button data-wall="${k}" title="${esc(t("walls")[k])}" aria-label="${esc(t("walls")[k])}" style="background:${c}" class="${k===wall?"on":""}"></button>`).join("")}</div>
-      <span class="dim">${esc(fmtCm(dims.h))} × ${esc(fmtCm(dims.w))} cm</span><span class="rb"><button class="tb" id="rReset">${esc(t("reset"))}</button><button class="tb" id="rSave">${esc(t("saveView"))}</button></span></div>`;
-  Object.assign(R,{ w, dims, wall, art:null, chair:null, parquet:null, floor:null, drag:null, open:true });
-  const [art,chair,parquet]=await Promise.all([roomImg(photo||thumbOf(w)),roomImg("room-chair.webp"),roomImg("room-parquet.jpg")]);
-  if(!R.open) return;
-  R.art=art; R.chair=chair; R.parquet=parquet;
-  roomDefaults(); roomLayout();
-  $("#rBack").onclick=closeRoom;
-  $("#rReset").onclick=()=>{ roomDefaults(); roomDraw(); };
-  $("#rSave").onclick=roomSave;
-  el.querySelectorAll("[data-wall]").forEach(b=>b.onclick=()=>{ R.wall=b.dataset.wall; try{ localStorage.setItem("ls-wall",R.wall); }catch(e){}
-    el.querySelectorAll("[data-wall]").forEach(x=>x.classList.toggle("on",x===b)); roomDraw(); });
-  const cv=$("#rCv");
-  cv.addEventListener("pointerdown",roomDown); cv.addEventListener("pointermove",roomMove);
-  cv.addEventListener("pointerup",roomUp); cv.addEventListener("pointercancel",roomUp);
-  R.onResize=()=>{ if(R.open) roomLayout(); }; window.addEventListener("resize",R.onResize);
-  setTimeout(()=>{ const h=$("#rHint"); if(h) h.style.opacity="0"; },3200);
-}
-function closeRoom(){ R.open=false; const el=$("#room"); el.hidden=true; el.innerHTML=""; if(R.onResize) window.removeEventListener("resize",R.onResize); if(!S.openId) document.body.style.overflow=""; }
-const fmtCm=v=>(Math.round(v*10)/10).toLocaleString(LANG==="fr"?"fr-FR":"en-GB",{maximumFractionDigits:1});
-function chairW(){ return R.chair?ROOM.CHAIR_H*R.chair.width/R.chair.height:66; }
-function roomDefaults(){
-  const {h,w}=R.dims, cw=chairW(), gap=Math.max(25,Math.min(60,w*0.25));
-  R.artY=Math.max(150,h/2+25);                     // centre at 150 cm (museum hang), never closer than 25 cm to the floor
-  const st=$("#rStage"); const portrait=st&&st.clientWidth<st.clientHeight*0.85;
-  if(portrait&&R.artY-h/2>=ROOM.CHAIR_H+3&&w>=cw+20){
-    // phone held upright: the chair sits beneath the work, so both can be shown large
-    R.artX=0; R.chairX=-w/2+cw/2+Math.min(15,(w-cw)/4); R.extentW=w;
-  } else {
-    const total=cw+gap+w;
-    R.artX=-total/2+cw+gap+w/2;                    // composition centred: chair on the left, work on the right
-    R.chairX=-total/2+cw/2; R.extentW=total;
-  }
-}
-/* layout: px per cm on the wall, wall base line, horizon */
-function roomLayout(){
-  const st=$("#rStage"), cv=$("#rCv"); if(!st||!cv) return;
-  const W=st.clientWidth, H=st.clientHeight, dpr=Math.min(window.devicePixelRatio||1,3);
-  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
-  const {h,w}=R.dims, cw=chairW();
-  const needH=Math.max(240,R.artY+h/2+40);          // floor to a little above the work
-  const needW=Math.max((R.extentW||cw+w+40)+2*18, 200);   // the composition and a margin either side
-  // the floor stops a few centimetres below the chair's front feet: the eye stays on the wall and the work
-  const footCm=ROOM.EYE*(ROOM.D/(ROOM.D-ROOM.CHAIR_FRONT)-1), floorCm=footCm+ROOM.FLOOR_MARGIN;
-  const scale=Math.min(H/(needH+floorCm), W/needW);
-  const floorPx=scale*floorCm;
-  Object.assign(R,{W,H,dpr,scale,baseY:H-floorPx,cx:W/2});
-  R.f=scale*ROOM.D; R.horizon=R.baseY-scale*ROOM.EYE;
-  roomFloor(); roomDraw();
-}
-/* parquet in perspective, computed once per layout (device pixels) */
-function roomFloor(){
-  const {W,H,dpr,baseY,horizon,f,cx}=R; const D=ROOM.D, E=ROOM.EYE, P=ROOM.PANEL;
-  const fw=Math.round(W*dpr), y0=Math.floor(baseY*dpr), fh=Math.round(H*dpr)-y0;
-  if(fw<=0||fh<=0||!R.parquet){ R.floor=null; return; }
-  if(!R.mips){ R.mips=[]; let size=R.parquet.width; let src=R.parquet;
-    while(size>=16){ const c=document.createElement("canvas"); c.width=c.height=size; const x=c.getContext("2d"); x.imageSmoothingQuality="high"; x.drawImage(src,0,0,size,size);
-      R.mips.push({size,data:x.getImageData(0,0,size,size).data}); src=c; size=size>>1; } }
-  const out=new ImageData(fw,fh), o=out.data, mips=R.mips, L=mips.length;
-  for(let j=0;j<fh;j++){
-    let acc=null;
-    for(let ss=0;ss<2;ss++){
-      const ypx=(y0+j+0.25+ss*0.5)/dpr; const dy=ypx-horizon; if(dy<=0) continue;
-      const Z=f*E/dy;                                   // depth of this floor row (cm)
-      const cmPerPx=Z/f/dpr;                             // footprint across
-      const dzPerPx=Z*Z/(f*E)/dpr;                       // footprint in depth
-      const fp=Math.sqrt(cmPerPx*dzPerPx);
-      let lv=Math.round(Math.log2(Math.max(1,fp*mips[0].size/P))); lv=Math.max(0,Math.min(L-1,lv));
-      const m=mips[lv], sz=m.size, d=m.data, k=sz/P;
-      let tz=((D-Z)%P+P)%P; const ty=Math.floor(tz*k)%sz;
-      const ao=1-0.28*Math.exp(-(D-Z)/18);              // soft shadow where floor meets wall
-      const near=Math.min(1,(Z-ROOM.D*0.55)/(ROOM.D*0.45)); const light=(0.9+0.12*Math.max(0,near))*ao;
-      if(!acc) acc=new Float32Array(fw*3);
-      for(let i=0;i<fw;i++){
-        const X=((i+0.5)/dpr-cx)*Z/f;
-        const tx=Math.floor((((X+P*1000)%P))*k)%sz; const q=(ty*sz+tx)*4;
-        const vig=1-0.10*Math.pow(Math.abs((i/fw)-0.5)*2,2);
-        acc[i*3]+=d[q]*light*vig; acc[i*3+1]+=d[q+1]*light*vig; acc[i*3+2]+=d[q+2]*light*vig;
-      }
-    }
-    if(!acc) continue;
-    for(let i=0;i<fw;i++){ const q=(j*fw+i)*4; o[q]=acc[i*3]/2; o[q+1]=acc[i*3+1]/2; o[q+2]=acc[i*3+2]/2; o[q+3]=255; }
-  }
-  const c=document.createElement("canvas"); c.width=fw; c.height=fh; c.getContext("2d").putImageData(out,0,0);
-  R.floor={c,y0};
-}
-const shade=(hex,k)=>{ const n=parseInt(hex.slice(1),16); const f=v=>Math.max(0,Math.min(255,Math.round(v*k))); return `rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`; };
-function artRect(){ const {scale,cx,baseY}=R, {h,w}=R.dims; return { x:cx+(R.artX-w/2)*scale, y:baseY-(R.artY+h/2)*scale, w:w*scale, h:h*scale }; }
-function chairRect(){ const {f,cx,horizon}=R; const zc=ROOM.D-ROOM.CHAIR_Z, s=f/zc; const hh=ROOM.CHAIR_H*s, ww=chairW()*s;
-  const foot=horizon+f*ROOM.EYE/(ROOM.D-ROOM.CHAIR_FRONT); return { x:cx+R.chairX*s-ww/2, y:foot-hh, w:ww, h:hh, s, foot }; }
-function roomDraw(cvs,opts){
-  const cv=cvs||$("#rCv"); if(!cv||!R.W) return; const x=cv.getContext("2d"); const k=cv.width/R.W;
-  x.setTransform(k,0,0,k,0,0);
-  const {W,H,baseY}=R; const col=(ROOM.walls.find(v=>v[0]===R.wall)||ROOM.walls[0])[1];
-  // wall: soft light from above, a little shade towards the floor and the sides
-  let g=x.createLinearGradient(0,0,0,baseY); g.addColorStop(0,shade(col,1.035)); g.addColorStop(0.75,col); g.addColorStop(1,shade(col,0.9));
-  x.fillStyle=g; x.fillRect(0,0,W,baseY+1);
-  g=x.createLinearGradient(0,0,W,0); g.addColorStop(0,"rgba(0,0,0,.07)"); g.addColorStop(0.25,"rgba(0,0,0,0)"); g.addColorStop(0.75,"rgba(0,0,0,0)"); g.addColorStop(1,"rgba(0,0,0,.07)");
-  x.fillStyle=g; x.fillRect(0,0,W,baseY+1);
-  // floor
-  if(R.floor){ x.drawImage(R.floor.c,0,R.floor.y0/R.dpr,W,R.floor.c.height/R.dpr); } else { x.fillStyle="#6E4E36"; x.fillRect(0,baseY,W,H-baseY); }
-  g=x.createLinearGradient(0,baseY-2,0,baseY+3); g.addColorStop(0,"rgba(0,0,0,0)"); g.addColorStop(0.5,"rgba(0,0,0,.18)"); g.addColorStop(1,"rgba(0,0,0,0)");
-  x.fillStyle=g; x.fillRect(0,baseY-2,W,5);
-  // the work, with the shadow of a hung piece
-  const a=artRect();
-  x.save(); x.shadowColor="rgba(0,0,0,.28)"; x.shadowBlur=Math.max(6,a.w*0.035); x.shadowOffsetX=Math.max(2,a.w*0.012); x.shadowOffsetY=Math.max(3,a.w*0.02);
-  x.fillStyle="#fff"; x.fillRect(a.x,a.y,a.w,a.h); x.restore();
-  if(R.art){ // cover the exact dimensions without distorting the image
-    const iw=R.art.width, ih=R.art.height, r=Math.max(a.w/iw,a.h/ih), sw=a.w/r, sh=a.h/r;
-    x.drawImage(R.art,(iw-sw)/2,(ih-sh)/2,sw,sh,a.x,a.y,a.w,a.h); }
-  // chair: contact shadow, then the chair
-  const c=chairRect();
-  x.save(); x.translate(c.x+c.w/2,c.foot-c.h*0.04); x.scale(1,0.16);
-  g=x.createRadialGradient(0,0,0,0,0,c.w*0.62); g.addColorStop(0,"rgba(0,0,0,.42)"); g.addColorStop(1,"rgba(0,0,0,0)");
-  x.fillStyle=g; x.beginPath(); x.arc(0,0,c.w*0.62,0,Math.PI*2); x.fill(); x.restore();
-  if(R.chair) x.drawImage(R.chair,c.x,c.y,c.w,c.h);
-  if(opts&&opts.caption){ x.fillStyle="rgba(22,36,26,.62)"; x.font=`500 ${Math.max(11,W/90)}px "Hanken Grotesk",sans-serif`; x.textBaseline="bottom"; x.fillText(opts.caption,14,H-10); }
-}
-/* dragging */
-function roomPt(e){ const r=$("#rCv").getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; }
-const inRect=(p,r,pad)=>p.x>=r.x-pad&&p.x<=r.x+r.w+pad&&p.y>=r.y-pad&&p.y<=r.y+r.h+pad;
-function roomDown(e){
-  const p=roomPt(e), c=chairRect(), a=artRect();
-  const what=inRect(p,c,4)?"chair":inRect(p,a,8)?"art":null; if(!what) return;
-  R.drag={what,p0:p,ax:R.artX,ay:R.artY,chx:R.chairX}; e.target.setPointerCapture(e.pointerId); e.target.classList.add("drag");
-  const h=$("#rHint"); if(h) h.style.opacity="0";
-}
-function roomMove(e){
-  if(!R.drag) return; const p=roomPt(e), dx=p.x-R.drag.p0.x, dy=p.y-R.drag.p0.y; const {h,w}=R.dims;
-  const halfW=R.W/2/R.scale;
-  if(R.drag.what==="art"){
-    R.artX=Math.max(-halfW-w/2+w*0.2, Math.min(halfW+w/2-w*0.2, R.drag.ax+dx/R.scale));   // keep at least a fifth of the work in view
-    const top=(R.baseY)/R.scale;                                   // visible wall height (cm)
-    R.artY=Math.max(h/2+2, Math.min(top-h/2*0.2, R.drag.ay-dy/R.scale));
-  } else {
-    const s=chairRect().s; const lim=R.W/2/s;
-    R.chairX=Math.max(-lim, Math.min(lim, R.drag.chx+dx/s));
-  }
-  roomDraw();
-}
-function roomUp(e){ if(!R.drag) return; R.drag=null; try{ e.target.releasePointerCapture(e.pointerId); }catch(x){} e.target.classList.remove("drag"); }
-async function roomSave(){
-  const w=R.w; const c=document.createElement("canvas"); const k=Math.max(2,R.dpr);
-  c.width=Math.round(R.W*k); c.height=Math.round(R.H*k);
-  roomDraw(c,{caption:`${w.artist}${w.title?", "+w.title:""}${w.year?", "+w.year:""} · ${fmtCm(R.dims.h)} × ${fmtCm(R.dims.w)} cm · Legacy Shaper`});
-  const name=`${fileBase(w)} - ${t("atScale")}.jpg`;
-  const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",0.92)); if(!blob) return;
-  try{ const file=new File([blob],name,{type:"image/jpeg"});
-    if(navigator.canShare&&navigator.canShare({files:[file]})&&/iPhone|iPad|Android/.test(navigator.userAgent)){ await navigator.share({files:[file],title:name}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
-  const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
-}
+/*@@ROOM_JS@@*/
+window.ROOM_HOST={ t:k=>t(k), get lang(){ return LANG; }, base:"", fileBase:w=>fileBase(w) };
 
 /* ---------------- assistant: messages with Legacy Shaper ----------------
    One conversation per collector and collection. The assistant answers at once; Dylan can join at any moment. */

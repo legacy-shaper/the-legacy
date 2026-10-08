@@ -21,6 +21,12 @@ Hand-over note: everything needed to resume work in a new conversation. No secre
   Real centimetres with one camera (wall at 500 cm, eye 140 cm). Work moves left/right/up/down, chair left/right only; wall colours
   (gris perle, blanc galerie, lin, vert Legacy); « Enregistrer l’image » (share sheet on iPhone). Hidden for sculptures/furniture and volumes (depth > 15 cm).
   Tests: `tests/test_client_room.py`.
+- **View at scale as a fixed image (both apps, 8 Oct 2026)**: engine shared in `tools/room.js` + `tools/room.css`, injected by both
+  builds (placeholders `/*@@ROOM_JS@@*/`, `/*@@ROOM_CSS@@*/`; never edit the copies). A 1600×1200 image (2400×1800 for PDFs) is made
+  automatically from the main photo + dimensions. Master: shown in the work's Photos card; wall colour, « Ajuster l’emplacement »
+  (same 4:3 frame) and « Ajouter à la fiche PDF » saved on the artwork (`scaleView` {wall, artX, artY, chairX} in cm, `scalePdf` "1").
+  Client: « À l’échelle » tile among the views, same controls kept on the viewer's device (localStorage `ls-scale:<id>`,
+  `ls-scalepdf:<id>`); not yet synced from the master (would need `scale_view` in the relational table). Tests: `tests/test_scale_view.py`.
 - **Messages / assistant**: client app « Nous écrire » + « Une question sur cette œuvre » (photo or PDF attachable, bucket `support-files`).
   Edge function **support-chat** (deployed, verify_jwt on): assistant reply (Claude API, model `claude-sonnet-5-5`, needs secret
   `ANTHROPIC_API_KEY` in Edge Functions → Secrets; without it a courteous acknowledgement is sent), category/priority/summary for Dylan,

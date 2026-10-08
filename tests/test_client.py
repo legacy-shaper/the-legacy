@@ -122,7 +122,8 @@ with sync_playwright() as pw:
     check("51.2 × 39.4 in" in det, "dimensions are also given in inches")
     check("$420,000" in det and "14 June 2019" in det, "acquisition date and price")
     check("$520,000" in det, "insured value")
-    check(p.locator("#detail .thumbs button").count() == 2, "two views available")
+    check(p.locator("#detail .thumbs button[data-v]").count() == 2, "two views available")
+    check(p.locator("#detail .thumbs #dScTile").count() == 1, "plus the automatic at-scale image")
     import base64
     b64 = lambda f: base64.b64encode(open(os.path.join(CLIENT, "demo", f), "rb").read()).decode()[:200]
     p.wait_for_function(f"document.querySelector('#dImg') && document.querySelector('#dImg').src.startsWith('data:image') && document.querySelector('#dImg').src.includes('{b64('aur-01.jpg')}')")

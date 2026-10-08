@@ -5,13 +5,19 @@ import hashlib, os, json
 R = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 T = lambda f: open(os.path.join(R, "tools", f), encoding="utf-8").read()
 head, body, tail = T("app-head.html"), T("master.html"), T("app-tail.html")
+room_js, room_css = T("room.js"), T("room.css")
+assert "/*@@ROOM_JS@@*/" in body and "/*@@ROOM_CSS@@*/" in body
+body = body.replace("/*@@ROOM_JS@@*/", room_js).replace("/*@@ROOM_CSS@@*/", room_css)
+ROOM_ASSETS = [os.path.join(R, "assets", "room", f) for f in ("room-chair.webp", "room-parquet.jpg")]
 page = head + body + tail
 sw = T("app-sw.template.js")
-build = hashlib.sha1(page.encode() + sw.encode()).hexdigest()[:8]
+build = hashlib.sha1(page.encode() + sw.encode() + b"".join(open(f, "rb").read() for f in ROOM_ASSETS)).hexdigest()[:8]
 page = page.replace("</body></html>", f'<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v{build}</div>\n<style>body:not(.home-on) #buildTag{{display:none}}</style>\n</body></html>')
 os.makedirs(os.path.join(R, "app"), exist_ok=True)
 open(os.path.join(R, "app", "index.html"), "w", encoding="utf-8").write(page)
 open(os.path.join(R, "app", "sw.js"), "w").write(sw.replace("__BUILD__", build))
+import shutil
+for f in ROOM_ASSETS: shutil.copy(f, os.path.join(R, "app", os.path.basename(f)))
 m = json.load(open(os.path.join(R, "manifest.webmanifest")))
 m.update({"description": "The Legacy — Legacy Shaper Collection - FZCO", "start_url": "./", "scope": "./",
           "icons": [{**i, "src": "../" + i["src"]} for i in m["icons"]]})

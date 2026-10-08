@@ -23,6 +23,8 @@ page = T("client.html")
 for k, v in logos.items():
     page = page.replace(f'"__{k}__"', json.dumps(v))
 assert "__LOGO_" not in page
+assert "/*@@ROOM_JS@@*/" in page and "/*@@ROOM_CSS@@*/" in page
+page = page.replace("/*@@ROOM_JS@@*/", T("room.js")).replace("/*@@ROOM_CSS@@*/", T("room.css"))
 
 SW = r'''/* Legacy Shaper — client app service worker.
    The app opens instantly and offline; collection data never passes through this cache (Supabase is always live). */

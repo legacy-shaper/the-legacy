@@ -1,8 +1,8 @@
 /* The Legacy (Supabase edition) — service worker
    App shell and libraries are kept for instant, offline opening.
    Data never goes through this cache: every request to Supabase passes straight to the network. */
-const VERSION = "the-legacy-app-901a3d15";
-const APP = ["./", "./index.html", "./manifest.webmanifest"];
+const VERSION = "the-legacy-app-50259938";
+const APP = ["./", "./index.html", "./manifest.webmanifest", "./room-chair.webp", "./room-parquet.jpg"];
 const EXTERNAL = [
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js",
