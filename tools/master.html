@@ -1763,7 +1763,8 @@ async function scaleRefresh(a){
       n0.innerHTML=`La préparation de cette vue s’est interrompue la dernière fois : elle n’est pas relancée automatiquement. <button type="button" class="lnk" id="scaleRetry">Réessayer</button>`; n0.hidden=false; return; } }
   if(scaleStand(a)){ const n=$("#scaleNote"); if(!n) return; let txt="";
     if(!u){ const info=roomObjInfo(await roomImg(scaleSrc(a)));
-      txt=info&&info.fail==="edge"?"La photo coupe l’œuvre : pour la poser à l’échelle, il faut une photo de l’œuvre entière, avec un peu de fond tout autour."
+      txt=info&&info.fail==="unsure"?"Sur cette photo, l’œuvre est trop proche du fond (pièce claire sur fond clair) pour un détourage parfait : la vue n’est pas affichée plutôt que de montrer l’œuvre incomplète. Une photo sur un fond un peu plus soutenu (gris moyen) permettra le détourage."
+        :info&&info.fail==="edge"?"La photo coupe l’œuvre : pour la poser à l’échelle, il faut une photo de l’œuvre entière, avec un peu de fond tout autour."
         :"Pour poser l’œuvre à l’échelle, il faut une photo de l’œuvre entière sur un fond uni (mur ou fond studio).";
       if(b) b.innerHTML=`<span class="hint" style="padding:16px;text-align:center">Vue à l’échelle indisponible avec cette photo</span>`; }
     if(my!==scaleSeq||state.curArt!==a.id) return; n.textContent=txt; n.hidden=!txt; return; }

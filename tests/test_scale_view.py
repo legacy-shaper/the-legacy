@@ -61,6 +61,14 @@ def pair():              # two figures (one white like the backdrop) on a studio
     fig(300, 140, 820, 210, (250, 250, 250), (150, 150, 150)); fig(680, 250, 825, 200, (240, 140, 170), (160, 80, 100))
     return bg
 PAIR_URL = jpg_url(pair())
+def ghost():             # a white figure with no outline on a white backdrop: only its face shows — must not be cut into pieces
+    bg = backdrop(900); d = ImageDraw.Draw(bg)
+    d.ellipse((330, 120, 380, 260), fill=(238, 238, 236)); d.ellipse((420, 120, 470, 260), fill=(238, 238, 236))   # ears, same as the wall
+    d.ellipse((300, 240, 500, 420), fill=(239, 239, 237)); d.rectangle((330, 400, 470, 760), fill=(238, 238, 236))
+    d.ellipse((370, 300, 390, 320), fill=(40, 160, 60)); d.ellipse((410, 300, 430, 320), fill=(40, 160, 60)); d.ellipse((360, 350, 440, 385), fill=(220, 30, 40))
+    d.text((340, 170), "ka", fill=(200, 60, 120)); d.text((430, 170), "i", fill=(200, 60, 120))
+    return bg
+GHOST_URL = jpg_url(ghost())
 OPEN_URL, SOLID_URL, FULL_URL, CUT_URL, TIGHT_URL = jpg_url(openwork()), jpg_url(solid()), jpg_url(fullframe()), jpg_url(shapes_cut()), jpg_url(tight())
 
 class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -193,6 +201,8 @@ with sync_playwright() as pw:
                 const t2=await roomImg(tt), k=roomCut(t2,parseDims('38 x 67 cm'));
                 return {cut:roomCut(ic,d), info:roomCutInfo(ic,d), tight:k&&{ang:k.angle,open:k.open,ratio:k.rw/k.rh}}; }""", [CUT_URL, TIGHT_URL])
             check(e["cut"] is None and e["info"] and e["info"]["fail"] == "edge" and sorted(e["info"]["sides"]) == ["bottom", "top"], f"{name}: cut-out — work cut by the photo at the top and bottom: detected ({e['info']})")
+            gh = p.evaluate("async(u)=>{ const im=await roomImg(u); return {obj:!!roomObj(im), info:roomObjInfo(im)}; }", GHOST_URL)
+            check(not gh["obj"] and gh["info"] and gh["info"]["fail"] in ("unsure", "plain"), f"{name}: cut-out — white piece lost in a white backdrop: refused rather than shown in pieces ({gh['info']})")
             check(e["tight"] and e["tight"]["ang"] == 0 and not e["tight"]["open"] and abs(e["tight"]["ratio"] - 672 / 380) < 0.05, f"{name}: cut-out — tightly framed whole work: still cut out")
             check(r["mismatch"] is None, f"{name}: cut-out — outline far from the dimensions: left as it was")
             # hints in the work's card

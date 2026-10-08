@@ -2226,25 +2226,62 @@ function roomObjCompute(img){
     const full=Math.max(Math.abs(d[q]-b0),Math.abs(d[q+1]-b1),Math.abs(d[q+2]-b2));
     const k=Math.min(1,L/Lb), dd2=Math.max(Math.abs(d[q]-b0*k),Math.abs(d[q+1]-b1*k),Math.abs(d[q+2]-b2*k));
     cls[i]=full<18?1:(dd2<14&&1-k<0.45&&L<=Lb+6)?2:0; } }
-  // flood from the border through background and shadows
-  const reach=new Uint8Array(N), st=new Int32Array(N); let sp=0;
-  const push=i=>{ if(!reach[i]&&cls[i]){ reach[i]=1; st[sp++]=i; } };
-  for(let xx=0;xx<W;xx++){ push(xx); push((H-1)*W+xx); } for(let y=0;y<H;y++){ push(y*W); push(y*W+W-1); }
-  while(sp){ const i=st[--sp], xx=i%W; if(xx>0) push(i-1); if(xx<W-1) push(i+1); if(i>=W) push(i-W); if(i<N-W) push(i+W); }
-  // object = not reached; keep only significant pieces
-  const lab=new Int32Array(N).fill(-1), sizes=[];
-  for(let i=0;i<N;i++){ if(reach[i]||lab[i]>=0) continue; const id2=sizes.length; let n=0; lab[i]=id2; st[sp++]=i;
-    while(sp){ const j=st[--sp]; n++; const xx=j%W;
-      if(xx>0&&!reach[j-1]&&lab[j-1]<0){ lab[j-1]=id2; st[sp++]=j-1; }
-      if(xx<W-1&&!reach[j+1]&&lab[j+1]<0){ lab[j+1]=id2; st[sp++]=j+1; }
-      if(j>=W&&!reach[j-W]&&lab[j-W]<0){ lab[j-W]=id2; st[sp++]=j-W; }
-      if(j<N-W&&!reach[j+W]&&lab[j+W]<0){ lab[j+W]=id2; st[sp++]=j+W; } }
-    sizes.push(n); if(sizes.length>200000) return {fail:"plain"}; }
-  if(!sizes.length) return {fail:"plain"};
-  let big=0; for(const n of sizes) if(n>big) big=n; const keep=sizes.map(n=>n>=Math.max(40,big*0.01));
-  let x0=W,y0=H,x1=-1,y1=-1, area=0;
-  for(let y=0;y<H;y++) for(let xx=0;xx<W;xx++){ const i=y*W+xx; if(lab[i]>=0&&keep[lab[i]]){ area++; if(xx<x0)x0=xx; if(xx>x1)x1=xx; if(y<y0)y0=y; if(y>y1)y1=y; } }
-  if(area<N*0.01) return {fail:"plain"};
+  // the object's outline as a barrier: a white or silver piece on a light backdrop is told apart by its edges
+  // (shading, reflections), not by its colour. Gradient of the (lightly blurred) luminance, threshold from the backdrop's own noise.
+  const Lm=new Float32Array(N); for(let i=0;i<N;i++){ const q=i*4; Lm[i]=0.299*d[q]+0.587*d[q+1]+0.114*d[q+2]; }
+  const Bl=new Float32Array(N);
+  for(let y=1;y<H-1;y++) for(let xx=1;xx<W-1;xx++){ const i=y*W+xx; Bl[i]=(Lm[i-W-1]+Lm[i-W]+Lm[i-W+1]+Lm[i-1]+Lm[i]+Lm[i+1]+Lm[i+W-1]+Lm[i+W]+Lm[i+W+1])/9; }
+  const G=new Float32Array(N);
+  for(let y=2;y<H-2;y++) for(let xx=2;xx<W-2;xx++){ const i=y*W+xx; G[i]=Math.abs(Bl[i+1]-Bl[i-1])+Math.abs(Bl[i+W]-Bl[i-W]); }
+  const band=Math.max(3,Math.round(Math.min(W,H)*0.03)), gs=[];
+  for(let y=2;y<H-2;y+=2) for(let xx=2;xx<W-2;xx+=2){ if(xx<band||xx>=W-band||y<band||y>=H-band){ const i=y*W+xx; if(cls[i]) gs.push(G[i]); } }
+  gs.sort((p,q)=>p-q); const Tg=Math.max(3.5,(gs.length?gs[Math.floor(gs.length*0.95)]:2)*2.2);
+  const R00=Math.max(1,Math.round(Math.min(W,H)/450)), st=new Int32Array(N);
+  // one segmentation with the outline closed over R0 pixels; checked for quality before being used
+  const segment=R0=>{
+    const wall=new Uint8Array(N);
+    for(let y=0;y<H;y++) for(let xx=0;xx<W;xx++){ if(G[y*W+xx]<=Tg) continue;
+      for(let dy=-R0;dy<=R0;dy++){ const yy=y+dy; if(yy<0||yy>=H) continue; for(let dx=-R0;dx<=R0;dx++){ const xq=xx+dx; if(xq>=0&&xq<W) wall[yy*W+xq]=1; } } }
+    // flood from the border through background and shadows, never across the outline
+    const reach=new Uint8Array(N); let sp=0;
+    const push=i=>{ if(!reach[i]&&cls[i]&&!wall[i]){ reach[i]=1; st[sp++]=i; } };
+    for(let xx=0;xx<W;xx++){ push(xx); push((H-1)*W+xx); } for(let y=0;y<H;y++){ push(y*W); push(y*W+W-1); }
+    while(sp){ const i=st[--sp], xx=i%W; if(xx>0) push(i-1); if(xx<W-1) push(i+1); if(i>=W) push(i-W); if(i<N-W) push(i+W); }
+    // the outline was thickened to close small gaps: give back the backdrop pixels of that margin
+    for(let it=0;it<=R0;it++){ const add=[];
+      for(let i=0;i<N;i++){ if(reach[i]||!cls[i]||!wall[i]) continue; const xx=i%W;
+        if((xx>0&&reach[i-1])||(xx<W-1&&reach[i+1])||(i>=W&&reach[i-W])||(i<N-W&&reach[i+W])){ if(G[i]<=Tg||cls[i]===2) add.push(i); } }
+      if(!add.length) break; for(const i of add) reach[i]=1; }
+    // object = not reached, as connected pieces
+    const lab=new Int32Array(N).fill(-1), sizes=[], bx=[];
+    for(let i=0;i<N;i++){ if(reach[i]||lab[i]>=0) continue; const id2=sizes.length; let n=0, a0=W,a1=-1,b0=H,b1=-1; lab[i]=id2; st[sp++]=i;
+      while(sp){ const j=st[--sp]; n++; const xx=j%W, y=(j-xx)/W; if(xx<a0)a0=xx; if(xx>a1)a1=xx; if(y<b0)b0=y; if(y>b1)b1=y;
+        if(xx>0&&!reach[j-1]&&lab[j-1]<0){ lab[j-1]=id2; st[sp++]=j-1; }
+        if(xx<W-1&&!reach[j+1]&&lab[j+1]<0){ lab[j+1]=id2; st[sp++]=j+1; }
+        if(j>=W&&!reach[j-W]&&lab[j-W]<0){ lab[j-W]=id2; st[sp++]=j-W; }
+        if(j<N-W&&!reach[j+W]&&lab[j+W]<0){ lab[j+W]=id2; st[sp++]=j+W; } }
+      sizes.push(n); bx.push([a0,a1,b0,b1]); if(sizes.length>200000) return {fail:"plain"}; }
+    if(!sizes.length) return {fail:"plain"};
+    let big=0; for(const n of sizes) if(n>big) big=n;
+    const keep=sizes.map((n,k)=>{ if(n<Math.max(40,big*0.01)) return false; const [a0,a1,b0,b1]=bx[k], hh=b1-b0+1, ww=a1-a0+1;
+      return !(hh<Math.max(4,H*0.012)&&ww>hh*6); });                   // a thin isolated line (floor join, backdrop edge) is not the piece
+    let x0=W,y0=H,x1=-1,y1=-1, area=0, pieces=0;
+    keep.forEach((k,j)=>{ if(!k) return; pieces++; area+=sizes[j]; const [a0,a1,b0,b1]=bx[j]; if(a0<x0)x0=a0; if(a1>x1)x1=a1; if(b0<y0)y0=b0; if(b1>y1)y1=b1; });
+    if(area<N*0.01) return {fail:"plain"};
+    // quality 1: scattered bits (light parts of the piece taken for the backdrop)
+    if(area/((x1-x0+1)*(y1-y0+1))<0.2||pieces>30) return {fail:"unsure"};
+    // quality 2: a piece stands on its base — a part hanging in the air with nothing under it means the cut went wrong
+    const hObj=y1-y0+1;
+    for(let j=0;j<sizes.length;j++){ if(!keep[j]||sizes[j]<area*0.01) continue; const [a0,a1,,b1]=bx[j]; if(b1>=y1-hObj*0.06) continue;
+      let under=0, cols=0; for(let xx=a0;xx<=a1;xx+=Math.max(1,Math.round((a1-a0)/40))){ cols++;
+        const gap=Math.max(3,Math.round(hObj*0.03));                 // resting on the piece below, not hovering above it
+        for(let y=b1+1;y<=Math.min(y1,b1+gap);y++){ const l=lab[y*W+xx]; if(l>=0&&l!==j&&keep[l]){ under++; break; } } }
+      if(!cols||under/cols<0.3) return {fail:"unsure"}; }
+    return {lab,keep,x0,y0,x1,y1,area};
+  };
+  let sg=null; for(const R0 of [R00,R00*2,R00*3]){ sg=segment(R0); if(!sg.fail||sg.fail!=="unsure") break; }
+  if(sg.fail) return {fail:sg.fail};
+  const {lab,keep,x0,y0,x1,y1}=sg;
   const sides=[]; if(y0<=1) sides.push("top"); if(y1>=H-2) sides.push("bottom"); if(x0<=1) sides.push("left"); if(x1>=W-2) sides.push("right");
   if(sides.length>=3) return {fail:"plain"}; if(sides.length) return {fail:"edge",sides};
   // alpha with a soft edge (average over a 3×3 neighbourhood of the object mask); remove the backdrop from edge pixels
@@ -2456,7 +2493,8 @@ async function scaleRefresh(a){
       n0.innerHTML=`La préparation de cette vue s’est interrompue la dernière fois : elle n’est pas relancée automatiquement. <button type="button" class="lnk" id="scaleRetry">Réessayer</button>`; n0.hidden=false; return; } }
   if(scaleStand(a)){ const n=$("#scaleNote"); if(!n) return; let txt="";
     if(!u){ const info=roomObjInfo(await roomImg(scaleSrc(a)));
-      txt=info&&info.fail==="edge"?"La photo coupe l’œuvre : pour la poser à l’échelle, il faut une photo de l’œuvre entière, avec un peu de fond tout autour."
+      txt=info&&info.fail==="unsure"?"Sur cette photo, l’œuvre est trop proche du fond (pièce claire sur fond clair) pour un détourage parfait : la vue n’est pas affichée plutôt que de montrer l’œuvre incomplète. Une photo sur un fond un peu plus soutenu (gris moyen) permettra le détourage."
+        :info&&info.fail==="edge"?"La photo coupe l’œuvre : pour la poser à l’échelle, il faut une photo de l’œuvre entière, avec un peu de fond tout autour."
         :"Pour poser l’œuvre à l’échelle, il faut une photo de l’œuvre entière sur un fond uni (mur ou fond studio).";
       if(b) b.innerHTML=`<span class="hint" style="padding:16px;text-align:center">Vue à l’échelle indisponible avec cette photo</span>`; }
     if(my!==scaleSeq||state.curArt!==a.id) return; n.textContent=txt; n.hidden=!txt; return; }
@@ -3502,6 +3540,6 @@ if("serviceWorker" in navigator){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">vb3ddfc74</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v964349f5</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>
