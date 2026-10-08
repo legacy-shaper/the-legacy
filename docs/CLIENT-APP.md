@@ -50,6 +50,13 @@ Hand-over note: everything needed to resume work in a new conversation. No secre
   `python3 tests/test_master_collections.py`, `python3 tests/test_master_coowners.py`,
   `python3 tests/test_client_room.py`, `python3 tests/test_client_chat.py`, `python3 tests/test_master_messages.py`.
 
+## To finish together (state 8 Oct 2026, 12:35)
+1. Dylan runs `supabase/004_support_chat.sql` (page « Messages clients · mise en service », https://claude.ai/artifact/9fQpoh8cXV4MPcfi8oqEXY).
+   Then Claude: check tables/bucket/policies, `get_advisors` (security), test with the demo (sign in as office@legacy-shaper.com).
+2. Dylan adds `ANTHROPIC_API_KEY` (Edge Functions → Secrets); then a real test of the assistant's tone (positive vocabulary).
+3. Dylan activates notifications on iPhone and Mac (Messages → Réglages), sends a test.
+4. View at scale: floor now ends 7 cm below the chair's feet (Dylan's request); on a phone held upright the chair sits beneath the work. Dylan to review on iPhone.
+
 ## Next steps
 1. Design review of the client app with Dylan on his iPhone (he dictates remarks; fix, test, publish).
 2. Client invitation email (Legacy Shaper charter, positive vocabulary, signature): install on iPhone / iPad / Mac, open once online,

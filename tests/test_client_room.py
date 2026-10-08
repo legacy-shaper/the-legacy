@@ -68,6 +68,8 @@ with sync_playwright() as pw:
         check(abs(r["ah"] / r["s"] - 130) < 0.01 and abs(r["aw"] / r["s"] - 100) < 0.01, f"{name}: the work is drawn at exactly 130 x 100 cm")
         check(abs(r["ch"] / r["cs"] - 80) < 0.01, f"{name}: the chair is 80 cm high at its own depth")
         check(r["ax"] >= 0 and r["ax"] + r["aw"] <= r["W"] and r["cx"] >= 0, f"{name}: work and chair fully in view")
+        fl = p.evaluate("(()=>{const c=chairRect();return {below:(R.H-c.foot)/c.s, floor:(R.H-R.baseY)/R.H}})()")
+        check(4 <= fl["below"] <= 9 and fl["floor"] < 0.12, f"{name}: the floor ends a few cm under the chair's feet ({fl['below']:.1f} cm, {fl['floor']*100:.0f} % of the view)")
         mid = p.evaluate("(()=>{const a=artRect();return R.baseY-(a.y+a.h/2)})()") / r["s"]
         check(abs(mid - 150) < 0.5, f"{name}: work hung with its centre at 150 cm")
         p.screenshot(path=f"/tmp/ls-room-{name}-1.png")

@@ -716,7 +716,7 @@ async function downloadDoc(id){
    One wall, a Versailles parquet and a Pierre Jeanneret-style cane chair as a fixed reference (80 cm high).
    Everything is drawn in real centimetres with one camera: wall at D cm, eye at EYE cm above the floor.
    The work moves left/right and up/down on the wall; the chair moves left/right only. */
-const ROOM={ D:500, EYE:140, CHAIR_H:80, CHAIR_Z:30, CHAIR_FRONT:55, PANEL:100,
+const ROOM={ D:500, EYE:140, CHAIR_H:80, CHAIR_Z:30, CHAIR_FRONT:55, FLOOR_MARGIN:7, PANEL:100,
   walls:[["pearl","#DAD8D3"],["white","#EEECE7"],["linen","#D8CFC0"],["green","#33503B"]] };
 const NOT_WALL=/sculpt|furniture|mobili|object|objet|install|design|ceramic|céram/i;
 function parseDims(str){
@@ -769,10 +769,16 @@ const fmtCm=v=>(Math.round(v*10)/10).toLocaleString(LANG==="fr"?"fr-FR":"en-GB",
 function chairW(){ return R.chair?ROOM.CHAIR_H*R.chair.width/R.chair.height:66; }
 function roomDefaults(){
   const {h,w}=R.dims, cw=chairW(), gap=Math.max(25,Math.min(60,w*0.25));
-  const total=cw+gap+w;
-  R.artX=-total/2+cw+gap+w/2;                      // composition centred: chair on the left, work on the right
-  R.chairX=-total/2+cw/2;
   R.artY=Math.max(150,h/2+25);                     // centre at 150 cm (museum hang), never closer than 25 cm to the floor
+  const st=$("#rStage"); const portrait=st&&st.clientWidth<st.clientHeight*0.85;
+  if(portrait&&R.artY-h/2>=ROOM.CHAIR_H+3&&w>=cw+20){
+    // phone held upright: the chair sits beneath the work, so both can be shown large
+    R.artX=0; R.chairX=-w/2+cw/2+Math.min(15,(w-cw)/4); R.extentW=w;
+  } else {
+    const total=cw+gap+w;
+    R.artX=-total/2+cw+gap+w/2;                    // composition centred: chair on the left, work on the right
+    R.chairX=-total/2+cw/2; R.extentW=total;
+  }
 }
 /* layout: px per cm on the wall, wall base line, horizon */
 function roomLayout(){
@@ -780,12 +786,12 @@ function roomLayout(){
   const W=st.clientWidth, H=st.clientHeight, dpr=Math.min(window.devicePixelRatio||1,3);
   cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
   const {h,w}=R.dims, cw=chairW();
-  const gap=Math.max(25,Math.min(60,w*0.25));
   const needH=Math.max(240,R.artY+h/2+40);          // floor to a little above the work
-  const needW=Math.max(cw+gap+w+2*20, 260);          // chair, space, work, and a margin either side
-  const floorMin=0.15, floorMax=0.34;
-  let scale=Math.min((1-floorMin)*H/needH, W/needW);
-  const floorPx=Math.max(floorMin*H,Math.min(floorMax*H,H-scale*needH));
+  const needW=Math.max((R.extentW||cw+w+40)+2*18, 200);   // the composition and a margin either side
+  // the floor stops a few centimetres below the chair's front feet: the eye stays on the wall and the work
+  const footCm=ROOM.EYE*(ROOM.D/(ROOM.D-ROOM.CHAIR_FRONT)-1), floorCm=footCm+ROOM.FLOOR_MARGIN;
+  const scale=Math.min(H/(needH+floorCm), W/needW);
+  const floorPx=scale*floorCm;
   Object.assign(R,{W,H,dpr,scale,baseY:H-floorPx,cx:W/2});
   R.f=scale*ROOM.D; R.horizon=R.baseY-scale*ROOM.EYE;
   roomFloor(); roomDraw();
