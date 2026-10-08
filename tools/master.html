@@ -1565,7 +1565,7 @@ function renderDetail(){
       </div>
       <div id="marginBox">${marginHTML(a)}</div></div>
       <div class="card"><h2>Historique de facturation</h2>${invRows(invs)}</div>${artLinks(a)}`;
-    scaleRefresh(a);
+    scaleWhenVisible(a);
   }
 }
 function isConsigned(a){ return !!a.ownerContactId || (!!a.owner && a.owner!=="Collection DL") || artStatus(a)==="consignment"; }
@@ -1744,11 +1744,21 @@ function scaleHTML(a){
     <p class="hint keep" id="scaleNote" hidden style="margin:8px 0 0;max-width:640px"></p>
     <div class="scbar"><div class="sw" role="group" aria-label="Couleur du mur">${ROOM.walls.map(([k,c])=>`<button type="button" data-scwall="${k}" title="${esc(ROOM_TXT.fr.walls[k])}" aria-label="${esc(ROOM_TXT.fr.walls[k])}" style="background:${c}" class="${k===wall?"on":""}"></button>`).join("")}</div>
       <button type="button" class="btn" id="scaleAdjust">Ajuster l’emplacement</button><button type="button" class="btn" id="scaleDl">Télécharger</button><label class="provck"><input type="checkbox" id="scalePdfBar" class="keepon" ${a.scalePdf?"checked":""}> Ajouter à la fiche PDF</label>${st?"":`<label class="provck" title="Retire le fond de la photo et accroche l’œuvre selon son angle"><input type="checkbox" id="scaleCut" ${(a.scaleView&&a.scaleView.cut==="off")?"":"checked"}> Détourage automatique</label>`}</div></div>`; }
-let scaleSeq=0;
+let scaleSeq=0, scaleIO=null;
+/* the image is prepared only once its place is on screen, never while the app opens */
+function scaleWhenVisible(a){
+  if(scaleIO){ scaleIO.disconnect(); scaleIO=null; } const el=$("#scaleOpen"); if(!el||!a) return;
+  if(!("IntersectionObserver" in window)){ setTimeout(()=>scaleRefresh(a),600); return; }
+  scaleIO=new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)){ scaleIO.disconnect(); scaleIO=null; setTimeout(()=>{ if(state.curArt===a.id) scaleRefresh(a); },250); } },{rootMargin:"120px"});
+  scaleIO.observe(el); }
 async function scaleRefresh(a){
   if(!a||!scaleOK(a)) return; const my=++scaleSeq;
   const u=await scaleImage(a); if(my!==scaleSeq||state.curArt!==a.id) return;
   const b=$("#scaleOpen"); if(b&&u) b.innerHTML=`<img src="${u}" alt="Vue à l’échelle">`;
+  { const im=await roomImg(scaleSrc(a)), n0=$("#scaleNote");
+    if(roomSkipped(im,scaleStand(a)?null:parseDims(a.dimensions))&&n0){ if(my!==scaleSeq||state.curArt!==a.id) return;
+      if(b&&!u) b.innerHTML=`<span class="hint" style="padding:16px;text-align:center">Vue à l’échelle en attente</span>`;
+      n0.innerHTML=`La préparation de cette vue s’est interrompue la dernière fois : elle n’est pas relancée automatiquement. <button type="button" class="lnk" id="scaleRetry">Réessayer</button>`; n0.hidden=false; return; } }
   if(scaleStand(a)){ const n=$("#scaleNote"); if(!n) return; let txt="";
     if(!u){ const info=roomObjInfo(await roomImg(scaleSrc(a)));
       txt=info&&info.fail==="edge"?"La photo coupe l’œuvre : pour la poser à l’échelle, il faut une photo de l’œuvre entière, avec un peu de fond tout autour."
@@ -1782,7 +1792,7 @@ function viewsList(id){ return Object.values(state.views[id]||{}).sort((x,y)=>(x
 function galleryOf(a){ const v=viewsList(a.id); const legacy=a.photo && !(a.primaryViewId && (state.views[a.id]||{})[a.primaryViewId]); if(legacy) return [{id:"__main",photo:a.photo}].concat(v); const pi=v.findIndex(x=>x.id===a.primaryViewId); if(pi>0) v.unshift(v.splice(pi,1)[0]); return v; }
 function isPrimary(a,x){ return x.id==="__main" || x.id===a.primaryViewId; }
 function viewsHTML(a){
-  if(db && !state.views[a.id]){ loadViews(a.id).then(()=>{ const b=$("#viewsBox"); if(b && state.curArt===a.id){ b.innerHTML=viewsHTML(a); scaleRefresh(a); } }); return `<span class="hint">Chargement des photos…</span>`; }
+  if(db && !state.views[a.id]){ loadViews(a.id).then(()=>{ const b=$("#viewsBox"); if(b && state.curArt===a.id){ b.innerHTML=viewsHTML(a); scaleWhenVisible(a); } }); return `<span class="hint">Chargement des photos…</span>`; }
   const g=galleryOf(a); const n=viewsList(a.id).length; const c=$("#viewsCount"); if(c) c.textContent=`${g.length} photo${g.length>1?"s":""}`;
   return g.map(x=>`<button type="button" class="vw ${isPrimary(a,x)?"primary":""}" data-view-open="${x.id}" aria-label="Agrandir"><img src="${x.photo}" alt="">${isPrimary(a,x)?`<span class="pbadge">Primary</span>`:""}</button>`).join("")
     + (n<MAX_VIEWS?`<button type="button" class="vw add" id="viewAdd" aria-label="Ajouter des photos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14"/></svg><span>Add views</span></button>`:"");
@@ -2360,6 +2370,7 @@ document.addEventListener("click",async e=>{
   if(b.id==="ctPhotoChg"){ photoTarget="ct"; $("#fileIn").value=""; $("#fileIn").click(); return; }
   if(b.id==="ctPhotoDel"){ const c=state.contacts[state.curContact]; if(c){ c.photo=""; c.photoHd=""; schedDoc("contacts",c.id); renderAlt(); dropCtBig(c.id); } return; }
   if(b.dataset.scwall){ const a=state.artworks[state.curArt]; if(a){ a.scaleView=Object.assign({},a.scaleView||{},{wall:b.dataset.scwall}); schedDoc("artworks",a.id); document.querySelectorAll("[data-scwall]").forEach(x=>x.classList.toggle("on",x===b)); scaleRefresh(a); } return; }
+  if(b.id==="scaleRetry"){ const a=state.artworks[state.curArt]; if(a){ roomAllowRetry(); for(const k in scaleCache) delete scaleCache[k]; scaleRedraw(a); } return; }
   if(b.id==="scaleOpen"){ const a=state.artworks[state.curArt]; if(a) scaleOpenBig(a); return; }
   if(b.id==="scaleAdjust"){ const a=state.artworks[state.curArt]; if(a) scaleAdjust(a); return; }
   if(b.id==="scaleDl"){ const a=state.artworks[state.curArt]; if(a) scaleDownload(a); return; }

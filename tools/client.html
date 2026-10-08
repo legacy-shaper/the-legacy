@@ -690,7 +690,8 @@ async function openWork(id,keep){
   const scaleThumb=async()=>{ const u=await scaleURL(); const ti=$("#dScThumb"); if(u&&ti&&S.openId===id) ti.src=u; if(onScale&&u&&S.openId===id) setStage(u);
     if(!u&&S.openId===id){ const t2=$("#dScTile"); if(t2) t2.remove(); const th=d.querySelector(".thumbs"); if(th&&!th.children.length) th.remove(); }   // photo not usable: no tile
     return u; };
-  if(scOK){ scaleThumb();
+  if(scOK){ // prepared once the tile is on screen
+    const tl=$("#dScTile"); if(tl&&"IntersectionObserver" in window){ const io=new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)){ io.disconnect(); setTimeout(()=>{ if(S.openId===id) scaleThumb(); },250); } }); io.observe(tl); } else setTimeout(scaleThumb,600);
     $("#dScTile").onclick=async()=>{ onScale=true; d.querySelectorAll("[data-v]").forEach(b=>b.classList.remove("on")); $("#dScTile").classList.add("on"); $("#dScBar").hidden=false; const u=await scaleURL(); if(onScale&&u&&S.openId===id) setStage(u); };
     d.querySelectorAll("[data-scwall]").forEach(b=>b.onclick=()=>{ scaleSet(id,Object.assign({},scaleGet(id),{wall:b.dataset.scwall})); d.querySelectorAll("[data-scwall]").forEach(x=>x.classList.toggle("on",x===b)); scaleThumb(); });
     $("#dScAdj").onclick=async()=>openRoom(w, await basePhoto(), { fit:true, init:Object.assign({wall:"pearl"},scaleGet(id)), saveLabel:t("scaleSave"), onSave:st=>{ scaleSet(id,st); d.querySelectorAll("[data-scwall]").forEach(x=>x.classList.toggle("on",x.dataset.scwall===st.wall)); scaleThumb(); } });

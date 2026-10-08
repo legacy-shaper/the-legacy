@@ -105,7 +105,12 @@ with sync_playwright() as pw:
         DOC = lambda i: p.evaluate(f"__mockDB().docs.find(x=>x.coll==='artworks'&&x.id==='{i}').data")
         def open_art(i):
             p.evaluate(f"state.curArt='{i}'; leaveHome('artworks'); document.body.classList.add('alt-detail'); renderAlt(); window.scrollTo(0,0);")
-            p.wait_for_selector("#viewsBox")
+            p.wait_for_selector("#viewsBox"); p.wait_for_timeout(100)
+            p.evaluate("(()=>{ const e=document.querySelector('#scaleOpen')||document.querySelector('#scaleWrap'); if(e) e.scrollIntoView({block:'center'}); })()")
+        # nothing heavy while the app opens: the view is prepared only once it is on screen
+        p.evaluate("state.curArt='art1'; leaveHome('artworks'); document.body.classList.add('alt-detail'); renderAlt(); window.scrollTo(0,0);")
+        p.wait_for_timeout(1200)
+        if name == "iphone": check(p.locator("#scaleOpen img").count() == 0, f"{name}: master — off-screen view not prepared")
         open_art("art1")
         p.wait_for_selector("#scaleOpen img", timeout=20000)
         src = p.get_attribute("#scaleOpen img", "src")
@@ -216,6 +221,12 @@ with sync_playwright() as pw:
               const a=artRect(s); const d=x.getImageData(Math.round(a.x+a.w*0.02),Math.round(a.y+a.h*0.02),1,1).data; return [d[0],d[1],d[2]]; })()""")
             check(px[1] > px[0] + 10 and px[1] < 120, f"{name}: master — in the card, the photo's white square is gone ({px})")
             p.evaluate("(()=>{ state.artworks.art1.dimensions='130 x 100 cm'; state.views.art1.v1.photo=window.__HD0; })()")
+        if name == "mac":
+            p.evaluate("(async()=>{ const a=state.artworks.art4; await loadViews(a.id); const im=await roomImg(scaleSrc(a)); roomAllowRetry(); localStorage.setItem('ls-room-busy', roomSig(im,'obj')); for(const k in scaleCache) delete scaleCache[k]; })()")
+            open_art("art4"); p.wait_for_selector("#scaleRetry", timeout=20000)
+            check(p.locator("#scaleOpen img").count() == 0 and "interrompue" in p.inner_text("#scaleNote"), f"{name}: master — interrupted computation not restarted by itself, « Réessayer » offered")
+            p.click("#scaleRetry"); p.wait_for_selector("#scaleOpen img", timeout=30000)
+            check(p.evaluate("localStorage.getItem('ls-room-busy')") is None, f"{name}: master — « Réessayer » prepares the view and clears the mark")
         # works that are not hung on a wall / without dimensions
         open_art("art2"); p.wait_for_selector("#scaleNote:not([hidden])", timeout=20000)
         check("fond uni" in p.inner_text("#scaleNote") and p.locator("#scaleOpen img").count() == 0, f"{name}: master — sculpture without a usable photo: no image, the reason is given")

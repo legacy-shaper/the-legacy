@@ -710,7 +710,8 @@ async function openWork(id,keep){
   const scaleThumb=async()=>{ const u=await scaleURL(); const ti=$("#dScThumb"); if(u&&ti&&S.openId===id) ti.src=u; if(onScale&&u&&S.openId===id) setStage(u);
     if(!u&&S.openId===id){ const t2=$("#dScTile"); if(t2) t2.remove(); const th=d.querySelector(".thumbs"); if(th&&!th.children.length) th.remove(); }   // photo not usable: no tile
     return u; };
-  if(scOK){ scaleThumb();
+  if(scOK){ // prepared once the tile is on screen
+    const tl=$("#dScTile"); if(tl&&"IntersectionObserver" in window){ const io=new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)){ io.disconnect(); setTimeout(()=>{ if(S.openId===id) scaleThumb(); },250); } }); io.observe(tl); } else setTimeout(scaleThumb,600);
     $("#dScTile").onclick=async()=>{ onScale=true; d.querySelectorAll("[data-v]").forEach(b=>b.classList.remove("on")); $("#dScTile").classList.add("on"); $("#dScBar").hidden=false; const u=await scaleURL(); if(onScale&&u&&S.openId===id) setStage(u); };
     d.querySelectorAll("[data-scwall]").forEach(b=>b.onclick=()=>{ scaleSet(id,Object.assign({},scaleGet(id),{wall:b.dataset.scwall})); d.querySelectorAll("[data-scwall]").forEach(x=>x.classList.toggle("on",x===b)); scaleThumb(); });
     $("#dScAdj").onclick=async()=>openRoom(w, await basePhoto(), { fit:true, init:Object.assign({wall:"pearl"},scaleGet(id)), saveLabel:t("scaleSave"), onSave:st=>{ scaleSet(id,st); d.querySelectorAll("[data-scwall]").forEach(x=>x.classList.toggle("on",x.dataset.scwall===st.wall)); scaleThumb(); } });
@@ -934,16 +935,26 @@ function roomFloor(s=R){
      so the wall shows through; a solid work: only what lies outside the outline is removed (its white stays).
    Anything unclear (no plain background, work touching the edges, outline far from the dimensions) → null: the photo
    is used as before. */
-const roomCuts=new WeakMap();
+/* Safety: an image computation that did not finish (the phone closed the app, e.g. short of memory) is never started
+   again automatically — it would close the app at every opening. It waits for roomAllowRetry() (a « Réessayer » button). */
+const ROOM_BUSY="ls-room-busy";
+const roomSig=(img,kind)=>kind+":"+img.width+"x"+img.height+":"+String(img.src||"").length+":"+String(img.src||"").slice(-24);
+function roomBusyList(){ try{ return (localStorage.getItem(ROOM_BUSY)||"").split("|").filter(Boolean); }catch(e){ return []; } }
+function roomGuarded(img,kind,fn){
+  const sig=roomSig(img,kind), busy=roomBusyList(); if(busy.includes(sig)) return {fail:"skipped"};
+  try{ localStorage.setItem(ROOM_BUSY,busy.concat(sig).slice(-20).join("|")); }catch(e){}
+  try{ return fn(); } finally { try{ const b=roomBusyList().filter(x=>x!==sig); if(b.length) localStorage.setItem(ROOM_BUSY,b.join("|")); else localStorage.removeItem(ROOM_BUSY); }catch(e){} } }
+function roomAllowRetry(){ try{ localStorage.removeItem(ROOM_BUSY); }catch(e){} roomCuts=new WeakMap(); roomObjs=new WeakMap(); }
+let roomCuts=new WeakMap();
 function roomCut(img,dims){
   if(!img||!dims) return null; const key=dims.w.toFixed(2)+"x"+dims.h.toFixed(2);
   let m=roomCuts.get(img); if(m&&key in m){ const r=m[key]; return r&&!r.fail?r:null; } if(!m){ m={}; roomCuts.set(img,m); }
-  let r=null; try{ r=roomCutCompute(img,dims); }catch(e){ r=null; } m[key]=r; return r&&!r.fail?r:null; }
+  let r=null; try{ r=roomGuarded(img,"cut",()=>roomCutCompute(img,dims)); }catch(e){ r=null; } m[key]=r; return r&&!r.fail?r:null; }
 /* why a photo was not cut out (for a hint to Dylan): {fail:"edge", sides:[...]} the photo cuts the work,
    {fail:"ratio", ar, dr} the outline's proportions differ from the dimensions; null when cut out or for an ordinary photo */
 function roomCutInfo(img,dims){ roomCut(img,dims); if(!img||!dims) return null; const m=roomCuts.get(img); const r=m&&m[dims.w.toFixed(2)+"x"+dims.h.toFixed(2)]; return r&&r.fail?r:null; }
-function roomPrep(img){
-  const MAX=1600, k0=Math.min(1,MAX/Math.max(img.width,img.height)), W=Math.max(8,Math.round(img.width*k0)), H=Math.max(8,Math.round(img.height*k0));
+function roomPrep(img,MAX){
+  MAX=MAX||1600; const k0=Math.min(1,MAX/Math.max(img.width,img.height)), W=Math.max(8,Math.round(img.width*k0)), H=Math.max(8,Math.round(img.height*k0));
   const c=document.createElement("canvas"); c.width=W; c.height=H; const x=c.getContext("2d",{willReadFrequently:true});
   x.imageSmoothingEnabled=true; x.imageSmoothingQuality="high"; x.drawImage(img,0,0,W,H);
   const id=x.getImageData(0,0,W,H), d=id.data;
@@ -1010,11 +1021,11 @@ function roomCutCompute(img,dims){
   const ar=rw/rh, dr=dims.w/dims.h; if(Math.abs(Math.log(ar/dr))>Math.log(1.3)) return {fail:"ratio",ar,dr};
   // 4) openwork or solid?
   const ca=Math.cos(ang), sa=Math.sin(ang); let ins=0, insBg=0;
-  const inRectPx=(px,py,pad)=>{ const dx=px-best.cx, dy=py-best.cy, u=dx*ca+dy*sa, v=-dx*sa+dy*ca; return [rw/2+pad-Math.abs(u), rh/2+pad-Math.abs(v)]; };
-  for(let y=0;y<H;y+=st) for(let xx=0;xx<W;xx+=st){ const [e1,e2]=inRectPx(xx+0.5,y+0.5,-Math.min(rw,rh)*0.04); if(e1>0&&e2>0){ ins++; if(alpha[y*W+xx]<64) insBg++; } }
+  const inRectMin=(px,py,pad)=>{ const dx=px-best.cx, dy=py-best.cy, u=dx*ca+dy*sa, v=-dx*sa+dy*ca; return Math.min(rw/2+pad-Math.abs(u), rh/2+pad-Math.abs(v)); };
+  for(let y=0;y<H;y+=st) for(let xx=0;xx<W;xx+=st){ if(inRectMin(xx+0.5,y+0.5,-Math.min(rw,rh)*0.04)>0){ ins++; if(alpha[y*W+xx]<64) insBg++; } }
   const open=ins>0 && insBg/ins>0.35;
   for(let y=0;y<H;y++){ const fy=y/H; for(let xx=0;xx<W;xx++){ const i=y*W+xx, q=i*4;
-    const [e1,e2]=inRectPx(xx+0.5,y+0.5,open?1.5:0.5); const edgeA=Math.max(0,Math.min(1,Math.min(e1,e2)));   // anti-aliased outline
+    const edgeA=Math.max(0,Math.min(1,inRectMin(xx+0.5,y+0.5,open?1.5:0.5)));   // anti-aliased outline
     const a=open? alpha[i]*edgeA/255 : edgeA;
     if(open && a>0 && a<1){ // remove the photo's background from half-covered pixels: no white halo, shadows stay shadows on any wall
       const fx=xx/W; for(let ch=0;ch<3;ch++){ const bg=bgAt(ch,fx,fy); d[q+ch]=Math.max(0,Math.min(255,Math.round((d[q+ch]-(1-a)*bg)/Math.max(a,0.04)))); } }
@@ -1024,12 +1035,14 @@ function roomCutCompute(img,dims){
 }
 /* cut-out of a volume: background (and the photo's floor shadows) reached from the border is removed; everything enclosed
    by the object's outline stays, even if it is white like the backdrop. Small specks are dropped. */
-const roomObjs=new WeakMap();
+let roomObjs=new WeakMap();
 function roomObj(img){ if(!img) return null; if(roomObjs.has(img)){ const r=roomObjs.get(img); return r&&!r.fail?r:null; }
-  let r=null; try{ r=roomObjCompute(img); }catch(e){ r=null; } roomObjs.set(img,r); return r&&!r.fail?r:null; }
+  let r=null; try{ r=roomGuarded(img,"obj",()=>roomObjCompute(img)); }catch(e){ r=null; } roomObjs.set(img,r); return r&&!r.fail?r:null; }
 function roomObjInfo(img){ roomObj(img); const r=img&&roomObjs.get(img); return r&&r.fail?r:(r?null:{fail:"plain"}); }
+function roomSkipped(img,dims){ if(!img) return false; const o=roomObjs.get(img); if(o&&o.fail==="skipped") return true;
+  const m=roomCuts.get(img), r=m&&dims&&m[dims.w.toFixed(2)+"x"+dims.h.toFixed(2)]; return !!(r&&r.fail==="skipped"); }
 function roomObjCompute(img){
-  const P0=roomPrep(img); if(!P0) return {fail:"plain"}; const {c,x,id,d,W,H,bgAt}=P0;
+  const P0=roomPrep(img,1200); if(!P0) return {fail:"plain"}; const {c,x,id,d,W,H,bgAt}=P0;
   const N=W*H, cls=new Uint8Array(N);   // 1 background-like, 2 shadow-like, 0 object
   for(let y=0;y<H;y++){ const fy=y/H; for(let xx=0;xx<W;xx++){ const fx=xx/W, i=y*W+xx, q=i*4;
     const b0=bgAt(0,fx,fy), b1=bgAt(1,fx,fy), b2=bgAt(2,fx,fy), Lb=Math.max(8,0.299*b0+0.587*b1+0.114*b2), L=0.299*d[q]+0.587*d[q+1]+0.114*d[q+2];
@@ -1037,18 +1050,21 @@ function roomObjCompute(img){
     const k=Math.min(1,L/Lb), dd2=Math.max(Math.abs(d[q]-b0*k),Math.abs(d[q+1]-b1*k),Math.abs(d[q+2]-b2*k));
     cls[i]=full<18?1:(dd2<14&&1-k<0.45&&L<=Lb+6)?2:0; } }
   // flood from the border through background and shadows
-  const reach=new Uint8Array(N), st=[];
-  const push=i=>{ if(!reach[i]&&cls[i]){ reach[i]=1; st.push(i); } };
+  const reach=new Uint8Array(N), st=new Int32Array(N); let sp=0;
+  const push=i=>{ if(!reach[i]&&cls[i]){ reach[i]=1; st[sp++]=i; } };
   for(let xx=0;xx<W;xx++){ push(xx); push((H-1)*W+xx); } for(let y=0;y<H;y++){ push(y*W); push(y*W+W-1); }
-  while(st.length){ const i=st.pop(), xx=i%W, y=(i-xx)/W; if(xx>0) push(i-1); if(xx<W-1) push(i+1); if(y>0) push(i-W); if(y<H-1) push(i+W); }
+  while(sp){ const i=st[--sp], xx=i%W; if(xx>0) push(i-1); if(xx<W-1) push(i+1); if(i>=W) push(i-W); if(i<N-W) push(i+W); }
   // object = not reached; keep only significant pieces
   const lab=new Int32Array(N).fill(-1), sizes=[];
-  for(let i=0;i<N;i++){ if(reach[i]||lab[i]>=0) continue; const id2=sizes.length; let n=0; lab[i]=id2; st.push(i);
-    while(st.length){ const j=st.pop(); n++; const xx=j%W, y=(j-xx)/W;
-      const nb=[xx>0?j-1:-1, xx<W-1?j+1:-1, y>0?j-W:-1, y<H-1?j+W:-1]; for(const t of nb){ if(t>=0&&!reach[t]&&lab[t]<0){ lab[t]=id2; st.push(t); } } }
-    sizes.push(n); }
+  for(let i=0;i<N;i++){ if(reach[i]||lab[i]>=0) continue; const id2=sizes.length; let n=0; lab[i]=id2; st[sp++]=i;
+    while(sp){ const j=st[--sp]; n++; const xx=j%W;
+      if(xx>0&&!reach[j-1]&&lab[j-1]<0){ lab[j-1]=id2; st[sp++]=j-1; }
+      if(xx<W-1&&!reach[j+1]&&lab[j+1]<0){ lab[j+1]=id2; st[sp++]=j+1; }
+      if(j>=W&&!reach[j-W]&&lab[j-W]<0){ lab[j-W]=id2; st[sp++]=j-W; }
+      if(j<N-W&&!reach[j+W]&&lab[j+W]<0){ lab[j+W]=id2; st[sp++]=j+W; } }
+    sizes.push(n); if(sizes.length>200000) return {fail:"plain"}; }
   if(!sizes.length) return {fail:"plain"};
-  const big=Math.max(...sizes), keep=sizes.map(n=>n>=Math.max(40,big*0.01));
+  let big=0; for(const n of sizes) if(n>big) big=n; const keep=sizes.map(n=>n>=Math.max(40,big*0.01));
   let x0=W,y0=H,x1=-1,y1=-1, area=0;
   for(let y=0;y<H;y++) for(let xx=0;xx<W;xx++){ const i=y*W+xx; if(lab[i]>=0&&keep[lab[i]]){ area++; if(xx<x0)x0=xx; if(xx>x1)x1=xx; if(y<y0)y0=y; if(y>y1)y1=y; } }
   if(area<N*0.01) return {fail:"plain"};
@@ -1409,5 +1425,5 @@ async function start(){
 if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")) navigator.serviceWorker.register("sw.js").catch(()=>{});
 start();
 </script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v6aa1a74a</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v58dfbae7</div>
 </body></html>
