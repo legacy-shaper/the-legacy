@@ -19,6 +19,29 @@ def png(w, h, rgb=(180, 60, 40)):
     return b"\x89PNG\r\n\x1a\n" + ch(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)) + ch(b"IDAT", zlib.compress(raw)) + ch(b"IEND", b"")
 durl = lambda b: "data:image/png;base64," + base64.b64encode(b).decode()
 THUMB, HD = durl(png(60, 60)), durl(png(1000, 1300))
+from PIL import Image, ImageDraw, ImageFilter
+def jpg_url(im):
+    b = io.BytesIO(); im.save(b, "JPEG", quality=92); return "data:image/jpeg;base64," + base64.b64encode(b.getvalue()).decode()
+def backdrop(n=900):
+    bg = Image.new("RGB", (n, n)); px = bg.load()
+    for y in range(n):
+        for x in range(n): v = 240 - int(y * 0.02) - int(x * 0.01); px[x, y] = (v, v, v - 2)
+    return bg
+def openwork():          # grid of dark bars, square 600 px, hung at 9°, with soft photo shadows (like a Morellet grid)
+    g = Image.new("L", (600, 600), 0); d = ImageDraw.Draw(g)
+    for i in range(0, 601, 50): d.line([(i, 0), (i, 600)], fill=255, width=6); d.line([(0, i), (600, i)], fill=255, width=6)
+    g = g.rotate(-9, expand=True, resample=Image.BICUBIC)
+    bg = backdrop(); off = ((900 - g.width) // 2, (900 - g.height) // 2)
+    sh = g.filter(ImageFilter.GaussianBlur(5)).point(lambda v: int(v * 0.25))
+    bg.paste((150, 150, 150), (off[0] + 8, off[1] + 10), sh); bg.paste((25, 25, 28), off, g)
+    return bg
+def solid():             # painting with white areas, hung at 6°
+    art = Image.new("RGB", (600, 450), (250, 250, 248)); d = ImageDraw.Draw(art)
+    d.rectangle((40, 40, 300, 410), fill=(30, 60, 140)); d.rectangle((330, 60, 560, 200), fill=(200, 40, 40))
+    art = art.convert("RGBA").rotate(6, expand=True, resample=Image.BICUBIC); bg = backdrop(); bg.paste(art, (150, 170), art); return bg
+def fullframe():         # a painting photographed edge to edge: no background to remove
+    im = Image.new("RGB", (800, 600), (120, 40, 30)); d = ImageDraw.Draw(im); d.rectangle((0, 300, 800, 600), fill=(30, 30, 90)); return im
+OPEN_URL, SOLID_URL, FULL_URL = jpg_url(openwork()), jpg_url(solid()), jpg_url(fullframe())
 
 class Quiet(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *a): pass
@@ -67,6 +90,7 @@ with sync_playwright() as pw:
         check(src.startswith("data:image/jpeg") and p.evaluate(DIM, src) == [1600, 1200], f"{name}: master — at-scale image made automatically (1600 x 1200)")
         check(p.evaluate("canViewAtScale(state.artworks.art1) && Math.abs(artRect((()=>{const s={dims:parseDims('130 x 100 cm'),chair:null};roomDefaults(s,false);roomFit(s,1600,1200,1,true);return s;})()).h/ (()=>{const s={dims:parseDims('130 x 100 cm'),chair:null};roomDefaults(s,false);roomFit(s,1600,1200,1,true);return s.scale;})() - 130) < 0.01"), f"{name}: master — work drawn at exactly 130 cm high")
         check(p.locator("#ficheScale").count() == 1 and not p.is_checked("#ficheScale"), f"{name}: master — 'Vue à l’échelle dans le PDF' box, unticked by default")
+        p.evaluate("window.__HD0=state.views.art1.v1.photo")
         # wall colour
         p.click("[data-scwall=green]"); p.wait_for_timeout(1500)
         check(DOC("art1").get("scaleView", {}).get("wall") == "green", f"{name}: master — wall colour saved on the work")
@@ -111,6 +135,48 @@ with sync_playwright() as pw:
         imgs = [e for e in log if e[0] == "img"]
         check(log.count(["page"]) == 1 and any("at scale" in e[1] for e in log if e[0] == "text"), f"{name}: master — PDF: fiche + one at-scale page")
         check(imgs[-1][1].startswith("data:image/jpeg") and abs(imgs[-1][3] / imgs[-1][4] - 4 / 3) < 0.01, f"{name}: master — at-scale page is the 4:3 image, undistorted")
+        if name == "mac":
+            r = p.evaluate("""async([o,s,f])=>{ const out={};
+              const im=await roomImg(o), k=roomCut(im,parseDims('140 x 140 cm')); out.open=k&&{ang:k.angle*180/Math.PI,rw:k.rw,rh:k.rh,open:k.open};
+              if(k){ const x=k.canvas.getContext('2d'); const sc=k.canvas.width/900; // a hole between bars, a bar, a corner outside the work
+                const at=(px,py)=>x.getImageData(Math.round(px*sc),Math.round(py*sc),1,1).data[3]; out.hole=at(450-25*Math.cos(0.157)+0,450+25); out.outside=at(30,30); }
+              const k2=roomCut(await roomImg(s),parseDims('100 x 133 cm')); out.solid=k2&&{ang:k2.angle*180/Math.PI,open:k2.open,rw:k2.rw,rh:k2.rh};
+              if(k2){ const x=k2.canvas.getContext('2d'), sc=k2.canvas.width/900; out.white=x.getImageData(Math.round(560*sc),Math.round(520*sc),1,1).data; }
+              out.full=roomCut(await roomImg(f),parseDims('60 x 80 cm'));
+              out.mismatch=roomCut(await roomImg(o),parseDims('50 x 140 cm'));
+              const c=await roomRender({dimensions:'140 x 140 cm'},o,{wall:'green'}); const g=c.getContext('2d');
+              const s2={dims:parseDims('140 x 140 cm'),chair:await roomImg('room-chair.webp'),cut:roomCut(im,parseDims('140 x 140 cm'))}; roomDefaults(s2,false); roomFit(s2,1600,1200,1,true);
+              const a=artRect(s2); out.scaleOK=Math.abs(a.w/s2.scale-140)<0.01 && Math.abs(a.h/s2.scale-140)<0.01;
+              // the wall shows through the work: centre of a cell is green
+              const cx=a.x+a.w/2+a.w/12/2, cy=a.y+a.h/2+a.h/12/2; out.through=[...g.getImageData(Math.round(cx),Math.round(cy),1,1).data];
+              const box=artBox(s2); out.box=[box.w,box.h];
+              return out; }""", [OPEN_URL, SOLID_URL, FULL_URL])
+            o = r["open"]
+            check(o and abs(o["ang"] - 9) < 0.8 and o["open"], f"{name}: cut-out — openwork found at its angle ({o and round(o['ang'],2)}°)")
+            check(o and abs(o["rw"] / o["rh"] - 1) < 0.06, f"{name}: cut-out — the square outline of the work is found")
+            check(r["outside"] == 0, f"{name}: cut-out — background around the work removed")
+            check(r["through"][1] > r["through"][0] + 10 and r["through"][1] < 120, f"{name}: cut-out — the wall shows through the open work ({r['through'][:3]})")
+            check(r["scaleOK"] and r["box"][0] > 140 and abs(r["box"][0] - 140 * (abs(__import__('math').cos(0.157)) + abs(__import__('math').sin(0.157)))) < 3, f"{name}: cut-out — 140 x 140 cm kept, tilted bounding box {r['box'][0]:.0f} cm")
+            s_ = r["solid"]
+            check(s_ and abs(s_["ang"] + 6) < 0.8 and not s_["open"], f"{name}: cut-out — solid painting found at its angle, kept whole")
+            check(r["white"][3] == 255 and r["white"][0] > 240, f"{name}: cut-out — the painting's white areas are kept")
+            check(r["full"] is None, f"{name}: cut-out — photo without background: left as it was")
+            check(r["mismatch"] is None, f"{name}: cut-out — outline far from the dimensions: left as it was")
+            # the work's switch
+            p.click("#scaleCut"); p.wait_for_timeout(1500)
+            check(DOC("art1").get("scaleView", {}).get("cut") == "off", f"{name}: master — 'Détourage automatique' can be switched off")
+            p.click("#scaleCut"); p.wait_for_timeout(1500)
+            check("cut" not in DOC("art1").get("scaleView", {}), f"{name}: master — and back on")
+            # real flow: an openwork photo as the main photo, rendered in the card
+            p.evaluate("(u)=>{ state.views.art1.v1.photo=u; const a=state.artworks.art1; a.dimensions='140 x 140 cm'; for(const k in scaleCache) delete scaleCache[k]; scaleRedraw(a); }", OPEN_URL)
+            p.wait_for_function("(()=>{const i=document.querySelector('#scaleOpen img'); return i&&i.complete&&i.naturalWidth===1600})()"); p.wait_for_timeout(300)
+            p.screenshot(path="/tmp/ls-scale-cut.png")
+            # no white square any more: around the grid the wall is the wall
+            px = p.evaluate("""(()=>{ const i=document.querySelector('#scaleOpen img'), c=document.createElement('canvas'); c.width=1600; c.height=1200; const x=c.getContext('2d'); x.drawImage(i,0,0);
+              const s={dims:parseDims('140 x 140 cm'),chair:null}; roomDefaults(s,false); s.cut={angle:9*Math.PI/180}; roomApply(s,state.artworks.art1.scaleView); roomFit(s,1600,1200,1,true);
+              const a=artRect(s); const d=x.getImageData(Math.round(a.x+a.w*0.02),Math.round(a.y+a.h*0.02),1,1).data; return [d[0],d[1],d[2]]; })()""")
+            check(px[1] > px[0] + 10 and px[1] < 120, f"{name}: master — in the card, the photo's white square is gone ({px})")
+            p.evaluate("(()=>{ state.artworks.art1.dimensions='130 x 100 cm'; state.views.art1.v1.photo=window.__HD0; })()")
         # works that are not hung on a wall / without dimensions
         open_art("art2"); p.wait_for_timeout(300)
         check(p.locator("#scaleBox").count() == 0 and p.locator("#ficheScale").count() == 0, f"{name}: master — no at-scale image for a sculpture")

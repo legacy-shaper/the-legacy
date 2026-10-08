@@ -764,7 +764,7 @@ body.viewer .av:not(.has){pointer-events:none}body.viewer #ctPhotoDel,body.viewe
 .scbar .sw button{width:26px;height:26px;border-radius:50%;border:2px solid var(--line-2);padding:0;cursor:pointer}
 .scbar .sw button.on{border-color:var(--gold);box-shadow:0 0 0 2px rgba(196,160,82,.35)}
 .scbig .lbox{width:min(1100px,100%)}.scbig .lbox img{width:100%;height:auto;max-height:78vh;object-fit:contain;border-radius:8px}
-body.viewer .scbar .sw,body.viewer #scaleAdjust{display:none!important}
+body.viewer .scbar .sw,body.viewer #scaleAdjust,body.viewer #scaleCut{display:none!important}
 /* ---------- view at scale (shared: tools/room.css) ---------- */
 #room{position:fixed;inset:0;z-index:36;background:#1B1D1B;display:flex;flex-direction:column;color:var(--ivory,#F4F0E6)}
 #room .rtop{display:flex;align-items:center;gap:10px;padding:calc(10px + var(--safe-t,env(safe-area-inset-top,0px))) 14px 10px;background:var(--deep,#1B3924)}
@@ -1967,10 +1967,13 @@ const roomAsset=f=>(RH().base||"")+f;
 const fmtCm=v=>(Math.round(v*10)/10).toLocaleString((RH().lang||"fr")==="fr"?"fr-FR":"en-GB",{maximumFractionDigits:1});
 const R={};   // live state of the open (interactive) view
 function chairW(s=R){ return s.chair?ROOM.CHAIR_H*s.chair.width/s.chair.height:66; }
+/* size the work occupies on the wall (cm): its dimensions, or the bounding box when it hangs at an angle */
+function artBox(s=R){ const {h,w}=s.dims, a=s.cut&&s.cut.angle||0; if(!a) return {w,h};
+  const c=Math.abs(Math.cos(a)), n=Math.abs(Math.sin(a)); return {w:w*c+h*n, h:w*n+h*c}; }
 function roomWallOk(k){ return ROOM.walls.some(v=>v[0]===k)?k:"pearl"; }
 /* default composition. portrait: phone held upright → chair beneath the work when it fits */
 function roomDefaults(s=R,portrait){
-  const {h,w}=s.dims, cw=chairW(s), gap=Math.max(25,Math.min(60,w*0.25));
+  const {h,w}=artBox(s), cw=chairW(s), gap=Math.max(25,Math.min(60,w*0.25));
   s.artY=Math.max(150,h/2+25);                     // centre at 150 cm (museum hang), never closer than 25 cm to the floor
   if(portrait&&s.artY-h/2>=ROOM.CHAIR_H+3&&w>=cw+20){
     s.artX=0; s.chairX=-w/2+cw/2+Math.min(15,(w-cw)/4); s.extentW=w;
@@ -1982,12 +1985,12 @@ function roomDefaults(s=R,portrait){
 }
 function roomApply(s,set){ if(!set) return false; let ok=false;
   for(const k of ["artX","artY","chairX"]) if(typeof set[k]==="number"&&isFinite(set[k])){ s[k]=set[k]; ok=true; }
-  if(ok){ const cw=chairW(s), w=s.dims.w; s.extentW=2*Math.max(Math.abs(s.artX)+w/2,Math.abs(s.chairX)+cw/2); }
+  if(ok){ const cw=chairW(s), w=artBox(s).w; s.extentW=2*Math.max(Math.abs(s.artX)+w/2,Math.abs(s.chairX)+cw/2); }
   return ok; }
-const roomSettings=(s=R)=>({wall:s.wall,artX:+s.artX.toFixed(2),artY:+s.artY.toFixed(2),chairX:+s.chairX.toFixed(2)});
+const roomSettings=(s=R)=>Object.assign({wall:s.wall,artX:+s.artX.toFixed(2),artY:+s.artY.toFixed(2),chairX:+s.chairX.toFixed(2)},s.cutOff?{cut:"off"}:{});
 /* layout: px per cm on the wall, wall base line, horizon. fit: frame everything around the composition (static image) */
 function roomFit(s,W,H,dpr,fit){
-  const {h,w}=s.dims, cw=chairW(s);
+  const {h,w}=artBox(s), cw=chairW(s);
   let ext=s.extentW||cw+w+40;
   if(fit) ext=2*Math.max(Math.abs(s.artX)+w/2,Math.abs(s.chairX)+cw/2);
   const needH=Math.max(240,s.artY+h/2+(fit?30:40));
@@ -2036,7 +2039,92 @@ function roomFloor(s=R){
   const c=document.createElement("canvas"); c.width=fw; c.height=fh; c.getContext("2d").putImageData(out,0,0);
   s.floor={c,y0};
 }
+/* ---------- automatic cut-out of the work from its photo ----------
+   For a packshot (work photographed on a plain background, even with a light gradient):
+   - the background is modelled from the photo's border (a plane per colour channel, robust to the gradient);
+   - the work's outline is the minimum-area rectangle around what differs from it → its angle and its sides,
+     which are matched to the work's dimensions;
+   - openwork (much background inside the outline, e.g. a grid of bars): the background is removed everywhere,
+     so the wall shows through; a solid work: only what lies outside the outline is removed (its white stays).
+   Anything unclear (no plain background, work touching the edges, outline far from the dimensions) → null: the photo
+   is used as before. */
+const roomCuts=new WeakMap();
+function roomCut(img,dims){
+  if(!img||!dims) return null; const key=dims.w.toFixed(2)+"x"+dims.h.toFixed(2);
+  let m=roomCuts.get(img); if(m&&key in m) return m[key]; if(!m){ m={}; roomCuts.set(img,m); }
+  let r=null; try{ r=roomCutCompute(img,dims); }catch(e){ r=null; } m[key]=r; return r; }
+function roomCutCompute(img,dims){
+  const MAX=1600, k0=Math.min(1,MAX/Math.max(img.width,img.height)), W=Math.max(8,Math.round(img.width*k0)), H=Math.max(8,Math.round(img.height*k0));
+  const c=document.createElement("canvas"); c.width=W; c.height=H; const x=c.getContext("2d",{willReadFrequently:true});
+  x.imageSmoothingEnabled=true; x.imageSmoothingQuality="high"; x.drawImage(img,0,0,W,H);
+  const id=x.getImageData(0,0,W,H), d=id.data;
+  // 1) background model from a band along the border
+  const band=Math.max(2,Math.round(Math.min(W,H)*0.02)), step=Math.max(1,Math.round(Math.min(W,H)/300)), pts=[];
+  for(let y=0;y<H;y+=step) for(let xx=0;xx<W;xx+=step){ if(xx>=band&&xx<W-band&&y>=band&&y<H-band) continue; const q=(y*W+xx)*4; pts.push([xx/W,y/H,d[q],d[q+1],d[q+2]]); }
+  const fit=(list)=>{ // least squares a + b·x + c·y for each channel
+    let n=0,sx=0,sy=0,sxx=0,syy=0,sxy=0; const sv=[0,0,0],sxv=[0,0,0],syv=[0,0,0];
+    for(const p of list){ n++; sx+=p[0]; sy+=p[1]; sxx+=p[0]*p[0]; syy+=p[1]*p[1]; sxy+=p[0]*p[1]; for(let ch=0;ch<3;ch++){ sv[ch]+=p[2+ch]; sxv[ch]+=p[0]*p[2+ch]; syv[ch]+=p[1]*p[2+ch]; } }
+    const A=[[n,sx,sy],[sx,sxx,sxy],[sy,sxy,syy]]; const det=m=>m[0][0]*(m[1][1]*m[2][2]-m[1][2]*m[2][1])-m[0][1]*(m[1][0]*m[2][2]-m[1][2]*m[2][0])+m[0][2]*(m[1][0]*m[2][1]-m[1][1]*m[2][0]);
+    const D=det(A); if(Math.abs(D)<1e-9) return null;
+    return [0,1,2].map(ch=>{ const b=[sv[ch],sxv[ch],syv[ch]]; return [0,1,2].map(j=>det(A.map((row,i)=>row.map((v,jj)=>jj===j?b[i]:v)))/D); }); };
+  const res=(m,p)=>Math.max(...[0,1,2].map(ch=>Math.abs(p[2+ch]-(m[ch][0]+m[ch][1]*p[0]+m[ch][2]*p[1]))));
+  let model=fit(pts); if(!model) return null;
+  const r1=pts.map(p=>res(model,p)).sort((a,b)=>a-b), cut1=Math.max(12,r1[Math.floor(r1.length*0.6)]*3);
+  const inl=pts.filter(p=>res(model,p)<=cut1); if(inl.length<pts.length*0.75) return null;   // border not plain: not a packshot
+  model=fit(inl)||model;
+  const plain=pts.filter(p=>res(model,p)<22).length/pts.length; if(plain<0.8) return null;
+  // 2) difference to the background → alpha
+  // α = how much of the pixel is the work: darkening of the background (shadows, dark bars) counts as black over the wall,
+  // any other difference (colour, lighter than the wall) counts fully once clear of the photo's noise
+  const T0=24, T1=60, alpha=new Uint8ClampedArray(W*H); let fg=0;
+  const bgAt=(ch,fx,fy)=>model[ch][0]+model[ch][1]*fx+model[ch][2]*fy;
+  for(let y=0;y<H;y++){ const fy=y/H; for(let xx=0;xx<W;xx++){ const fx=xx/W, q=(y*W+xx)*4;
+    const b0=bgAt(0,fx,fy), b1=bgAt(1,fx,fy), b2=bgAt(2,fx,fy), Lb=Math.max(8,0.299*b0+0.587*b1+0.114*b2), L=0.299*d[q]+0.587*d[q+1]+0.114*d[q+2];
+    const k=Math.min(1,L/Lb), dark=1-k;
+    const dd=Math.max(Math.abs(d[q]-b0*k),Math.abs(d[q+1]-b1*k),Math.abs(d[q+2]-b2*k), L>Lb?Math.abs(L-Lb):0);
+    let a=Math.max(Math.min(1,Math.max(0,(dark-0.035)*1.12)), dd<=T0?0:dd>=T1?1:(dd-T0)/(T1-T0));
+    if(a<0.05) a=0; a=Math.round(a*255); alpha[y*W+xx]=a; if(a>127) fg++; } }
+  if(fg<W*H*0.004) return null;
+  // the work must not run off the photo
+  let touch=0, edge=0; for(let xx=0;xx<W;xx+=step){ edge+=2; if(alpha[xx]>127) touch++; if(alpha[(H-1)*W+xx]>127) touch++; }
+  for(let y=0;y<H;y+=step){ edge+=2; if(alpha[y*W]>127) touch++; if(alpha[y*W+W-1]>127) touch++; }
+  if(touch>edge*0.08) return null;
+  // 3) minimum-area rectangle around the work (convex hull + rotating calipers)
+  const P=[]; const st=Math.max(1,Math.round(Math.min(W,H)/500));
+  for(let y=0;y<H;y+=st) for(let xx=0;xx<W;xx+=st) if(alpha[y*W+xx]>127) P.push([xx+0.5,y+0.5]);
+  if(P.length<12) return null;
+  P.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]); const lo=[],up=[];
+  for(const p of P){ while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0) lo.pop(); lo.push(p); }
+  for(let i=P.length-1;i>=0;i--){ const p=P[i]; while(up.length>=2&&cr(up[up.length-2],up[up.length-1],p)<=0) up.pop(); up.push(p); }
+  const hull=lo.slice(0,-1).concat(up.slice(0,-1)); if(hull.length<3) return null;
+  let best=null;
+  for(let i=0;i<hull.length;i++){ const a=hull[i], b=hull[(i+1)%hull.length]; const L=Math.hypot(b[0]-a[0],b[1]-a[1]); if(L<1e-6) continue;
+    const ux=(b[0]-a[0])/L, uy=(b[1]-a[1])/L; let mn1=1e9,mx1=-1e9,mn2=1e9,mx2=-1e9;
+    for(const p of hull){ const p1=p[0]*ux+p[1]*uy, p2=-p[0]*uy+p[1]*ux; if(p1<mn1) mn1=p1; if(p1>mx1) mx1=p1; if(p2<mn2) mn2=p2; if(p2>mx2) mx2=p2; }
+    const area=(mx1-mn1)*(mx2-mn2); if(!best||area<best.area){ const c1=(mn1+mx1)/2, c2=(mn2+mx2)/2; best={area,ang:Math.atan2(uy,ux),l1:mx1-mn1,l2:mx2-mn2,cx:c1*ux-c2*uy,cy:c1*uy+c2*ux}; } }
+  if(!best) return null;
+  let ang=best.ang, rw=best.l1, rh=best.l2;
+  while(ang>Math.PI/4){ ang-=Math.PI/2; [rw,rh]=[rh,rw]; } while(ang<=-Math.PI/4){ ang+=Math.PI/2; [rw,rh]=[rh,rw]; }
+  if(Math.abs(ang)<0.8*Math.PI/180) ang=0;                       // straight enough: simply framed
+  // the outline must agree with the dimensions (otherwise the photo is not a plain packshot of this work)
+  const ar=rw/rh, dr=dims.w/dims.h; if(Math.abs(Math.log(ar/dr))>Math.log(1.3)) return null;
+  // 4) openwork or solid?
+  const ca=Math.cos(ang), sa=Math.sin(ang); let ins=0, insBg=0;
+  const inRectPx=(px,py,pad)=>{ const dx=px-best.cx, dy=py-best.cy, u=dx*ca+dy*sa, v=-dx*sa+dy*ca; return [rw/2+pad-Math.abs(u), rh/2+pad-Math.abs(v)]; };
+  for(let y=0;y<H;y+=st) for(let xx=0;xx<W;xx+=st){ const [e1,e2]=inRectPx(xx+0.5,y+0.5,-Math.min(rw,rh)*0.04); if(e1>0&&e2>0){ ins++; if(alpha[y*W+xx]<64) insBg++; } }
+  const open=ins>0 && insBg/ins>0.35;
+  for(let y=0;y<H;y++){ const fy=y/H; for(let xx=0;xx<W;xx++){ const i=y*W+xx, q=i*4;
+    const [e1,e2]=inRectPx(xx+0.5,y+0.5,open?1.5:0.5); const edgeA=Math.max(0,Math.min(1,Math.min(e1,e2)));   // anti-aliased outline
+    const a=open? alpha[i]*edgeA/255 : edgeA;
+    if(open && a>0 && a<1){ // remove the photo's background from half-covered pixels: no white halo, shadows stay shadows on any wall
+      const fx=xx/W; for(let ch=0;ch<3;ch++){ const bg=bgAt(ch,fx,fy); d[q+ch]=Math.max(0,Math.min(255,Math.round((d[q+ch]-(1-a)*bg)/Math.max(a,0.04)))); } }
+    d[q+3]=Math.round(a*255); } }
+  x.putImageData(id,0,0);
+  return { canvas:c, angle:ang, rw, rh, cx:best.cx, cy:best.cy, open };
+}
 const shade=(hex,k)=>{ const n=parseInt(hex.slice(1),16); const f=v=>Math.max(0,Math.min(255,Math.round(v*k))); return `rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`; };
+function artHit(s=R){ const {scale,cx,baseY}=s, {h,w}=artBox(s); return { x:cx+(s.artX-w/2)*scale, y:baseY-(s.artY+h/2)*scale, w:w*scale, h:h*scale }; }
 function artRect(s=R){ const {scale,cx,baseY}=s, {h,w}=s.dims; return { x:cx+(s.artX-w/2)*scale, y:baseY-(s.artY+h/2)*scale, w:w*scale, h:h*scale }; }
 function chairRect(s=R){ const {f,cx,horizon}=s; const zc=ROOM.D-ROOM.CHAIR_Z, sc=f/zc; const hh=ROOM.CHAIR_H*sc, ww=chairW(s)*sc;
   const foot=horizon+f*ROOM.EYE/(ROOM.D-ROOM.CHAIR_FRONT); return { x:cx+s.chairX*sc-ww/2, y:foot-hh, w:ww, h:hh, s:sc, foot }; }
@@ -2055,11 +2143,18 @@ function roomDraw(cvs,opts,s=R){
   x.fillStyle=g; x.fillRect(0,baseY-2,W,5);
   // the work, with the shadow of a hung piece
   const a=artRect(s);
-  x.save(); x.shadowColor="rgba(0,0,0,.28)"; x.shadowBlur=Math.max(6,a.w*0.035); x.shadowOffsetX=Math.max(2,a.w*0.012); x.shadowOffsetY=Math.max(3,a.w*0.02);
-  x.fillStyle="#fff"; x.fillRect(a.x,a.y,a.w,a.h); x.restore();
-  if(s.art){ // cover the exact dimensions without distorting the image
-    const iw=s.art.width, ih=s.art.height, r=Math.max(a.w/iw,a.h/ih), sw=a.w/r, sh=a.h/r;
-    x.drawImage(s.art,(iw-sw)/2,(ih-sh)/2,sw,sh,a.x,a.y,a.w,a.h); }
+  if(s.cut){ // cut out of its photo: drawn at its own angle, the wall showing around it (and through it when open)
+    const k=s.cut, ang=k.angle, sx=a.w/k.rw, sy=a.h/k.rh;
+    x.save(); x.translate(a.x+a.w/2,a.y+a.h/2); x.rotate(ang); x.scale(sx,sy); x.rotate(-ang); x.translate(-k.cx,-k.cy);
+    x.shadowColor=k.open?"rgba(0,0,0,.16)":"rgba(0,0,0,.28)";   // an open work already brings its own shadows from the photo
+    x.shadowBlur=k.open?Math.max(2,a.w*0.008):Math.max(6,a.w*0.035); x.shadowOffsetX=k.open?Math.max(1.5,a.w*0.008):Math.max(2,a.w*0.012); x.shadowOffsetY=k.open?Math.max(2,a.w*0.012):Math.max(3,a.w*0.02);
+    x.drawImage(k.canvas,0,0); x.restore();
+  } else {
+    x.save(); x.shadowColor="rgba(0,0,0,.28)"; x.shadowBlur=Math.max(6,a.w*0.035); x.shadowOffsetX=Math.max(2,a.w*0.012); x.shadowOffsetY=Math.max(3,a.w*0.02);
+    x.fillStyle="#fff"; x.fillRect(a.x,a.y,a.w,a.h); x.restore();
+    if(s.art){ // cover the exact dimensions without distorting the image
+      const iw=s.art.width, ih=s.art.height, r=Math.max(a.w/iw,a.h/ih), sw=a.w/r, sh=a.h/r;
+      x.drawImage(s.art,(iw-sw)/2,(ih-sh)/2,sw,sh,a.x,a.y,a.w,a.h); } }
   // chair: contact shadow, then the chair
   const c=chairRect(s);
   x.save(); x.translate(c.x+c.w/2,c.foot-c.h*0.04); x.scale(1,0.16);
@@ -2076,6 +2171,7 @@ async function roomRender(w,photo,set,opts){
   opts=opts||{}; const W=opts.W||ROOM.STATIC_W, H=opts.H||ROOM.STATIC_H;
   const [art,chair,parquet]=await Promise.all([roomImg(photo),roomImg(roomAsset("room-chair.webp")),roomImg(roomAsset("room-parquet.jpg"))]);
   const s={dims,wall:roomWallOk(set&&set.wall),art,chair,parquet};
+  s.cutOff=!!(set&&set.cut==="off"); s.cut=s.cutOff?null:roomCut(art,dims);
   roomDefaults(s,false); roomApply(s,set);
   roomFit(s,W,H,1,true);
   const c=document.createElement("canvas"); c.width=W; c.height=H;
@@ -2103,6 +2199,7 @@ async function openRoom(w,photo,opt){
   const [art,chair,parquet]=await Promise.all([roomImg(photo),roomImg(roomAsset("room-chair.webp")),roomImg(roomAsset("room-parquet.jpg"))]);
   if(!R.open) return;
   R.art=art; R.chair=chair; R.parquet=parquet;
+  R.cutOff=!!(opt.init&&opt.init.cut==="off"); R.cut=R.cutOff?null:roomCut(art,dims);
   const reset=()=>{ const st=document.getElementById("rStage"); roomDefaults(R,!opt.fit&&st&&st.clientWidth<st.clientHeight*0.85); };
   reset(); if(opt.init) roomApply(R,opt.init);
   roomLayout();
@@ -2139,13 +2236,13 @@ function roomLayout(){
 function roomPt(e){ const r=document.getElementById("rCv").getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; }
 const inRect=(p,r,pad)=>p.x>=r.x-pad&&p.x<=r.x+r.w+pad&&p.y>=r.y-pad&&p.y<=r.y+r.h+pad;
 function roomDown(e){
-  const p=roomPt(e), c=chairRect(), a=artRect();
+  const p=roomPt(e), c=chairRect(), a=artHit();
   const what=inRect(p,c,4)?"chair":inRect(p,a,8)?"art":null; if(!what) return;
   R.drag={what,p0:p,ax:R.artX,ay:R.artY,chx:R.chairX}; e.target.setPointerCapture(e.pointerId); e.target.classList.add("drag");
   const h=document.getElementById("rHint"); if(h) h.style.opacity="0";
 }
 function roomMove(e){
-  if(!R.drag) return; const p=roomPt(e), dx=p.x-R.drag.p0.x, dy=p.y-R.drag.p0.y; const {h,w}=R.dims;
+  if(!R.drag) return; const p=roomPt(e), dx=p.x-R.drag.p0.x, dy=p.y-R.drag.p0.y; const {h,w}=artBox(R);
   const halfW=R.W/2/R.scale;
   if(R.drag.what==="art"){
     R.artX=Math.max(-halfW-w/2+w*0.2, Math.min(halfW+w/2-w*0.2, R.drag.ax+dx/R.scale));   // keep at least a fifth of the work in view
@@ -2189,7 +2286,7 @@ function scaleHTML(a){
   return `<div class="scalebox" id="scaleBox"><div class="sctitle">Vue à l’échelle <span class="lock">automatique</span></div>
     <button type="button" class="scimg" id="scaleOpen" aria-label="Agrandir la vue à l’échelle"><span class="hint">Préparation de la vue…</span></button>
     <div class="scbar"><div class="sw" role="group" aria-label="Couleur du mur">${ROOM.walls.map(([k,c])=>`<button type="button" data-scwall="${k}" title="${esc(ROOM_TXT.fr.walls[k])}" aria-label="${esc(ROOM_TXT.fr.walls[k])}" style="background:${c}" class="${k===wall?"on":""}"></button>`).join("")}</div>
-      <button type="button" class="btn" id="scaleAdjust">Ajuster l’emplacement</button><button type="button" class="btn" id="scaleDl">Télécharger</button><label class="provck"><input type="checkbox" id="scalePdfBar" class="keepon" ${a.scalePdf?"checked":""}> Ajouter à la fiche PDF</label></div></div>`; }
+      <button type="button" class="btn" id="scaleAdjust">Ajuster l’emplacement</button><button type="button" class="btn" id="scaleDl">Télécharger</button><label class="provck"><input type="checkbox" id="scalePdfBar" class="keepon" ${a.scalePdf?"checked":""}> Ajouter à la fiche PDF</label><label class="provck" title="Retire le fond de la photo et accroche l’œuvre selon son angle"><input type="checkbox" id="scaleCut" ${(a.scaleView&&a.scaleView.cut==="off")?"":"checked"}> Détourage automatique</label></div></div>`; }
 let scaleSeq=0;
 async function scaleRefresh(a){
   if(!a||!scaleOK(a)) return; const my=++scaleSeq;
@@ -2807,6 +2904,7 @@ document.addEventListener("click",async e=>{
 });
 document.addEventListener("change",e=>{
   if(e.target.id==="ficheProv"){ state.ficheProv=e.target.checked; return; }
+  if(e.target.id==="scaleCut"){ const a=state.artworks[state.curArt]; if(a){ const v=Object.assign({},a.scaleView||{}); if(e.target.checked) delete v.cut; else v.cut="off"; a.scaleView=v; schedDoc("artworks",a.id); scaleRefresh(a); } return; }
   if(e.target.id==="ficheScale"||e.target.id==="scalePdfBar"){ const a=state.artworks[state.curArt]; if(a){ a.scalePdf=e.target.checked?"1":""; schedDoc("artworks",a.id); ["ficheScale","scalePdfBar"].forEach(i=>{ const x=$("#"+i); if(x) x.checked=e.target.checked; }); } return; }
   if(e.target.id==="ctDocFile"){ const fs=[...(e.target.files||[])]; e.target.value=""; if(fs.length) addContactDocs(fs); return; }
   if(e.target.id==="pickContact"){ const c=state.contacts[e.target.value], inv=state.invoices[state.current]; if(c&&inv){ inv.client=clientFromContact(c); inv.contactId=c.id; touch({editor:true}); } return; }
@@ -3226,6 +3324,6 @@ if("serviceWorker" in navigator){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v50259938</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v47cda11d</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>

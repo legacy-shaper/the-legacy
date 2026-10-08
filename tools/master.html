@@ -580,7 +580,7 @@ body.viewer .av:not(.has){pointer-events:none}body.viewer #ctPhotoDel,body.viewe
 .scbar .sw button{width:26px;height:26px;border-radius:50%;border:2px solid var(--line-2);padding:0;cursor:pointer}
 .scbar .sw button.on{border-color:var(--gold);box-shadow:0 0 0 2px rgba(196,160,82,.35)}
 .scbig .lbox{width:min(1100px,100%)}.scbig .lbox img{width:100%;height:auto;max-height:78vh;object-fit:contain;border-radius:8px}
-body.viewer .scbar .sw,body.viewer #scaleAdjust{display:none!important}
+body.viewer .scbar .sw,body.viewer #scaleAdjust,body.viewer #scaleCut{display:none!important}
 /*@@ROOM_CSS@@*/
 </style>
 
@@ -1740,7 +1740,7 @@ function scaleHTML(a){
   return `<div class="scalebox" id="scaleBox"><div class="sctitle">Vue à l’échelle <span class="lock">automatique</span></div>
     <button type="button" class="scimg" id="scaleOpen" aria-label="Agrandir la vue à l’échelle"><span class="hint">Préparation de la vue…</span></button>
     <div class="scbar"><div class="sw" role="group" aria-label="Couleur du mur">${ROOM.walls.map(([k,c])=>`<button type="button" data-scwall="${k}" title="${esc(ROOM_TXT.fr.walls[k])}" aria-label="${esc(ROOM_TXT.fr.walls[k])}" style="background:${c}" class="${k===wall?"on":""}"></button>`).join("")}</div>
-      <button type="button" class="btn" id="scaleAdjust">Ajuster l’emplacement</button><button type="button" class="btn" id="scaleDl">Télécharger</button><label class="provck"><input type="checkbox" id="scalePdfBar" class="keepon" ${a.scalePdf?"checked":""}> Ajouter à la fiche PDF</label></div></div>`; }
+      <button type="button" class="btn" id="scaleAdjust">Ajuster l’emplacement</button><button type="button" class="btn" id="scaleDl">Télécharger</button><label class="provck"><input type="checkbox" id="scalePdfBar" class="keepon" ${a.scalePdf?"checked":""}> Ajouter à la fiche PDF</label><label class="provck" title="Retire le fond de la photo et accroche l’œuvre selon son angle"><input type="checkbox" id="scaleCut" ${(a.scaleView&&a.scaleView.cut==="off")?"":"checked"}> Détourage automatique</label></div></div>`; }
 let scaleSeq=0;
 async function scaleRefresh(a){
   if(!a||!scaleOK(a)) return; const my=++scaleSeq;
@@ -2358,6 +2358,7 @@ document.addEventListener("click",async e=>{
 });
 document.addEventListener("change",e=>{
   if(e.target.id==="ficheProv"){ state.ficheProv=e.target.checked; return; }
+  if(e.target.id==="scaleCut"){ const a=state.artworks[state.curArt]; if(a){ const v=Object.assign({},a.scaleView||{}); if(e.target.checked) delete v.cut; else v.cut="off"; a.scaleView=v; schedDoc("artworks",a.id); scaleRefresh(a); } return; }
   if(e.target.id==="ficheScale"||e.target.id==="scalePdfBar"){ const a=state.artworks[state.curArt]; if(a){ a.scalePdf=e.target.checked?"1":""; schedDoc("artworks",a.id); ["ficheScale","scalePdfBar"].forEach(i=>{ const x=$("#"+i); if(x) x.checked=e.target.checked; }); } return; }
   if(e.target.id==="ctDocFile"){ const fs=[...(e.target.files||[])]; e.target.value=""; if(fs.length) addContactDocs(fs); return; }
   if(e.target.id==="pickContact"){ const c=state.contacts[e.target.value], inv=state.invoices[state.current]; if(c&&inv){ inv.client=clientFromContact(c); inv.contactId=c.id; touch({editor:true}); } return; }

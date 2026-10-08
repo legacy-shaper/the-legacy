@@ -28,6 +28,10 @@ Hand-over note: everything needed to resume work in a new conversation. No secre
   Client: « À l’échelle » tile among the views, same controls kept on the viewer's device (localStorage `ls-scale:<id>`,
   `ls-scalepdf:<id>`), starting from Dylan's composition: SQL `supabase/005_scale_view.sql` (applied 8 Oct 2026) adds
   `artworks.scale_view`, filled by the sync trigger from `scaleView`. The client falls back gracefully if the column is missing. Tests: `tests/test_scale_view.py`.
+  **Automatic cut-out** (`roomCut` in room.js): packshot on a plain background → background modelled from the border (plane per
+  channel), minimum-area rectangle of the work → angle + sides matched to the dimensions; openwork (>35 % background inside) loses
+  its background everywhere (photo shadows kept as darkening), a solid work only outside its outline. Unclear photo → unchanged.
+  Switch per work in the master: « Détourage automatique » (`scaleView.cut = "off"`).
 - **Messages / assistant**: client app « Nous écrire » + « Une question sur cette œuvre » (photo or PDF attachable, bucket `support-files`).
   Edge function **support-chat** (deployed, verify_jwt on): assistant reply (Claude API, model `claude-sonnet-5-5`, needs secret
   `ANTHROPIC_API_KEY` in Edge Functions → Secrets; without it a courteous acknowledgement is sent), category/priority/summary for Dylan,
