@@ -69,6 +69,14 @@ def ghost():             # a white figure with no outline on a white backdrop: o
     d.text((340, 170), "ka", fill=(200, 60, 120)); d.text((430, 170), "i", fill=(200, 60, 120))
     return bg
 GHOST_URL = jpg_url(ghost())
+def hollow():            # white figure whose outline is faint and broken: the inside must never come out as holes
+    bg = backdrop(900); d = ImageDraw.Draw(bg)
+    d.rounded_rectangle((300, 200, 520, 780), 60, fill=(240, 240, 238))
+    for y in range(200, 780, 22): d.line([(300, y), (300, y + 12)], fill=(200, 200, 198), width=2); d.line([(520, y), (520, y + 12)], fill=(200, 200, 198), width=2)
+    d.ellipse((360, 300, 380, 320), fill=(40, 160, 60)); d.ellipse((440, 300, 460, 320), fill=(40, 160, 60)); d.ellipse((380, 350, 440, 385), fill=(220, 30, 40))
+    d.rectangle((290, 770, 530, 790), fill=(205, 205, 203))
+    return bg
+HOLLOW_URL = jpg_url(hollow())
 OPEN_URL, SOLID_URL, FULL_URL, CUT_URL, TIGHT_URL = jpg_url(openwork()), jpg_url(solid()), jpg_url(fullframe()), jpg_url(shapes_cut()), jpg_url(tight())
 
 class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -202,6 +210,9 @@ with sync_playwright() as pw:
                 return {cut:roomCut(ic,d), info:roomCutInfo(ic,d), tight:k&&{ang:k.angle,open:k.open,ratio:k.rw/k.rh}}; }""", [CUT_URL, TIGHT_URL])
             check(e["cut"] is None and e["info"] and e["info"]["fail"] == "edge" and sorted(e["info"]["sides"]) == ["bottom", "top"], f"{name}: cut-out — work cut by the photo at the top and bottom: detected ({e['info']})")
             gh = p.evaluate("async(u)=>{ const im=await roomImg(u); return {obj:!!roomObj(im), info:roomObjInfo(im)}; }", GHOST_URL)
+            ho = p.evaluate("""async(u)=>{ const im=await roomImg(u), o=roomObj(im); if(!o) return {obj:false, info:roomObjInfo(im)};
+                const x=o.canvas.getContext('2d'), k=o.bh/580; const a=x.getImageData(Math.round(o.pad+110*(o.bw/240)),Math.round(o.pad+450*k*0+ (650-200)*(o.bh/590)),1,1).data[3]; return {obj:true, centre:a}; }""", HOLLOW_URL)
+            check((not ho["obj"]) or ho["centre"] == 255, f"{name}: cut-out — a light piece is either whole (no holes) or not shown ({ho})")
             check(not gh["obj"] and gh["info"] and gh["info"]["fail"] in ("unsure", "plain"), f"{name}: cut-out — white piece lost in a white backdrop: refused rather than shown in pieces ({gh['info']})")
             check(e["tight"] and e["tight"]["ang"] == 0 and not e["tight"]["open"] and abs(e["tight"]["ratio"] - 672 / 380) < 0.05, f"{name}: cut-out — tightly framed whole work: still cut out")
             check(r["mismatch"] is None, f"{name}: cut-out — outline far from the dimensions: left as it was")

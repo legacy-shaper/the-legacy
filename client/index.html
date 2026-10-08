@@ -897,7 +897,8 @@ function drawStand(x,s){
   const o=s.obj; if(!o) return; const k=s.f/g.zc, hp=g.h*k, wp=g.wcm*k, base=P(s.artX,g.ph,g.zc);
   x.save(); x.translate(base[0],base[1]); x.scale(1,0.12); const sg=x.createRadialGradient(0,0,0,0,0,wp*0.55);
   sg.addColorStop(0,"rgba(0,0,0,.30)"); sg.addColorStop(1,"rgba(0,0,0,0)"); x.fillStyle=sg; x.beginPath(); x.arc(0,0,wp*0.55,0,Math.PI*2); x.fill(); x.restore();
-  const sc=hp/o.bh; x.drawImage(o.canvas, base[0]-wp/2-o.pad*sc, base[1]-hp-o.pad*sc, o.canvas.width*sc, o.canvas.height*sc);
+  const sc=hp/o.bh; x.save(); x.shadowColor="rgba(0,0,0,.26)"; x.shadowBlur=Math.max(3,wp*0.012); x.shadowOffsetX=Math.max(1,wp*0.004); x.shadowOffsetY=Math.max(1.5,wp*0.008);
+  x.drawImage(o.canvas, base[0]-wp/2-o.pad*sc, base[1]-hp-o.pad*sc, o.canvas.width*sc, o.canvas.height*sc); x.restore();
 }
 /* parquet in perspective, computed once per layout (device pixels) */
 function roomFloor(s=R){
@@ -1064,8 +1065,12 @@ function roomObjCompute(img){
   const Lm=new Float32Array(N); for(let i=0;i<N;i++){ const q=i*4; Lm[i]=0.299*d[q]+0.587*d[q+1]+0.114*d[q+2]; }
   const Bl=new Float32Array(N);
   for(let y=1;y<H-1;y++) for(let xx=1;xx<W-1;xx++){ const i=y*W+xx; Bl[i]=(Lm[i-W-1]+Lm[i-W]+Lm[i-W+1]+Lm[i-1]+Lm[i]+Lm[i+1]+Lm[i+W-1]+Lm[i+W]+Lm[i+W+1])/9; }
+  // colour (warm/cool tint) blurred the same way: a white piece is often slightly warmer or cooler than its backdrop
+  const Ca=new Float32Array(N), Cb=new Float32Array(N);
+  for(let y=1;y<H-1;y++) for(let xx=1;xx<W-1;xx++){ const i=y*W+xx; let a=0,b=0; for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){ const q=(i+dy*W+dx)*4; a+=d[q]-d[q+1]; b+=d[q+2]-d[q+1]; } Ca[i]=a/9; Cb[i]=b/9; }
   const G=new Float32Array(N);
-  for(let y=2;y<H-2;y++) for(let xx=2;xx<W-2;xx++){ const i=y*W+xx; G[i]=Math.abs(Bl[i+1]-Bl[i-1])+Math.abs(Bl[i+W]-Bl[i-W]); }
+  for(let y=2;y<H-2;y++) for(let xx=2;xx<W-2;xx++){ const i=y*W+xx;
+    G[i]=Math.abs(Bl[i+1]-Bl[i-1])+Math.abs(Bl[i+W]-Bl[i-W]) + 0*(Math.abs(Ca[i+1]-Ca[i-1])+Math.abs(Ca[i+W]-Ca[i-W])+Math.abs(Cb[i+1]-Cb[i-1])+Math.abs(Cb[i+W]-Cb[i-W]))/2; }
   const band=Math.max(3,Math.round(Math.min(W,H)*0.03)), gs=[];
   for(let y=2;y<H-2;y+=2) for(let xx=2;xx<W-2;xx+=2){ if(xx<band||xx>=W-band||y<band||y>=H-band){ const i=y*W+xx; if(cls[i]) gs.push(G[i]); } }
   gs.sort((p,q)=>p-q); const Tg=Math.max(3.5,(gs.length?gs[Math.floor(gs.length*0.95)]:2)*2.2);
@@ -1110,15 +1115,35 @@ function roomObjCompute(img){
         const gap=Math.max(3,Math.round(hObj*0.03));                 // resting on the piece below, not hovering above it
         for(let y=b1+1;y<=Math.min(y1,b1+gap);y++){ const l=lab[y*W+xx]; if(l>=0&&l!==j&&keep[l]){ under++; break; } } }
       if(!cols||under/cols<0.3) return {fail:"unsure"}; }
-    return {lab,keep,x0,y0,x1,y1,area};
+    // solid silhouette: everything enclosed by the piece belongs to it (a white body is never shown with holes)
+    const rc=Math.max(2,Math.round(hObj*0.008)), M=new Uint8Array(N);
+    for(let i=0;i<N;i++) M[i]=(lab[i]>=0&&keep[lab[i]])?1:0;
+    const maxf=(src,r,horiz)=>{ const out=new Uint8Array(N); for(let y=0;y<H;y++) for(let xx=0;xx<W;xx++){ const i=y*W+xx; if(!src[i]) continue;
+      for(let k=-r;k<=r;k++){ if(horiz){ const xq=xx+k; if(xq>=0&&xq<W) out[i+k]=1; } else { const yy=y+k; if(yy>=0&&yy<H) out[i+k*W]=1; } } } return out; };
+    const dil=maxf(maxf(M,rc,true),rc,false);
+    const inv=new Uint8Array(N); for(let i=0;i<N;i++) inv[i]=dil[i]?0:1;
+    const ero=maxf(maxf(inv,rc,true),rc,false);                        // erosion of the dilated mask = closing
+    const outside=new Uint8Array(N); let sq=0;
+    const pushO=i=>{ if(!outside[i]&&ero[i]){ outside[i]=1; st[sq++]=i; } };
+    for(let xx=0;xx<W;xx++){ pushO(xx); pushO((H-1)*W+xx); } for(let y=0;y<H;y++){ pushO(y*W); pushO(y*W+W-1); }
+    while(sq){ const i=st[--sq], xx=i%W; if(xx>0) pushO(i-1); if(xx<W-1) pushO(i+1); if(i>=W) pushO(i-W); if(i<N-W) pushO(i+W); }
+    let solid=0; const fill=new Uint8Array(N);
+    for(let y=y0;y<=y1;y++) for(let xx=x0;xx<=x1;xx++){ const i=y*W+xx; if(!outside[i]){ fill[i]=1; solid++; } }
+    // quality 3: a hollow piece (only its outline kept, the inside taken for the backdrop) — checked row by row on each piece
+    for(let j=0;j<sizes.length;j++){ if(!keep[j]||sizes[j]<area*0.05) continue; const [a0,a1,b0,b1]=bx[j]; const ratios=[];
+      for(let y=b0;y<=b1;y+=Math.max(1,Math.round((b1-b0)/60))){ let lo=-1,hi=-1,n=0;
+        for(let xx=a0;xx<=a1;xx++){ if(fill[y*W+xx]){ n++; if(lo<0) lo=xx; hi=xx; } }
+        if(n>2) ratios.push(n/(hi-lo+1)); }
+      if(ratios.length){ ratios.sort((p,q)=>p-q); if(ratios[Math.floor(ratios.length/2)]<0.55) return {fail:"unsure"}; } }
+    return {lab,keep,x0,y0,x1,y1,area,fill};
   };
   let sg=null; for(const R0 of [R00,R00*2,R00*3]){ sg=segment(R0); if(!sg.fail||sg.fail!=="unsure") break; }
   if(sg.fail) return {fail:sg.fail};
-  const {lab,keep,x0,y0,x1,y1}=sg;
+  const {lab,keep,x0,y0,x1,y1,fill}=sg;
   const sides=[]; if(y0<=1) sides.push("top"); if(y1>=H-2) sides.push("bottom"); if(x0<=1) sides.push("left"); if(x1>=W-2) sides.push("right");
   if(sides.length>=3) return {fail:"plain"}; if(sides.length) return {fail:"edge",sides};
   // alpha with a soft edge (average over a 3×3 neighbourhood of the object mask); remove the backdrop from edge pixels
-  const m=new Float32Array(N); for(let i=0;i<N;i++) m[i]=(lab[i]>=0&&keep[lab[i]])?1:0;
+  const m=new Float32Array(N); for(let i=0;i<N;i++) m[i]=fill[i]?1:0;
   const pad=2, cw=x1-x0+1+2*pad, ch=y1-y0+1+2*pad, out=document.createElement("canvas"); out.width=cw; out.height=ch;
   const ox=out.getContext("2d"), od=ox.createImageData(cw,ch), o=od.data;
   for(let y=0;y<ch;y++){ const sy=y+y0-pad; if(sy<0||sy>=H) continue; for(let xx=0;xx<cw;xx++){ const sx=xx+x0-pad; if(sx<0||sx>=W) continue;
@@ -1472,5 +1497,5 @@ async function start(){
 if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")) navigator.serviceWorker.register("sw.js").catch(()=>{});
 start();
 </script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">vc2ef4ec0</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v0b47d5dd</div>
 </body></html>
