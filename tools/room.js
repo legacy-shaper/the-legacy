@@ -57,12 +57,16 @@ function chairW(s=R){ return s.chair?ROOM.CHAIR_H*s.chair.width/s.chair.height:6
 function artBox(s=R){ const {h,w}=s.dims, a=s.cut&&s.cut.angle||0; if(!a) return {w,h};
   const c=Math.abs(Math.cos(a)), n=Math.abs(Math.sin(a)); return {w:w*c+h*n, h:w*n+h*c}; }
 /* standing volume: plinth (white, elegant) or parquet for furniture; sizes in cm, depths from the eye */
+const PLINTH_HIGH_MAX=120;   // above, a 90 cm plinth would lift the piece beyond 2.10 m: the low plinth is kept
+const canHighPlinth=w=>{ const d=standDims(w); return !!d && d.h<=PLINTH_HIGH_MAX && !ON_FLOOR.test(w.category||""); };
 function standGeom(s=R){
   const o=s.obj, h=s.dims.h, wcm=o?h*o.bw/o.bh:s.dims.w, floor=!!s.onFloor;
-  const ph=floor?0:Math.max(12,Math.min(90,105-h*0.9));            // low platform for large pieces, pedestal for small ones
+  // low plinth: a platform for large pieces, a pedestal for small ones; high plinth (chosen): 90 cm, for pieces up to 1.20 m
+  const hi=!floor&&s.plinth==="high"&&h<=PLINTH_HIGH_MAX;
+  const ph=floor?0:hi?90:Math.max(12,Math.min(90,105-h*0.9));
   const margin=floor?0:Math.max(10,wcm*0.12), pw=wcm+2*margin, pd=floor?Math.max(30,s.dims.d||40):Math.max(40,Math.min(100,(s.dims.d||40)+24));
   const zb=ROOM.D-(floor?6:18), zf=zb-pd, zc=(zb+zf)/2;
-  return {h,wcm,ph,pw,pd,zb,zf,zc,floor}; }
+  return {h,wcm,ph,pw,pd,zb,zf,zc,floor,hi}; }
 function roomWallOk(k){ return ROOM.walls.some(v=>v[0]===k)?k:"pearl"; }
 /* default composition. portrait: phone held upright → chair beneath the work when it fits */
 function roomDefaults(s=R,portrait){
@@ -82,7 +86,7 @@ function roomApply(s,set){ if(!set) return false; let ok=false;
   if(ok&&s.stand){ s.extentW=0; return ok; }
   if(ok){ const cw=chairW(s), w=artBox(s).w; s.extentW=2*Math.max(Math.abs(s.artX)+w/2,Math.abs(s.chairX)+cw/2); }
   return ok; }
-const roomSettings=(s=R)=>Object.assign({wall:s.wall,artX:+s.artX.toFixed(2),artY:+s.artY.toFixed(2),chairX:+s.chairX.toFixed(2)},s.cutOff?{cut:"off"}:{});
+const roomSettings=(s=R)=>Object.assign({wall:s.wall,artX:+s.artX.toFixed(2),artY:+s.artY.toFixed(2),chairX:+s.chairX.toFixed(2)},s.cutOff?{cut:"off"}:{},s.plinth==="high"?{plinth:"high"}:{});
 /* layout: px per cm on the wall, wall base line, horizon. fit: frame everything around the composition (static image) */
 function roomFit(s,W,H,dpr,fit){
   if(s.stand) return roomFitStand(s,W,H,dpr);
@@ -382,7 +386,7 @@ async function roomRender(w,photo,set,opts){
   opts=opts||{}; const W=opts.W||ROOM.STATIC_W, H=opts.H||ROOM.STATIC_H;
   const [art,chair,parquet]=await Promise.all([roomImg(photo),roomImg(roomAsset("room-chair.webp")),roomImg(roomAsset("room-parquet.jpg"))]);
   const s={dims,wall:roomWallOk(set&&set.wall),art,chair,parquet};
-  if(stand){ s.stand=true; s.onFloor=ON_FLOOR.test(w.category||""); s.obj=roomObj(art); if(!s.obj) return null; }
+  if(stand){ s.stand=true; s.onFloor=ON_FLOOR.test(w.category||""); s.plinth=set&&set.plinth; s.obj=roomObj(art); if(!s.obj) return null; }
   else { s.cutOff=!!(set&&set.cut==="off"); s.cut=s.cutOff?null:roomCut(art,dims); }
   roomDefaults(s,false); roomApply(s,set);
   roomFit(s,W,H,1,true);
@@ -413,7 +417,7 @@ async function openRoom(w,photo,opt){
   const [art,chair,parquet]=await Promise.all([roomImg(photo),roomImg(roomAsset("room-chair.webp")),roomImg(roomAsset("room-parquet.jpg"))]);
   if(!R.open) return;
   R.art=art; R.chair=chair; R.parquet=parquet;
-  if(stand){ R.stand=true; R.onFloor=ON_FLOOR.test(w.category||""); R.obj=roomObj(art); }
+  if(stand){ R.stand=true; R.onFloor=ON_FLOOR.test(w.category||""); R.plinth=opt.init&&opt.init.plinth; R.obj=roomObj(art); }
   else { R.cutOff=!!(opt.init&&opt.init.cut==="off"); R.cut=R.cutOff?null:roomCut(art,dims); }
   const reset=()=>{ const st=document.getElementById("rStage"); roomDefaults(R,!opt.fit&&st&&st.clientWidth<st.clientHeight*0.85); };
   reset(); if(opt.init) roomApply(R,opt.init);

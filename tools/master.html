@@ -578,6 +578,7 @@ body.viewer .av:not(.has){pointer-events:none}body.viewer #ctPhotoDel,body.viewe
 .scbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
 .scbar .sw{display:flex;gap:8px;align-items:center}
 .scbar .sw button{width:26px;height:26px;border-radius:50%;border:2px solid var(--line-2);padding:0;cursor:pointer}
+.scbar .seg button[disabled]{opacity:.4;cursor:not-allowed}
 .scbar .sw button.on{border-color:var(--gold);box-shadow:0 0 0 2px rgba(196,160,82,.35)}
 .scbig .lbox{width:min(1100px,100%)}.scbig .lbox img{width:100%;height:auto;max-height:78vh;object-fit:contain;border-radius:8px}
 body.viewer .scbar .sw,body.viewer #scaleAdjust,body.viewer #scaleCut{display:none!important}
@@ -1743,6 +1744,7 @@ function scaleHTML(a){
     <button type="button" class="scimg" id="scaleOpen" aria-label="Agrandir la vue à l’échelle"><span class="hint">Préparation de la vue…</span></button>
     <p class="hint keep" id="scaleNote" hidden style="margin:8px 0 0;max-width:640px"></p>
     <div class="scbar"><div class="sw" role="group" aria-label="Couleur du mur">${ROOM.walls.map(([k,c])=>`<button type="button" data-scwall="${k}" title="${esc(ROOM_TXT.fr.walls[k])}" aria-label="${esc(ROOM_TXT.fr.walls[k])}" style="background:${c}" class="${k===wall?"on":""}"></button>`).join("")}</div>
+      ${st&&!ON_FLOOR.test(a.category||"")?`<span class="seg" role="group" aria-label="Socle"><button type="button" data-plinth="low" class="${(a.scaleView&&a.scaleView.plinth==="high"&&canHighPlinth(a))?"":"on"}">Socle bas</button><button type="button" data-plinth="high" class="${(a.scaleView&&a.scaleView.plinth==="high"&&canHighPlinth(a))?"on":""}" ${canHighPlinth(a)?"":`disabled title="Œuvre de plus de 1,20 m : le socle de 90 cm la porterait au-delà de 2,10 m"`}>Socle 90 cm</button></span>`:""}
       <button type="button" class="btn" id="scaleAdjust">Ajuster l’emplacement</button><button type="button" class="btn" id="scaleDl">Télécharger</button><label class="provck"><input type="checkbox" id="scalePdfBar" class="keepon" ${a.scalePdf?"checked":""}> Ajouter à la fiche PDF</label>${st?"":`<label class="provck" title="Retire le fond de la photo et accroche l’œuvre selon son angle"><input type="checkbox" id="scaleCut" ${(a.scaleView&&a.scaleView.cut==="off")?"":"checked"}> Détourage automatique</label>`}</div></div>`; }
 let scaleSeq=0, scaleIO=null;
 /* the image is prepared only once its place is on screen, never while the app opens */
@@ -2370,6 +2372,8 @@ document.addEventListener("click",async e=>{
   if(b.id==="ctPhotoChg"){ photoTarget="ct"; $("#fileIn").value=""; $("#fileIn").click(); return; }
   if(b.id==="ctPhotoDel"){ const c=state.contacts[state.curContact]; if(c){ c.photo=""; c.photoHd=""; schedDoc("contacts",c.id); renderAlt(); dropCtBig(c.id); } return; }
   if(b.dataset.scwall){ const a=state.artworks[state.curArt]; if(a){ a.scaleView=Object.assign({},a.scaleView||{},{wall:b.dataset.scwall}); schedDoc("artworks",a.id); document.querySelectorAll("[data-scwall]").forEach(x=>x.classList.toggle("on",x===b)); scaleRefresh(a); } return; }
+  if(b.dataset.plinth){ const a=state.artworks[state.curArt]; if(a){ const v=Object.assign({},a.scaleView||{}); if(b.dataset.plinth==="high") v.plinth="high"; else delete v.plinth; a.scaleView=v; schedDoc("artworks",a.id);
+      document.querySelectorAll("[data-plinth]").forEach(x=>x.classList.toggle("on",x===b)); scaleRefresh(a); } return; }
   if(b.id==="scaleRetry"){ const a=state.artworks[state.curArt]; if(a){ roomAllowRetry(); for(const k in scaleCache) delete scaleCache[k]; scaleRedraw(a); } return; }
   if(b.id==="scaleOpen"){ const a=state.artworks[state.curArt]; if(a) scaleOpenBig(a); return; }
   if(b.id==="scaleAdjust"){ const a=state.artworks[state.curArt]; if(a) scaleAdjust(a); return; }

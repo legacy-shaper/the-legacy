@@ -253,6 +253,23 @@ with sync_playwright() as pw:
         p.click("#scaleOpen"); p.wait_for_selector("#scBigImg"); p.wait_for_function("document.querySelector('#scBigImg').naturalWidth===2400")
         if name == "mac": p.screenshot(path="/tmp/ls-scale-sculpture-big.png")
         p.keyboard.press("Escape"); p.wait_for_timeout(150)
+        # two plinths: low (default) or 90 cm
+        check(p.locator("[data-plinth=low].on").count() == 1, f"{name}: master — low plinth by default")
+        p.click("[data-plinth=high]"); p.wait_for_timeout(1500)
+        check(DOC("art4").get("scaleView", {}).get("plinth") == "high" and p.locator("[data-plinth=high].on").count() == 1, f"{name}: master — 90 cm plinth chosen and saved")
+        hg = p.evaluate("""(async()=>{ const a=state.artworks.art4, im=await roomImg(scaleSrc(a)); const s={stand:true,plinth:a.scaleView.plinth,dims:standDims(a),obj:roomObj(im),chair:await roomImg('room-chair.webp')};
+            roomDefaults(s); roomApply(s,a.scaleView); roomFit(s,1600,1200,1); const g=standGeom(s), top=roomP(s,s.artX,g.ph+g.h,g.zc)[1], foot=roomP(s,s.artX,0,g.zf)[1];
+            return {ph:g.ph, top, foot, H:s.H}; })()""")
+        check(hg["ph"] == 90 and hg["top"] > 0 and hg["foot"] <= hg["H"], f"{name}: master — plinth 90 cm high, piece at 1.865 m, all in view")
+        p.wait_for_function("(()=>{const i=document.querySelector('#scaleOpen img'); return i&&i.complete&&i.naturalWidth===1600})()"); p.wait_for_timeout(500)
+        if name == "mac":
+            p.click("#scaleOpen"); p.wait_for_selector("#scBigImg"); p.wait_for_function("document.querySelector('#scBigImg').naturalWidth===2400"); p.wait_for_timeout(200)
+            p.screenshot(path="/tmp/ls-scale-sculpture-high.png"); p.keyboard.press("Escape"); p.wait_for_timeout(150)
+        check(p.evaluate("canHighPlinth({category:'sculpture',dimensions:'150 x 60 x 50 cm'})") is False and p.evaluate("canHighPlinth({category:'sculpture',dimensions:'Kaikai: 96.5 x 55.3 x 40 cm'})") is True, f"{name}: master — no 90 cm plinth for a piece over 1.20 m")
+        tall = p.evaluate("(()=>{ const s={stand:true,plinth:'high',dims:{h:150,w:60,d:50},obj:null}; return standGeom(s).ph; })()")
+        check(tall < 90, f"{name}: master — a 1.50 m piece keeps the low plinth ({tall:.0f} cm)")
+        p.click("[data-plinth=low]"); p.wait_for_timeout(1500)
+        check("plinth" not in DOC("art4").get("scaleView", {}), f"{name}: master — back to the low plinth")
         open_art("art3"); p.wait_for_timeout(300)
         check("Indiquez les dimensions" in p.inner_text("#scaleWrap"), f"{name}: master — missing dimensions: hint instead of the image")
         p.fill("#k_dimensions", "65 x 54 cm"); p.wait_for_selector("#scaleOpen img", timeout=20000)

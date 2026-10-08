@@ -147,6 +147,9 @@ select.sel{font:inherit;font-size:14px;padding:10px 12px;border-radius:10px;bord
 .scbar .sw button{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);padding:0}
 .scbar .sw button.on{border-color:var(--gold);box-shadow:0 0 0 2px rgba(196,160,82,.35)}
 .scbar .tb{border:1px solid var(--gold);background:none;color:var(--gold-text);border-radius:10px;padding:8px 12px;font-size:13px}
+.scbar .seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px}
+.scbar .seg button{border:0;background:none;border-radius:999px;padding:6px 12px;font-size:12.5px;color:var(--muted)}
+.scbar .seg button.on{background:var(--deep);color:var(--ivory)}
 .scbar label{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
 .scbar label input{width:16px;height:16px;accent-color:var(--gold)}
 .dh .artist{font-weight:600;font-size:19px}
@@ -324,7 +327,7 @@ const I18N={
    chatPh:"Your message…",chatSend:"Send",chatAttach:"Add a photo or a PDF",chatAbout:"About",chatMe:"You",chatAi:"Legacy Shaper",chatDylanName:"Dylan Lessel",
    chatOffline:"Messages will be available as soon as the connection is back.",chatFail:"Your message could not leave yet. Please try again in a moment.",
    chatTooBig:"This file is larger than 15 MB.",askWork:"A question about this work",
-   atScale:"View at scale",scaleTile:"At scale",scaleAdjust:"Adjust position",scaleInPdf:"Add to the PDF sheet",scaleSave:"Save",roomHint:"Move the work and the chair with your finger",reset:"Reset",saveView:"Save image",
+   atScale:"View at scale",scaleTile:"At scale",plinthLow:"Low plinth",plinthHigh:"90 cm plinth",scaleAdjust:"Adjust position",scaleInPdf:"Add to the PDF sheet",scaleSave:"Save",roomHint:"Move the work and the chair with your finger",reset:"Reset",saveView:"Save image",
    walls:{pearl:"Pearl grey",white:"Gallery white",linen:"Linen",green:"Legacy green"},
    foot:"Legacy Shaper Collection · Dubai",sheetFoot:"Inventory sheet · Legacy Shaper Collection Office"},
  fr:{access:"Accès privé",intro:"Saisissez l’adresse e-mail enregistrée chez Legacy Shaper. Un code d’accès vous sera envoyé.",email:"Adresse e-mail",getCode:"Recevoir mon code",
@@ -358,7 +361,7 @@ const I18N={
    chatPh:"Votre message…",chatSend:"Envoyer",chatAttach:"Ajouter une photo ou un PDF",chatAbout:"À propos de",chatMe:"Vous",chatAi:"Legacy Shaper",chatDylanName:"Dylan Lessel",
    chatOffline:"La messagerie sera disponible dès le retour de la connexion.",chatFail:"Votre message n’a pas encore pu partir. Réessayez dans un instant.",
    chatTooBig:"Ce fichier dépasse 15 Mo.",askWork:"Une question sur cette œuvre",
-   atScale:"Voir à l’échelle",scaleTile:"À l’échelle",scaleAdjust:"Ajuster l’emplacement",scaleInPdf:"Ajouter à la fiche PDF",scaleSave:"Enregistrer",roomHint:"Déplacez l’œuvre et la chaise du doigt",reset:"Recentrer",saveView:"Enregistrer l’image",
+   atScale:"Voir à l’échelle",scaleTile:"À l’échelle",plinthLow:"Socle bas",plinthHigh:"Socle 90 cm",scaleAdjust:"Ajuster l’emplacement",scaleInPdf:"Ajouter à la fiche PDF",scaleSave:"Enregistrer",roomHint:"Déplacez l’œuvre et la chaise du doigt",reset:"Recentrer",saveView:"Enregistrer l’image",
    walls:{pearl:"Gris perle",white:"Blanc galerie",linen:"Lin",green:"Vert Legacy"},
    foot:"Legacy Shaper Collection · Dubaï",sheetFoot:"Fiche d’inventaire · Legacy Shaper Collection Office"}
 };
@@ -687,6 +690,7 @@ async function openWork(id,keep){
     <div class="dwrap"><div><div class="stage" id="dStage">${thumbOf(w)?`<img id="dImg" src="${thumbOf(w)}" alt="">`:""}</div>
       ${(views.length>1||scOK)?`<div class="thumbs">${views.map((v,i)=>`<button data-v="${esc(v.id)}" class="${i===0?"on":""}"><img alt="" data-vt="${esc(v.id)}"></button>`).join("")}${scOK?`<button class="sct" id="dScTile" aria-label="${esc(t("atScale"))}"><img alt="" id="dScThumb"><span>${esc(t("scaleTile"))}</span></button>`:""}</div>`:""}
       ${scOK?`<div class="scbar" id="dScBar" hidden><div class="sw">${ROOM.walls.map(([k,c])=>`<button data-scwall="${k}" title="${esc(t("walls")[k])}" aria-label="${esc(t("walls")[k])}" style="background:${c}" class="${k===scSet.wall?"on":""}"></button>`).join("")}</div>
+        ${(canStand(w)&&canHighPlinth(w))?`<span class="seg"><button data-plinth="low" class="${scSet.plinth==="high"?"":"on"}">${esc(t("plinthLow"))}</button><button data-plinth="high" class="${scSet.plinth==="high"?"on":""}">${esc(t("plinthHigh"))}</button></span>`:""}
         <button class="tb" id="dScAdj">${esc(t("scaleAdjust"))}</button><label><input type="checkbox" id="dScPdf" ${scPdf?"checked":""}> ${esc(t("scaleInPdf"))}</label></div>`:""}</div>
     <div class="dh"><div class="artist">${esc(w.artist)}</div><div class="title"><i>${esc(w.title)}</i>${w.year?`, ${esc(w.year)}`:""}</div>
       <dl class="facts">${fact("medium",esc(w.medium))}${fact("dims",esc(dimsLine(w.dimensions)))}${fact("edition",esc(editionLine(w)))}
@@ -715,7 +719,9 @@ async function openWork(id,keep){
     $("#dScTile").onclick=async()=>{ onScale=true; d.querySelectorAll("[data-v]").forEach(b=>b.classList.remove("on")); $("#dScTile").classList.add("on"); $("#dScBar").hidden=false; const u=await scaleURL(); if(onScale&&u&&S.openId===id) setStage(u); };
     d.querySelectorAll("[data-scwall]").forEach(b=>b.onclick=()=>{ scaleSet(id,Object.assign({},scaleGet(id),{wall:b.dataset.scwall})); d.querySelectorAll("[data-scwall]").forEach(x=>x.classList.toggle("on",x===b)); scaleThumb(); });
     $("#dScAdj").onclick=async()=>openRoom(w, await basePhoto(), { fit:true, init:Object.assign({wall:"pearl"},scaleGet(id)), saveLabel:t("scaleSave"), onSave:st=>{ scaleSet(id,st); d.querySelectorAll("[data-scwall]").forEach(x=>x.classList.toggle("on",x.dataset.scwall===st.wall)); scaleThumb(); } });
-    $("#dScPdf").onchange=e=>scalePdfSet(id,e.target.checked); }
+    $("#dScPdf").onchange=e=>scalePdfSet(id,e.target.checked);
+    d.querySelectorAll("[data-plinth]").forEach(b=>b.onclick=()=>{ const v=Object.assign({},scaleGet(id)); if(b.dataset.plinth==="high") v.plinth="high"; else delete v.plinth; scaleSet(id,v);
+      d.querySelectorAll("[data-plinth]").forEach(x=>x.classList.toggle("on",x===b)); scaleThumb(); }); }
   if(current) show(current);
   d.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>show(b.dataset.v));
   d.querySelectorAll("[data-vt]").forEach(async im=>{ const p=await viewPhoto(im.dataset.vt); if(p) im.src=p; });
@@ -812,12 +818,16 @@ function chairW(s=R){ return s.chair?ROOM.CHAIR_H*s.chair.width/s.chair.height:6
 function artBox(s=R){ const {h,w}=s.dims, a=s.cut&&s.cut.angle||0; if(!a) return {w,h};
   const c=Math.abs(Math.cos(a)), n=Math.abs(Math.sin(a)); return {w:w*c+h*n, h:w*n+h*c}; }
 /* standing volume: plinth (white, elegant) or parquet for furniture; sizes in cm, depths from the eye */
+const PLINTH_HIGH_MAX=120;   // above, a 90 cm plinth would lift the piece beyond 2.10 m: the low plinth is kept
+const canHighPlinth=w=>{ const d=standDims(w); return !!d && d.h<=PLINTH_HIGH_MAX && !ON_FLOOR.test(w.category||""); };
 function standGeom(s=R){
   const o=s.obj, h=s.dims.h, wcm=o?h*o.bw/o.bh:s.dims.w, floor=!!s.onFloor;
-  const ph=floor?0:Math.max(12,Math.min(90,105-h*0.9));            // low platform for large pieces, pedestal for small ones
+  // low plinth: a platform for large pieces, a pedestal for small ones; high plinth (chosen): 90 cm, for pieces up to 1.20 m
+  const hi=!floor&&s.plinth==="high"&&h<=PLINTH_HIGH_MAX;
+  const ph=floor?0:hi?90:Math.max(12,Math.min(90,105-h*0.9));
   const margin=floor?0:Math.max(10,wcm*0.12), pw=wcm+2*margin, pd=floor?Math.max(30,s.dims.d||40):Math.max(40,Math.min(100,(s.dims.d||40)+24));
   const zb=ROOM.D-(floor?6:18), zf=zb-pd, zc=(zb+zf)/2;
-  return {h,wcm,ph,pw,pd,zb,zf,zc,floor}; }
+  return {h,wcm,ph,pw,pd,zb,zf,zc,floor,hi}; }
 function roomWallOk(k){ return ROOM.walls.some(v=>v[0]===k)?k:"pearl"; }
 /* default composition. portrait: phone held upright → chair beneath the work when it fits */
 function roomDefaults(s=R,portrait){
@@ -837,7 +847,7 @@ function roomApply(s,set){ if(!set) return false; let ok=false;
   if(ok&&s.stand){ s.extentW=0; return ok; }
   if(ok){ const cw=chairW(s), w=artBox(s).w; s.extentW=2*Math.max(Math.abs(s.artX)+w/2,Math.abs(s.chairX)+cw/2); }
   return ok; }
-const roomSettings=(s=R)=>Object.assign({wall:s.wall,artX:+s.artX.toFixed(2),artY:+s.artY.toFixed(2),chairX:+s.chairX.toFixed(2)},s.cutOff?{cut:"off"}:{});
+const roomSettings=(s=R)=>Object.assign({wall:s.wall,artX:+s.artX.toFixed(2),artY:+s.artY.toFixed(2),chairX:+s.chairX.toFixed(2)},s.cutOff?{cut:"off"}:{},s.plinth==="high"?{plinth:"high"}:{});
 /* layout: px per cm on the wall, wall base line, horizon. fit: frame everything around the composition (static image) */
 function roomFit(s,W,H,dpr,fit){
   if(s.stand) return roomFitStand(s,W,H,dpr);
@@ -1137,7 +1147,7 @@ async function roomRender(w,photo,set,opts){
   opts=opts||{}; const W=opts.W||ROOM.STATIC_W, H=opts.H||ROOM.STATIC_H;
   const [art,chair,parquet]=await Promise.all([roomImg(photo),roomImg(roomAsset("room-chair.webp")),roomImg(roomAsset("room-parquet.jpg"))]);
   const s={dims,wall:roomWallOk(set&&set.wall),art,chair,parquet};
-  if(stand){ s.stand=true; s.onFloor=ON_FLOOR.test(w.category||""); s.obj=roomObj(art); if(!s.obj) return null; }
+  if(stand){ s.stand=true; s.onFloor=ON_FLOOR.test(w.category||""); s.plinth=set&&set.plinth; s.obj=roomObj(art); if(!s.obj) return null; }
   else { s.cutOff=!!(set&&set.cut==="off"); s.cut=s.cutOff?null:roomCut(art,dims); }
   roomDefaults(s,false); roomApply(s,set);
   roomFit(s,W,H,1,true);
@@ -1168,7 +1178,7 @@ async function openRoom(w,photo,opt){
   const [art,chair,parquet]=await Promise.all([roomImg(photo),roomImg(roomAsset("room-chair.webp")),roomImg(roomAsset("room-parquet.jpg"))]);
   if(!R.open) return;
   R.art=art; R.chair=chair; R.parquet=parquet;
-  if(stand){ R.stand=true; R.onFloor=ON_FLOOR.test(w.category||""); R.obj=roomObj(art); }
+  if(stand){ R.stand=true; R.onFloor=ON_FLOOR.test(w.category||""); R.plinth=opt.init&&opt.init.plinth; R.obj=roomObj(art); }
   else { R.cutOff=!!(opt.init&&opt.init.cut==="off"); R.cut=R.cutOff?null:roomCut(art,dims); }
   const reset=()=>{ const st=document.getElementById("rStage"); roomDefaults(R,!opt.fit&&st&&st.clientWidth<st.clientHeight*0.85); };
   reset(); if(opt.init) roomApply(R,opt.init);
@@ -1425,5 +1435,5 @@ async function start(){
 if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")) navigator.serviceWorker.register("sw.js").catch(()=>{});
 start();
 </script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v58dfbae7</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v2975815f</div>
 </body></html>
