@@ -92,8 +92,12 @@ with sync_playwright() as pw:
 
     # profile photo: small round thumbnail, cropped square, shown in the list, removable
     import base64, struct, zlib
-    def png(w, h):
-        raw = b"".join(b"\x00" + bytes([200, 120, 60]) * w for _ in range(h))
+    import random
+    def png(w, h, noisy=False):
+        if noisy:
+            rnd = random.Random(1); raw = b"".join(b"\x00" + bytes(rnd.getrandbits(8) for _ in range(w * 3)) for _ in range(h))
+        else:
+            raw = b"".join(b"\x00" + bytes([200, 120, 60]) * w for _ in range(h))
         ch = lambda t, d: struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
         return b"\x89PNG\r\n\x1a\n" + ch(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)) + ch(b"IDAT", zlib.compress(raw)) + ch(b"IEND", b"")
     open_ct("ct2")
@@ -111,19 +115,19 @@ with sync_playwright() as pw:
     BIG = "(__mockDB().docs.find(x=>x.coll==='contacts/ct2/photo'&&x.id==='main')||{}).data"
     big = p.evaluate(BIG) or {}
     bdims = p.evaluate("u=>new Promise(r=>{const i=new Image();i.onload=()=>r([i.width,i.height]);i.src=u;})", big.get("photo", ""))
-    check(bdims == [1000, 667], f"larger copy stored apart, uncropped ({bdims})")
+    check(bdims == [1200, 800], f"full-size copy stored apart, uncropped, never upscaled ({bdims})")
     check(D("ct2").get("photoHd") == "1" and "data:" not in json.dumps({k: v for k, v in D("ct2").items() if k != "photo"}), "contact record only flags the larger copy (stays light)")
     # click the avatar -> enlarged in the middle of the app
     p.click("#ctPhoto"); p.wait_for_selector("#ovct #ctBigImg")
     check("Raphaël Wertheimer" in p.inner_text("#ovct"), "enlarged view shows the name")
     w = p.evaluate("document.querySelector('#ctBigImg').getBoundingClientRect().width")
     check(w > 300, f"photo shown large ({int(w)} px wide)")
-    p.wait_for_function("document.querySelector('#ctBigImg').naturalWidth===1000")
-    check(True, "enlarged view uses the larger copy")
+    p.wait_for_function("document.querySelector('#ctBigImg').naturalWidth===1200")
+    check(p.locator('#ctLowRes').count() == 0, "enlarged view uses the HD copy, no low-res note")
     p.keyboard.press("Escape"); p.wait_for_timeout(200)
     check(p.locator("#ovct").count() == 0, "Escape closes the enlarged photo")
     # fresh session: larger copy loaded on demand
-    p.evaluate("state.ctBig={}"); p.click("#ctPhoto"); p.wait_for_function("document.querySelector('#ctBigImg') && document.querySelector('#ctBigImg').naturalWidth===1000")
+    p.evaluate("state.ctBig={}"); p.click("#ctPhoto"); p.wait_for_function("document.querySelector('#ctBigImg') && document.querySelector('#ctBigImg').naturalWidth===1200")
     check(True, "larger copy fetched on demand when not in memory")
     p.click("#ctBigClose"); check(p.locator("#ovct").count() == 0, "Fermer closes it")
     p.click("#ctPhoto"); p.wait_for_selector("#ovct"); p.mouse.click(10, 10); p.wait_for_timeout(200)
@@ -134,6 +138,18 @@ with sync_playwright() as pw:
     p.wait_for_timeout(1200)
     nd = p.evaluate("u=>new Promise(r=>{const i=new Image();i.onload=()=>r([i.width,i.height]);i.src=u;})", (p.evaluate(BIG) or {}).get("photo", ""))
     check(nd == [500, 500], "Changer replaces the photo")
+    # very large, detailed photo: HD copy capped at 1600 px for a portrait
+    with p.expect_file_chooser() as fc: p.click("#ctPhotoChg")
+    fc.value.set_files(files=[{"name": "big.png", "mimeType": "image/png", "buffer": png(3000, 2000)}])
+    p.wait_for_function("(()=>{const d=__mockDB().docs.find(x=>x.coll==='contacts/ct2/photo'); return d && d.data.photo.length>0 && d.data.createdAt})()"); p.wait_for_timeout(1500)
+    nd = p.evaluate("u=>new Promise(r=>{const i=new Image();i.onload=()=>r([i.width,i.height]);i.src=u;})", (p.evaluate(BIG) or {}).get("photo", ""))
+    check(nd == [1600, 1067], f"large photo kept in high definition (1600 px, got {nd})")
+    # a portrait that only has the small thumbnail (added before HD): not stretched, note shown
+    p.evaluate("const c=state.contacts.ct1; c.photo=state.contacts.ct2.photo; c.photoHd=''; state.ctBig={};")
+    open_ct("ct1"); p.click("#ctPhoto"); p.wait_for_selector("#ovct #ctLowRes")
+    w1 = p.evaluate("document.querySelector('#ctBigImg').getBoundingClientRect().width")
+    check(w1 <= 201, f"thumbnail-only portrait not stretched ({int(w1)} px)")
+    p.keyboard.press("Escape"); p.evaluate("const c=state.contacts.ct1; c.photo=''; c.photoHd='';"); open_ct("ct2")
     p.click("#ctPhotoDel"); p.wait_for_timeout(1500)
     check(D("ct2")["photo"] == "" and p.locator("#ctPhoto img").count() == 0, "photo removed")
     check(not p.evaluate(BIG), "larger copy removed too")
@@ -154,8 +170,26 @@ with sync_playwright() as pw:
     check(r[0] >= 0 and r[1] <= 390 and r[2] > 250, f"enlarged photo fits the iPhone screen ({[int(x) for x in r]})")
     p.keyboard.press("Escape"); p.set_viewport_size({"width": 1400, "height": 900})
 
+    # artworks: HD view (2400 px) + sharper thumbnail (480 px) when adding the main photo
+    p.evaluate("state.curArt='art1'; leaveHome('artworks'); document.body.classList.add('alt-detail'); renderAlt();"); p.wait_for_selector("#artPhoto")
+    with p.expect_file_chooser() as fc: p.click("#artPhoto")
+    fc.value.set_files(files=[{"name": "calder.png", "mimeType": "image/png", "buffer": png(3200, 2400)}])
+    p.wait_for_function("(()=>{const d=__mockDB().docs.find(x=>x.coll==='artworks'&&x.id==='art1').data; return d.primaryViewId && d.photo})()", timeout=20000)
+    ad = p.evaluate("__mockDB().docs.find(x=>x.coll==='artworks'&&x.id==='art1').data")
+    vw = p.evaluate("id=>__mockDB().docs.find(x=>x.coll==='artworks/art1/views'&&x.id===id).data.photo", ad["primaryViewId"])
+    dim = lambda u: p.evaluate("u=>new Promise(r=>{const i=new Image();i.onload=()=>r([i.width,i.height]);i.src=u;})", u)
+    check(dim(vw) == [2400, 1800], f"artwork view stored in high definition ({dim(vw)})")
+    check(dim(ad["photo"]) == [480, 480], f"artwork thumbnail 480 px ({dim(ad['photo'])})")
+    with p.expect_file_chooser() as fc: p.click("#artReplace")
+    fc.value.set_files(files=[{"name": "noisy.png", "mimeType": "image/png", "buffer": png(3000, 3000, True)}])
+    p.wait_for_function("id=>__mockDB().docs.find(x=>x.coll==='artworks'&&x.id==='art1').data.primaryViewId!==id", arg=ad["primaryViewId"], timeout=30000)
+    ad2 = p.evaluate("__mockDB().docs.find(x=>x.coll==='artworks'&&x.id==='art1').data")
+    vw2 = p.evaluate("id=>__mockDB().docs.find(x=>x.coll==='artworks/art1/views'&&x.id===id).data.photo", ad2["primaryViewId"])
+    check(len(vw2) <= 1900000 and dim(vw2)[0] >= 1200, f"extreme photo stays storable ({len(vw2)} chars, {dim(vw2)})")
+    check("haute définition non enregistrée" not in p.inner_text("body"), "no HD save error")
+
     # new contact has empty channels, primary pro
-    p.evaluate("const c=newContact(); state.contacts[c.id]=c; state.curContact=c.id; renderAlt();"); p.wait_for_selector("#k_emailPro")
+    p.evaluate("const c=newContact(); state.contacts[c.id]=c; state.curContact=c.id; leaveHome('contacts'); renderAlt();"); p.wait_for_selector("#k_emailPro")
     check(p.input_value("#k_primaryEmail") == "pro" and p.input_value("#k_emailPro") == "", "new contact: empty, primary pro")
 
     # mobile layout: no horizontal scroll

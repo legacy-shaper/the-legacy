@@ -1009,13 +1009,11 @@ $("#fileIn").addEventListener("change",async e=>{
   try{
     const url=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); });
     const img=await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=url; });
-    const S=ctT?200:300, s=Math.min(img.width,img.height), cv=document.createElement("canvas"); cv.width=cv.height=S;
-    const cx=cv.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,S,S);
-    cx.drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,S,S);
-    const durl=cv.toDataURL("image/jpeg",0.82);
+    const S=ctT?IMG.ctThumb:artT?IMG.artThumb:IMG.itemThumb, s=Math.min(img.width,img.height);
+    const durl=drawHQ(img,(img.width-s)/2,(img.height-s)/2,s,s,S,S).toDataURL("image/jpeg",IMG.thumbQ);
     if(ctT){ ctT.photo=durl; ctT.photoHd=""; schedDoc("contacts",ctT.id); renderAlt();
-      try{ const big=await resizeImage(f,1000); await saveCtBig(ctT,big); ctT.photoHd="1"; schedDoc("contacts",ctT.id); }catch(e){} return; }
-    if(artT){ artT.photo=durl; try{ await loadViews(artT.id); const full=await resizeImage(f,900); const v={id:uid(),photo:full,createdAt:new Date().toISOString()}; await saveView(artT,v); artT.primaryViewId=v.id; }catch(e){} schedDoc("artworks",artT.id); renderAlt(); } else { inv.items[photoTarget].photo=durl; touch({editor:true}); }
+      try{ const big=await hdImage(f,IMG.ctBig); await saveCtBig(ctT,big); ctT.photoHd="1"; schedDoc("contacts",ctT.id); }catch(e){ setSave("Version haute définition non enregistrée : réessayez",true); } return; }
+    if(artT){ artT.photo=durl; try{ await loadViews(artT.id); const full=await hdImage(f,IMG.artView); const v={id:uid(),photo:full,createdAt:new Date().toISOString()}; await saveView(artT,v); artT.primaryViewId=v.id; }catch(e){ setSave("Version haute définition non enregistrée : réessayez",true); } schedDoc("artworks",artT.id); renderAlt(); } else { inv.items[photoTarget].photo=durl; touch({editor:true}); }
   }catch(err){ setSave("Image illisible, essayez un JPEG ou un PNG",true); }
 });
 
@@ -1719,7 +1717,16 @@ function viewsHTML(a){
   return g.map(x=>`<button type="button" class="vw ${isPrimary(a,x)?"primary":""}" data-view-open="${x.id}" aria-label="Agrandir"><img src="${x.photo}" alt="">${isPrimary(a,x)?`<span class="pbadge">Primary</span>`:""}</button>`).join("")
     + (n<MAX_VIEWS?`<button type="button" class="vw add" id="viewAdd" aria-label="Ajouter des photos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14"/></svg><span>Add views</span></button>`:"");
 }
-function squareThumb(src){ return new Promise(res=>{ const im=new Image(); im.onload=()=>{ const S=300,s=Math.min(im.width,im.height),cv=document.createElement("canvas"); cv.width=cv.height=S; const cx=cv.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,S,S); cx.drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,S,S); res(cv.toDataURL("image/jpeg",0.82)); }; im.onerror=()=>res(src); im.src=src; }); }
+/* PHOTO QUALITY RULE (Dylan, 8 Oct 2026): never lose quality. Every photo keeps a high-definition copy
+   (contacts: 1600 px, artwork views: 2400 px, receipts: 2400 px); small square thumbnails only serve lists.
+   Downscaling is done in steps with high-quality smoothing (no blur / aliasing). Never store only a thumbnail. */
+const IMG={ctThumb:200,artThumb:480,itemThumb:300,thumbQ:0.9,ctBig:1600,artView:2400,hdQ:0.92,cap:1900000};
+function drawHQ(src,sx,sy,sw,sh,W,H){
+  let c=document.createElement("canvas"); c.width=sw; c.height=sh; let x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,sw,sh); x.drawImage(src,sx,sy,sw,sh,0,0,sw,sh);
+  while(c.width/2>=W && c.height/2>=H){ const n=document.createElement("canvas"); n.width=Math.max(W,Math.round(c.width/2)); n.height=Math.max(H,Math.round(c.height/2)); const nx=n.getContext("2d"); nx.imageSmoothingEnabled=true; nx.imageSmoothingQuality="high"; nx.drawImage(c,0,0,n.width,n.height); c=n; }
+  if(c.width!==W||c.height!==H){ const n=document.createElement("canvas"); n.width=W; n.height=H; const nx=n.getContext("2d"); nx.imageSmoothingEnabled=true; nx.imageSmoothingQuality="high"; nx.fillStyle="#fff"; nx.fillRect(0,0,W,H); nx.drawImage(c,0,0,W,H); c=n; }
+  return c; }
+function squareThumb(src){ return new Promise(res=>{ const im=new Image(); im.onload=()=>{ const S=IMG.artThumb,s=Math.min(im.width,im.height); res(drawHQ(im,(im.width-s)/2,(im.height-s)/2,s,s,S,S).toDataURL("image/jpeg",IMG.thumbQ)); }; im.onerror=()=>res(src); im.src=src; }); }
 async function saveView(a,v){ state.views[a.id]=state.views[a.id]||{}; state.views[a.id][v.id]=v; if(db) await db.collection("artworks/"+a.id+"/views").doc(v.id).set(v); else await local.write(); }
 async function makePrimary(a,vid){
   await loadViews(a.id);
@@ -1736,7 +1743,8 @@ async function dropCtBig(id){ delete state.ctBig[id]; if(db){ try{ await db.coll
 function openCtPhoto(c){
   if(!c||!c.photo) return;
   $("#modal").innerHTML=`<div class="ov lb ctbig" id="ovct"><div class="lbox" role="dialog" aria-label="Photo de ${esc(c.name||c.company||"contact")}">
-    <img id="ctBigImg" src="${state.ctBig[c.id]||c.photo}" alt="">
+    <img id="ctBigImg" src="${state.ctBig[c.id]||c.photo}" alt="" ${c.photoHd?"":`style="max-width:${IMG.ctThumb}px"`}>
+    ${c.photoHd?"":`<p class="hint keep" id="ctLowRes" style="margin:10px 0 0">Photo enregistrée en petit format uniquement. Utilisez « Changer » pour la remplacer par une version haute définition.</p>`}
     <div class="cap">${esc(c.name||c.company||"")}</div>${c.name&&c.company?`<div class="cap2">${esc(c.company)}</div>`:""}
     <div class="eacts" style="justify-content:center"><button type="button" class="btn" id="ctBigClose">Fermer</button></div></div></div>`;
   const close=()=>{ $("#modal").innerHTML=""; document.removeEventListener("keydown",esc_); };
@@ -1746,14 +1754,16 @@ function openCtPhoto(c){
   if(c.photoHd && !state.ctBig[c.id]) loadCtBig(c.id).then(u=>{ const im=$("#ctBigImg"); if(u&&im) im.src=u; });
 }
 async function loadViews(id){ if(state.views[id]) return state.views[id]; const m={}; if(db){ try{ const snap=await db.collection("artworks/"+id+"/views").get(); snap.docs.forEach(d=>{ m[d.id]=d.data(); }); }catch(e){} } state.views[id]=m; return m; }
-function resizeImage(file,max){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onerror=rej; r.onload=()=>{ const im=new Image(); im.onerror=rej; im.onload=()=>{ const k=Math.min(1,max/Math.max(im.width,im.height)); const cv=document.createElement("canvas"); cv.width=Math.round(im.width*k); cv.height=Math.round(im.height*k); const cx=cv.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,cv.width,cv.height); cx.drawImage(im,0,0,cv.width,cv.height); res(cv.toDataURL("image/jpeg",0.8)); }; im.src=r.result; }; r.readAsDataURL(file); }); }
+function resizeImage(file,max,q){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onerror=rej; r.onload=()=>{ const im=new Image(); im.onerror=rej; im.onload=()=>{ const k=Math.min(1,max/Math.max(im.width,im.height)); res(drawHQ(im,0,0,im.width,im.height,Math.round(im.width*k),Math.round(im.height*k)).toDataURL("image/jpeg",q||IMG.hdQ)); }; im.src=r.result; }; r.readAsDataURL(file); }); }
+/* high-definition copy; only if a photo is enormous does it step down slightly to stay storable */
+async function hdImage(file,max){ let m=max, q=IMG.hdQ; for(;;){ const u=await resizeImage(file,m,q); if(u.length<=IMG.cap||m<=1200) return u; if(q>0.86) q=0.86; else m=Math.round(m*0.85); } }
 async function addViews(files){
   const a=state.artworks[state.curArt]; if(!a||!files.length) return;
   state.views[a.id]=state.views[a.id]||{};
   const room=MAX_VIEWS-viewsList(a.id).length; const list=[...files].slice(0,room);
   if(files.length>room) setSave(`Maximum ${MAX_VIEWS} vues par œuvre : ${files.length-room} photo(s) non ajoutée(s)`,true);
   for(const f of list){
-    try{ const photo=await resizeImage(f,900); const v={id:uid(),photo,createdAt:new Date().toISOString()}; state.views[a.id][v.id]=v;
+    try{ const photo=await hdImage(f,IMG.artView); const v={id:uid(),photo,createdAt:new Date().toISOString()}; state.views[a.id][v.id]=v;
       const b=$("#viewsBox"); if(b) b.innerHTML=viewsHTML(a);
       if(db) await db.collection("artworks/"+a.id+"/views").doc(v.id).set(v); else await local.write();
       setSave("Vue ajoutée");
