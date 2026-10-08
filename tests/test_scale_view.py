@@ -124,6 +124,8 @@ with sync_playwright() as pw:
     # ======================= CLIENT =======================
     CMOCK = open(os.path.join(R, "tests", "client_mock.js"), encoding="utf-8").read()
     demo = json.load(open(os.path.join(R, "tests", "demo.json"), encoding="utf-8"))
+    for w in demo["works"]:
+        if w["id"] == "aur-07": w["scale_view"] = {"wall": "green", "artX": 40, "artY": 160, "chairX": -70}
     CSEED = {"users": [dict(id="u1", email="client@example.com", role="client")], "members": [dict(user_id="u1", collection_id=demo["coll"]["id"])],
              "tables": {"profiles": [dict(id="u1", role="client")], "collections": [demo["coll"]], "artworks": demo["works"],
                         "artwork_views": demo["views"], "expenses": demo["expenses"], "documents": []}, "files": {}}
@@ -171,10 +173,30 @@ with sync_playwright() as pw:
             last = r2.pages[-1]
             check(len(r2.pages) == len(r1.pages) + 1 and p.locator("#print .pscale img").count() == 1 and "chelle" in last.extract_text() and len(last.images) == 1, f"{name}: client — ticked: one more page, with the at-scale image ({len(r2.pages)} pages)")
             check(p.evaluate("localStorage.getItem('ls-scalepdf:aur-01')") == "1", f"{name}: client — PDF choice kept")
+        # a work whose composition was set in The Legacy: the client starts from it
+        p.evaluate("openWork('aur-07')"); p.wait_for_selector("#detail:not([hidden]) .dh")
+        p.wait_for_function("(()=>{const i=document.querySelector('#dScThumb'); return i && i.complete && i.naturalWidth===1600})()", timeout=20000)
+        check(p.locator("[data-scwall=green].on").count() == 1, f"{name}: client — starts from the wall chosen in The Legacy")
+        p.click("#dScTile"); p.click("#dScAdj"); p.wait_for_selector("#room:not([hidden]) canvas"); p.wait_for_function("R.W && R.art")
+        check(p.evaluate("Math.abs(R.artX-40)<1e-6 && Math.abs(R.artY-160)<1e-6 && Math.abs(R.chairX+70)<1e-6"), f"{name}: client — starts from the position set in The Legacy")
+        p.click("#rBack"); p.wait_for_timeout(100)
         # sculpture: no tile
         p.evaluate("openWork('aur-11')"); p.wait_for_selector("#detail:not([hidden]) .dh")
         check(p.locator("#dScTile").count() == 0, f"{name}: client — no at-scale image for a volume")
         ctx.close()
+    # database without the scale_view column (before SQL 005): the collection still opens
+    OLDMOCK = CMOCK.replace("select() { return q; },", "select(c) { if (table === 'artworks' && String(c || '').includes('scale_view')) ins = '__nocol'; return q; },")
+    OLDMOCK = OLDMOCK.replace("if (ins) {", "if (ins === '__nocol') return Promise.resolve({ data: null, error: { code: '42703', message: 'column artworks.scale_view does not exist' } }).then(res, rej);\n          if (ins) {", 1)
+    assert OLDMOCK != CMOCK
+    ctx = b.new_context(viewport=dict(width=1366, height=860), service_workers="block", locale="fr-FR")
+    ctx.route("**/supabase-js@*/**", lambda r: r.fulfill(status=200, content_type="application/javascript", body=OLDMOCK))
+    ctx.route("**/jszip.min.js", lambda r: r.fulfill(status=200, content_type="application/javascript", body=""))
+    ctx.route(re.compile(r"https://fonts\.(googleapis|gstatic)\.com/.*"), lambda r: r.fulfill(status=200, content_type="text/css", body=""))
+    p = ctx.new_page(); p.add_init_script(f"window.__SEED={json.dumps(CSEED)};window.__NET=true;window.LS_POLL_MS=600000;")
+    p.goto("http://127.0.0.1:8772/"); p.wait_for_selector("#gEmail"); p.fill("#gEmail", "client@example.com"); p.click("#gForm .btn")
+    p.wait_for_selector("#gCode"); p.fill("#gCode", "42424242"); p.wait_for_selector("#app:not([hidden])"); p.wait_for_timeout(900)
+    check(p.evaluate("S.data && S.data.works && S.data.works.length") == len(demo["works"]), "client — collection opens even without the scale_view column")
+    ctx.close()
     csrv.shutdown()
     check(not errors, "no script error" + (": " + "; ".join(errors[:3]) if errors else ""))
     b.close()

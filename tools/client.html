@@ -480,7 +480,8 @@ const DOC_COLS="id,kind,name,mime,size,storage_path,artwork_id,expense_id,create
 async function fetchCollection(cid){
   const q=async p=>{ const {data,error}=await p; if(error) throw error; return data||[]; };
   const [coll]=await q(sb.from("collections").select("id,slug,name,subtitle,display_currency,cover_artwork_id").eq("id",cid));
-  const works=await q(sb.from("artworks").select(ART_COLS).eq("collection_id",cid).order("artist"));
+  // scale_view: the at-scale composition set by Legacy Shaper (SQL 005); older databases without it still load
+  const works=await q(sb.from("artworks").select(ART_COLS+",scale_view").eq("collection_id",cid).order("artist")).catch(()=>q(sb.from("artworks").select(ART_COLS).eq("collection_id",cid).order("artist")));
   const ids=works.map(w=>w.id);
   let views=[]; for(let i=0;i<ids.length;i+=80) views=views.concat(await q(sb.from("artwork_views").select("id,artwork_id,sort,created_at").in("artwork_id",ids.slice(i,i+80))));
   const expenses=await q(sb.from("expenses").select(EXP_COLS).eq("collection_id",cid).eq("visible_to_client",true).order("date",{ascending:false}));
@@ -703,7 +704,9 @@ async function openWork(id,keep){
 function closeWork(){ S.openId=null; const d=$("#detail"); d.hidden=true; d.innerHTML=""; document.body.style.overflow=""; }
 const fileBase=w=>[w.artist,w.title,w.year].filter(Boolean).join(" - ").replace(/[\\/:*?"<>|]+/g,"").slice(0,120)||"artwork";
 /* view-at-scale settings chosen by this viewer (wall, position), kept on this device */
-function scaleGet(id){ try{ return JSON.parse(localStorage.getItem("ls-scale:"+id)||"null")||{}; }catch(e){ return {}; } }
+/* starts from the composition Legacy Shaper set for the work (scale_view); what the viewer adjusts is kept on this device */
+function scaleGet(id){ let v=null; try{ v=JSON.parse(localStorage.getItem("ls-scale:"+id)||"null"); }catch(e){}
+  if(v&&typeof v==="object") return v; const w=workById(id); return (w&&w.scale_view&&typeof w.scale_view==="object")?Object.assign({},w.scale_view):{}; }
 function scaleSet(id,v){ try{ localStorage.setItem("ls-scale:"+id,JSON.stringify(v)); }catch(e){} }
 function scalePdfGet(id){ try{ return localStorage.getItem("ls-scalepdf:"+id)==="1"; }catch(e){ return false; } }
 function scalePdfSet(id,on){ try{ if(on) localStorage.setItem("ls-scalepdf:"+id,"1"); else localStorage.removeItem("ls-scalepdf:"+id); }catch(e){} }
