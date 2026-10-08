@@ -2051,8 +2051,11 @@ function roomFloor(s=R){
 const roomCuts=new WeakMap();
 function roomCut(img,dims){
   if(!img||!dims) return null; const key=dims.w.toFixed(2)+"x"+dims.h.toFixed(2);
-  let m=roomCuts.get(img); if(m&&key in m) return m[key]; if(!m){ m={}; roomCuts.set(img,m); }
-  let r=null; try{ r=roomCutCompute(img,dims); }catch(e){ r=null; } m[key]=r; return r; }
+  let m=roomCuts.get(img); if(m&&key in m){ const r=m[key]; return r&&!r.fail?r:null; } if(!m){ m={}; roomCuts.set(img,m); }
+  let r=null; try{ r=roomCutCompute(img,dims); }catch(e){ r=null; } m[key]=r; return r&&!r.fail?r:null; }
+/* why a photo was not cut out (for a hint to Dylan): {fail:"edge", sides:[...]} the photo cuts the work,
+   {fail:"ratio", ar, dr} the outline's proportions differ from the dimensions; null when cut out or for an ordinary photo */
+function roomCutInfo(img,dims){ roomCut(img,dims); if(!img||!dims) return null; const m=roomCuts.get(img); const r=m&&m[dims.w.toFixed(2)+"x"+dims.h.toFixed(2)]; return r&&r.fail?r:null; }
 function roomCutCompute(img,dims){
   const MAX=1600, k0=Math.min(1,MAX/Math.max(img.width,img.height)), W=Math.max(8,Math.round(img.width*k0)), H=Math.max(8,Math.round(img.height*k0));
   const c=document.createElement("canvas"); c.width=W; c.height=H; const x=c.getContext("2d",{willReadFrequently:true});
@@ -2070,9 +2073,14 @@ function roomCutCompute(img,dims){
   const res=(m,p)=>Math.max(...[0,1,2].map(ch=>Math.abs(p[2+ch]-(m[ch][0]+m[ch][1]*p[0]+m[ch][2]*p[1]))));
   let model=fit(pts); if(!model) return null;
   const r1=pts.map(p=>res(model,p)).sort((a,b)=>a-b), cut1=Math.max(12,r1[Math.floor(r1.length*0.6)]*3);
-  const inl=pts.filter(p=>res(model,p)<=cut1); if(inl.length<pts.length*0.75) return null;   // border not plain: not a packshot
+  const inl=pts.filter(p=>res(model,p)<=cut1); if(inl.length<pts.length*0.5) return null;   // border mostly not plain: not a packshot
   model=fit(inl)||model;
-  const plain=pts.filter(p=>res(model,p)<22).length/pts.length; if(plain<0.8) return null;
+  const plain=pts.filter(p=>res(model,p)<22).length/pts.length; if(plain<0.5) return null;
+  if(model.some(m=>Math.abs(m[1])>45||Math.abs(m[2])>45)) return null;   // a wall's lighting varies gently, not from one colour to another
+  // the wall must show on every side of the photo (a work cut by the frame still leaves wall between its parts)
+  const sideOk=f=>{ const q=pts.filter(f); return q.length && q.filter(p=>res(model,p)<22).length/q.length>=0.3; };
+  const bx=band/W, by=band/H;
+  if(!(sideOk(p=>p[1]<by)&&sideOk(p=>p[1]>=1-by)&&sideOk(p=>p[0]<bx)&&sideOk(p=>p[0]>=1-bx))) return null;
   // 2) difference to the background → alpha
   // α = how much of the pixel is the work: darkening of the background (shadows, dark bars) counts as black over the wall,
   // any other difference (colour, lighter than the wall) counts fully once clear of the photo's noise
@@ -2085,10 +2093,12 @@ function roomCutCompute(img,dims){
     let a=Math.max(Math.min(1,Math.max(0,(dark-0.035)*1.12)), dd<=T0?0:dd>=T1?1:(dd-T0)/(T1-T0));
     if(a<0.05) a=0; a=Math.round(a*255); alpha[y*W+xx]=a; if(a>127) fg++; } }
   if(fg<W*H*0.004) return null;
-  // the work must not run off the photo
-  let touch=0, edge=0; for(let xx=0;xx<W;xx+=step){ edge+=2; if(alpha[xx]>127) touch++; if(alpha[(H-1)*W+xx]>127) touch++; }
-  for(let y=0;y<H;y+=step){ edge+=2; if(alpha[y*W]>127) touch++; if(alpha[y*W+W-1]>127) touch++; }
-  if(touch>edge*0.08) return null;
+  // the whole work must be in the photo: a work cut by the frame cannot be measured
+  const side=(get,n)=>{ let t=0,c=0; for(let i=1;i<n-1;i+=step){ c++; if(get(i)>127) t++; } return c?t/c:0; };
+  const cov={top:side(i=>alpha[i],W), bottom:side(i=>alpha[(H-1)*W+i],W), left:side(i=>alpha[i*W],H), right:side(i=>alpha[i*W+W-1],H)};
+  const cutSides=Object.keys(cov).filter(k=>cov[k]>0.04);
+  if(cutSides.length){ if(cutSides.length>=3) return null;   // photographed (almost) edge to edge: an ordinary photo, no wall to remove
+    return {fail:"edge",sides:cutSides}; }
   // 3) minimum-area rectangle around the work (convex hull + rotating calipers)
   const P=[]; const st=Math.max(1,Math.round(Math.min(W,H)/500));
   for(let y=0;y<H;y+=st) for(let xx=0;xx<W;xx+=st) if(alpha[y*W+xx]>127) P.push([xx+0.5,y+0.5]);
@@ -2108,7 +2118,7 @@ function roomCutCompute(img,dims){
   while(ang>Math.PI/4){ ang-=Math.PI/2; [rw,rh]=[rh,rw]; } while(ang<=-Math.PI/4){ ang+=Math.PI/2; [rw,rh]=[rh,rw]; }
   if(Math.abs(ang)<0.8*Math.PI/180) ang=0;                       // straight enough: simply framed
   // the outline must agree with the dimensions (otherwise the photo is not a plain packshot of this work)
-  const ar=rw/rh, dr=dims.w/dims.h; if(Math.abs(Math.log(ar/dr))>Math.log(1.3)) return null;
+  const ar=rw/rh, dr=dims.w/dims.h; if(Math.abs(Math.log(ar/dr))>Math.log(1.3)) return {fail:"ratio",ar,dr};
   // 4) openwork or solid?
   const ca=Math.cos(ang), sa=Math.sin(ang); let ins=0, insBg=0;
   const inRectPx=(px,py,pad)=>{ const dx=px-best.cx, dy=py-best.cy, u=dx*ca+dy*sa, v=-dx*sa+dy*ca; return [rw/2+pad-Math.abs(u), rh/2+pad-Math.abs(v)]; };
@@ -2285,13 +2295,21 @@ function scaleHTML(a){
   const wall=(a.scaleView&&a.scaleView.wall)||"pearl";
   return `<div class="scalebox" id="scaleBox"><div class="sctitle">Vue à l’échelle <span class="lock">automatique</span></div>
     <button type="button" class="scimg" id="scaleOpen" aria-label="Agrandir la vue à l’échelle"><span class="hint">Préparation de la vue…</span></button>
+    <p class="hint keep" id="scaleNote" hidden style="margin:8px 0 0;max-width:640px"></p>
     <div class="scbar"><div class="sw" role="group" aria-label="Couleur du mur">${ROOM.walls.map(([k,c])=>`<button type="button" data-scwall="${k}" title="${esc(ROOM_TXT.fr.walls[k])}" aria-label="${esc(ROOM_TXT.fr.walls[k])}" style="background:${c}" class="${k===wall?"on":""}"></button>`).join("")}</div>
       <button type="button" class="btn" id="scaleAdjust">Ajuster l’emplacement</button><button type="button" class="btn" id="scaleDl">Télécharger</button><label class="provck"><input type="checkbox" id="scalePdfBar" class="keepon" ${a.scalePdf?"checked":""}> Ajouter à la fiche PDF</label><label class="provck" title="Retire le fond de la photo et accroche l’œuvre selon son angle"><input type="checkbox" id="scaleCut" ${(a.scaleView&&a.scaleView.cut==="off")?"":"checked"}> Détourage automatique</label></div></div>`; }
 let scaleSeq=0;
 async function scaleRefresh(a){
   if(!a||!scaleOK(a)) return; const my=++scaleSeq;
   const u=await scaleImage(a); if(my!==scaleSeq||state.curArt!==a.id) return;
-  const b=$("#scaleOpen"); if(b&&u) b.innerHTML=`<img src="${u}" alt="Vue à l’échelle">`; }
+  const b=$("#scaleOpen"); if(b&&u) b.innerHTML=`<img src="${u}" alt="Vue à l’échelle">`;
+  // tell why the work could not be cut out of its photo
+  const n=$("#scaleNote"); if(!n) return; let txt="";
+  if(!(a.scaleView&&a.scaleView.cut==="off")){ const info=roomCutInfo(await roomImg(scaleSrc(a)),parseDims(a.dimensions));
+    const SIDES={top:"en haut",bottom:"en bas",left:"à gauche",right:"à droite"};
+    if(info&&info.fail==="edge") txt=`La photo coupe l’œuvre (${info.sides.map(k=>SIDES[k]).join(", ").replace(/, ([^,]*)$/," et $1")}) : la vue reprend la photo telle quelle. Pour un détourage exact, ajoutez une photo de l’œuvre entière, avec un peu de mur tout autour.`;
+    else if(info&&info.fail==="ratio"){ const f=v=>v.toFixed(2).replace(".",","); txt=`Sur la photo, l’œuvre est ${f(info.ar)} fois plus large que haute, alors que les dimensions saisies (${esc(a.dimensions)}, hauteur × largeur) donnent ${f(info.dr)}. Vérifiez l’ordre des dimensions ou ajoutez une photo de l’œuvre entière.`; } }
+  if(my!==scaleSeq||state.curArt!==a.id) return; n.textContent=txt; n.hidden=!txt; }
 function scaleRedraw(a){ const w=$("#scaleWrap"); if(w) w.innerHTML=scaleHTML(a); scaleRefresh(a); }
 async function scaleDownload(a){
   const u=await scaleImage(a,true); if(!u) return;
@@ -3324,6 +3342,6 @@ if("serviceWorker" in navigator){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v47cda11d</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">vab37601b</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>

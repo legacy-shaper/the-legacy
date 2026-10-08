@@ -41,7 +41,15 @@ def solid():             # painting with white areas, hung at 6°
     art = art.convert("RGBA").rotate(6, expand=True, resample=Image.BICUBIC); bg = backdrop(); bg.paste(art, (150, 170), art); return bg
 def fullframe():         # a painting photographed edge to edge: no background to remove
     im = Image.new("RGB", (800, 600), (120, 40, 30)); d = ImageDraw.Draw(im); d.rectangle((0, 300, 800, 600), fill=(30, 30, 90)); return im
-OPEN_URL, SOLID_URL, FULL_URL = jpg_url(openwork()), jpg_url(solid()), jpg_url(fullframe())
+def shapes_cut():        # coloured shaped panels on a white wall, the photo cutting the work at the top and bottom (like the Sperling photo)
+    bg = backdrop(); d = ImageDraw.Draw(bg); import random; rnd = random.Random(3)
+    for i in range(60):
+        x = rnd.randint(150, 700); y = rnd.randint(-60, 900); c = rnd.choice([(120, 60, 160), (220, 60, 90), (240, 120, 70), (200, 80, 160)])
+        d.ellipse((x, y, x + rnd.randint(40, 120), y + rnd.randint(20, 70)), fill=c)
+    return bg
+def tight():             # whole painting, framed with only a thin strip of wall around it
+    bg = backdrop(700); d = ImageDraw.Draw(bg); d.rectangle((14, 160, 686, 540), fill=(40, 70, 130)); d.rectangle((300, 200, 600, 400), fill=(245, 245, 240)); return bg
+OPEN_URL, SOLID_URL, FULL_URL, CUT_URL, TIGHT_URL = jpg_url(openwork()), jpg_url(solid()), jpg_url(fullframe()), jpg_url(shapes_cut()), jpg_url(tight())
 
 class Quiet(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *a): pass
@@ -142,7 +150,7 @@ with sync_playwright() as pw:
                 const at=(px,py)=>x.getImageData(Math.round(px*sc),Math.round(py*sc),1,1).data[3]; out.hole=at(450-25*Math.cos(0.157)+0,450+25); out.outside=at(30,30); }
               const k2=roomCut(await roomImg(s),parseDims('100 x 133 cm')); out.solid=k2&&{ang:k2.angle*180/Math.PI,open:k2.open,rw:k2.rw,rh:k2.rh};
               if(k2){ const x=k2.canvas.getContext('2d'), sc=k2.canvas.width/900; out.white=x.getImageData(Math.round(560*sc),Math.round(520*sc),1,1).data; }
-              out.full=roomCut(await roomImg(f),parseDims('60 x 80 cm'));
+              out.full=roomCut(await roomImg(f),parseDims('60 x 80 cm')); out.fullInfo=roomCutInfo(await roomImg(f),parseDims('60 x 80 cm'));
               out.mismatch=roomCut(await roomImg(o),parseDims('50 x 140 cm'));
               const c=await roomRender({dimensions:'140 x 140 cm'},o,{wall:'green'}); const g=c.getContext('2d');
               const s2={dims:parseDims('140 x 140 cm'),chair:await roomImg('room-chair.webp'),cut:roomCut(im,parseDims('140 x 140 cm'))}; roomDefaults(s2,false); roomFit(s2,1600,1200,1,true);
@@ -161,7 +169,24 @@ with sync_playwright() as pw:
             check(s_ and abs(s_["ang"] + 6) < 0.8 and not s_["open"], f"{name}: cut-out — solid painting found at its angle, kept whole")
             check(r["white"][3] == 255 and r["white"][0] > 240, f"{name}: cut-out — the painting's white areas are kept")
             check(r["full"] is None, f"{name}: cut-out — photo without background: left as it was")
+            check(r["fullInfo"] is None, f"{name}: cut-out — and no warning for an ordinary photo")
+            e = p.evaluate("""async([c,tt])=>{ const d=parseDims('200 x 360 cm'); const ic=await roomImg(c);
+                const t2=await roomImg(tt), k=roomCut(t2,parseDims('38 x 67 cm'));
+                return {cut:roomCut(ic,d), info:roomCutInfo(ic,d), tight:k&&{ang:k.angle,open:k.open,ratio:k.rw/k.rh}}; }""", [CUT_URL, TIGHT_URL])
+            check(e["cut"] is None and e["info"] and e["info"]["fail"] == "edge" and sorted(e["info"]["sides"]) == ["bottom", "top"], f"{name}: cut-out — work cut by the photo at the top and bottom: detected ({e['info']})")
+            check(e["tight"] and e["tight"]["ang"] == 0 and not e["tight"]["open"] and abs(e["tight"]["ratio"] - 672 / 380) < 0.05, f"{name}: cut-out — tightly framed whole work: still cut out")
             check(r["mismatch"] is None, f"{name}: cut-out — outline far from the dimensions: left as it was")
+            # hints in the work's card
+            p.evaluate("(u)=>{ state.views.art1.v1.photo=u; const a=state.artworks.art1; a.dimensions='200 x 360 cm'; for(const k in scaleCache) delete scaleCache[k]; scaleRedraw(a); }", CUT_URL)
+            p.wait_for_selector("#scaleNote:not([hidden])", timeout=20000)
+            check("coupe l’œuvre (en haut et en bas)" in p.inner_text("#scaleNote"), f"{name}: master — hint: the photo cuts the work at the top and bottom")
+            p.evaluate("(u)=>{ state.views.art1.v1.photo=u; const a=state.artworks.art1; a.dimensions='50 x 140 cm'; for(const k in scaleCache) delete scaleCache[k]; scaleRedraw(a); }", OPEN_URL)
+            p.wait_for_function("(()=>{const n=document.querySelector('#scaleNote'); return n && !n.hidden && n.textContent.includes('Vérifiez l’ordre des dimensions')})()", timeout=20000)
+            check(True, f"{name}: master — hint: proportions differ from the dimensions")
+            p.evaluate("(u)=>{ state.views.art1.v1.photo=u; const a=state.artworks.art1; a.dimensions='140 x 140 cm'; for(const k in scaleCache) delete scaleCache[k]; scaleRedraw(a); }", OPEN_URL)
+            p.wait_for_function("(()=>{const n=document.querySelector('#scaleNote'); return n && n.hidden})()", timeout=20000)
+            check(True, f"{name}: master — no hint when the work is cut out")
+            p.evaluate("(()=>{ const a=state.artworks.art1; a.dimensions='130 x 100 cm'; state.views.art1.v1.photo=window.__HD0; for(const k in scaleCache) delete scaleCache[k]; scaleRedraw(a); })()")
             # the work's switch
             p.click("#scaleCut"); p.wait_for_timeout(1500)
             check(DOC("art1").get("scaleView", {}).get("cut") == "off", f"{name}: master — 'Détourage automatique' can be switched off")
