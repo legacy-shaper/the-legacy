@@ -303,6 +303,24 @@ body.home-on{overflow:hidden}
 .btn.primary{background:var(--green);color:#F3EEDF;border-color:var(--green)}
 .btn.primary:hover{background:var(--green-2)}
 .btn svg{width:14px;height:14px}
+.crtop{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.crchips{display:flex;flex-wrap:wrap;gap:6px}
+.crchip{border:1px solid var(--line-2);background:var(--surface-2);color:var(--ink);border-radius:999px;padding:7px 13px;font:inherit;font-size:13px;min-height:36px;cursor:pointer}
+.crchip:hover{border-color:var(--gold)}.crchip.on{background:var(--green);border-color:var(--green);color:#F3EEDF}
+.crlbl{font:600 10.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px}
+.crate{border-top:1px solid var(--line);padding-top:6px;margin-top:10px}.crate:first-of-type{border-top:0}
+.crate-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:8px 0 0}
+.crfeat{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 16px}
+.crfeat label{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;cursor:pointer}.crfeat input{margin-top:3px;accent-color:var(--green)}
+.crh{font-variant-numeric:tabular-nums;min-height:1em}
+.crcalc{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 16px;border-top:1px solid var(--line);margin:14px 0 14px}
+.crcalc div{padding:12px 0;border-bottom:1px solid var(--line);display:grid;gap:2px;min-width:0}
+.crcalc b{font:600 20px/1.1 var(--serif,Georgia,serif);color:var(--green);font-variant-numeric:tabular-nums}
+.crcalc span{font-size:12px;color:var(--muted)}
+:root[data-theme="dark"] .crcalc b{color:var(--gold)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .crcalc b{color:var(--gold)}}
+.crfoot{margin-top:14px;display:flex;justify-content:flex-end}
+#crCard .lnk{margin-top:10px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 18px 20px;margin-bottom:16px}
 .card h2{font:600 10.5px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin:0 0 14px;display:flex;justify-content:space-between;align-items:center}
 .grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
@@ -1405,7 +1423,7 @@ async function fullBackupZip(onStep){
   zip.file("settings/company.json", j(state.company));
   for(const coll of ["invoices","contacts","artworks","expenses"]) for(const [id,o] of Object.entries(state[coll]||{})) zip.file(`${coll}/${id}.json`, j(o));
   for(const [aid,vs] of Object.entries(state.views||{})) for(const [vid,v] of Object.entries(vs||{})) zip.file(`artworks/${aid}/views/${vid}.json`, j(v));
-  const files={}; for(const coll of ["invoices","expenses","contacts"]) for(const o of Object.values(state[coll]||{})) for(const f of allFilesOf(o)) files[f.id]=f;
+  const files={}; for(const coll of ["invoices","expenses","contacts","artworks"]) for(const o of Object.values(state[coll]||{})) for(const f of allFilesOf(o)) files[f.id]=f;
   let n=0; const ext=t=>t==="application/pdf"?"pdf":t==="image/png"?"png":t==="image/jpeg"?"jpg":"bin";
   for(const f of Object.values(files)){ n++; onStep&&onStep(`Justificatifs ${n}/${Object.keys(files).length}…`); try{ zip.file(`assets/${f.id}.${ext(f.type)}`, await fileBlob(f)); }catch(e){} }
   return await zip.generateAsync({type:"blob",compression:"DEFLATE"});
@@ -1440,7 +1458,7 @@ async function zipToBackup(file, z){
 }
 async function uploadBackupAssets(d, z){
   const ids=Object.keys(d.assets||{}); if(!ids.length||!assetsCap) return 0; let n=0;
-  const types={}; for(const coll of ["invoices","expenses","contacts"]) for(const o of Object.values(d[coll]||{})) for(const f of allFilesOf(o)) types[f.id]=f.type;
+  const types={}; for(const coll of ["invoices","expenses","contacts","artworks"]) for(const o of Object.values(d[coll]||{})) for(const f of allFilesOf(o)) types[f.id]=f.type;
   for(const id of ids){ if(z) z.firstElementChild&&(z.firstElementChild.firstElementChild.textContent=`Envoi des justificatifs… ${n+1}/${ids.length}`);
     const blob=await d.assets[id].async("blob"); await assetsCap.upload(blob,{type:types[id]||"application/octet-stream",id}); n++; }
   return n;
@@ -1509,6 +1527,123 @@ function collCard(a){
     :`<div class="f s6"><span class="hint keep">Rattachez l’œuvre à la collection d’un client pour qu’elle apparaisse dans son application Legacy Shaper. Le prix de vente, la marge et l’intermédiaire ne sont jamais montrés au client.</span></div>`}
   </div></div>`;
 }
+/* ===== Emballage & caisse (crating) — full detail for Legacy Shaper; a read-only subset reaches the client app
+   when "Visible par le client" is on (SQL 006: artworks.crating + crate photos in documents, kind 'crating') ===== */
+const CR_STATUS=[["none","Sans emballage"],["packed","Emballée"],["todo","Caisse à fabriquer"],["making","En fabrication"]];
+const CR_TYPES=[["soft","Soft packing"],["tframe","T-frame"],["travel","Travel frame"],["museum","Caisse internationale (musée)"],["slatted","Caisse claire-voie"],["climate","Caisse climatique"],["solander","Boîte Solander (papier)"],["sculpture","Caisse sculpture / socle"]];
+const CR_FEATURES=[["ispm15","Bois traité ISPM 15 (tamponné)"],["foam","Intérieur mousse polyéthylène"],["thermal","Isolation thermique"],["tyvek","Œuvre sous Tyvek / glassine"],["corners","Coins et cales de protection"],["cleats","Fixations vissées (cleats)"],["marks","Marquages « Haut / Fragile »"],["shock","Indicateurs de choc / inclinaison"]];
+const CR_WHERE=[["","Non renseigné"],["with","Avec l’œuvre"],["stored","Stockée vide, séparément"],["destroyed","Détruite / non conservée"]];
+const CR_HANDLING=[["","Non renseigné"],["1p","1 personne"],["2p","2 personnes"],["3p","3 personnes et plus"],["forklift","Chariot / transpalette"]];
+const CR_ORIENT=[["","Non renseigné"],["upright","Debout (sur la tranche)"],["flat","À plat"],["any","Indifférent"]];
+const crNum=v=>{ const n=parseFloat(String(v??"").replace(/\s/g,"").replace(",",".")); return isFinite(n)&&n>0?n:0; };
+const crFmt=(x,d)=>x.toLocaleString("fr-FR",{minimumFractionDigits:d,maximumFractionDigits:d});
+const newCrate=()=>({id:uid(),type:"",features:[],h:"",w:"",d:"",kg:"",tare:"",ref:""});
+function crOf(a){ const c=a.crating&&typeof a.crating==="object"?a.crating:null; return c; }
+function crEnsure(a){ if(!crOf(a)) a.crating={status:"",visibleToClient:false,crates:[newCrate()],files:[]}; const c=a.crating; if(!Array.isArray(c.crates)||!c.crates.length) c.crates=[newCrate()]; if(!Array.isArray(c.files)) c.files=[]; return c; }
+function crCalc(c){ let vol=0,air=0,kg=0,tare=0,full=true;
+  for(const x of (c.crates||[])){ const h=crNum(x.h),w=crNum(x.w),d=crNum(x.d),k=crNum(x.kg); if(!(h&&w&&d)) full=false; vol+=h*w*d/1e6; air+=h*w*d/6000; kg+=k; tare+=crNum(x.tare); }
+  return {vol,air,kg,tare,net:kg&&tare?Math.max(0,kg-tare):0,tax:Math.max(air,kg),ft3:vol*35.3147,full}; }
+function crCalcHTML(c){ const r=crCalc(c), n=(c.crates||[]).length;
+  const cell=(v,lbl,id)=>`<div><b id="${id}">${v}</b><span>${lbl}</span></div>`;
+  return `${cell(r.vol?crFmt(r.vol,3)+" m³":"—",(n>1?"Volume total ("+n+" colis)":"Volume de la caisse")+(r.vol?" · "+crFmt(r.ft3,1)+" ft³":""),"crVol")}
+    ${cell(r.kg?crFmt(r.kg,1)+" kg":"—","Poids brut"+(r.kg?" · "+crFmt(r.kg*2.20462,1)+" lb":""),"crKg")}
+    ${cell(r.air?crFmt(r.air,1)+" kg":"—","Poids volumétrique aérien (L × l × h ÷ 6 000)","crAir")}
+    ${cell((r.air||r.kg)?crFmt(r.tax,1)+" kg":"—","Poids taxable aérien (le plus élevé des deux)","crTax")}
+    ${r.net?cell(crFmt(r.net,1)+" kg","Œuvre et calage (brut − tare)","crNet"):""}`; }
+function crHint(v,unit){ const n=crNum(v); if(!n) return ""; return unit==="cm"?crFmt(n/2.54,1)+" in":crFmt(n*2.20462,1)+" lb"; }
+function crIn(label,path,val,cls,o={}){ const id="cr_"+path.replace(/\./g,"_");
+  let inp; if(o.select) inp=`<select id="${id}" data-cr="${path}">${o.select.map(x=>`<option value="${esc(x[0])}" ${String(x[0])===String(val??"")?"selected":""}>${esc(x[1])}</option>`).join("")}</select>`;
+  else if(o.area) inp=`<textarea id="${id}" data-cr="${path}" rows="${o.rows||2}" placeholder="${esc(o.ph||"")}">${esc(val||"")}</textarea>`;
+  else inp=`<input id="${id}" data-cr="${path}" type="${o.type||"text"}" value="${esc(val||"")}" placeholder="${esc(o.ph||"")}" ${o.num?'class="num" inputmode="decimal"':""}>`;
+  return `<div class="f ${cls}"><label for="${id}">${label}</label>${inp}${o.hint!==undefined?`<span class="hint keep crh" id="${id}_h">${esc(o.hint)}</span>`:""}</div>`; }
+function crateHTML(c,x,i){ const n=c.crates.length;
+  return `<div class="crate" data-crate="${x.id}">
+    ${n>1?`<div class="crate-h"><span class="itag">Colis ${i+1} / ${n}</span><button type="button" class="btn danger" data-crdel="${x.id}">Retirer ce colis</button></div>`:""}
+    <div class="crlbl">Type d’emballage</div>
+    <div class="crchips" role="group" aria-label="Type d’emballage">${CR_TYPES.map(([k,l])=>`<button type="button" class="crchip ${x.type===k?"on":""}" aria-pressed="${x.type===k}" data-crtype="${k}" data-crid="${x.id}">${esc(l)}</button>`).join("")}</div>
+    <div class="crlbl">Caractéristiques</div>
+    <div class="crfeat">${CR_FEATURES.map(([k,l])=>`<label><input type="checkbox" data-crfeat="${k}" data-crid="${x.id}" ${(x.features||[]).includes(k)?"checked":""}> ${esc(l)}</label>`).join("")}</div>
+    <div class="crlbl">Dimensions extérieures et poids</div>
+    <div class="grid">
+      ${crIn("Hauteur (cm)","crates."+i+".h",x.h,"s2 half",{num:1,ph:"0",hint:crHint(x.h,"cm")})}${crIn("Largeur (cm)","crates."+i+".w",x.w,"s2 half",{num:1,ph:"0",hint:crHint(x.w,"cm")})}${crIn("Profondeur (cm)","crates."+i+".d",x.d,"s2 half",{num:1,ph:"0",hint:crHint(x.d,"cm")})}
+      ${crIn("Poids brut caisse + œuvre (kg)","crates."+i+".kg",x.kg,"s2 half",{num:1,ph:"0",hint:crHint(x.kg,"kg")})}${crIn("Poids de la caisse vide (kg)","crates."+i+".tare",x.tare,"s2 half",{num:1,ph:"Facultatif",hint:crHint(x.tare,"kg")})}${crIn("N° de caisse / marquage","crates."+i+".ref",x.ref,"s2",{ph:"Ex. AUR-012-C1"})}
+    </div></div>`; }
+function crFilesHTML(c){ const fs=c.files||[];
+  return `${fs.length?`<div class="efiles">${fs.map(f=>`<div class="efile"><span class="fi">${FILE_ICON[fileKind(f)]}</span><span class="fn">${esc(f.name||"Document")}<small>${[f.addedAt?fdate(f.addedAt.slice(0,10),"fr"):"",f.size?Math.max(1,Math.round(f.size/1024))+" Ko":""].filter(Boolean).map(esc).join(" · ")}</small></span>
+      <label class="provck" title="Montrer ce fichier au client quand la section est visible"><input type="checkbox" data-crfvis="${f.id}" ${f.internal?"":"checked"}> Client</label>
+      <button type="button" class="btn" data-fview="${f.id}">Voir</button><button type="button" class="btn" data-fdl="${f.id}">Télécharger</button>${VIEWER?"":`<button type="button" class="btn danger" data-fdel="${f.id}" aria-label="Supprimer">${ICON.trash}</button>`}</div>`).join("")}</div>`:`<p class="hint keep">Aucune photo ni fiche de colisage.</p>`}
+    ${VIEWER||window.LEGACY_SB?.offline?"":assetsCap?`<label class="btn addfile"><input type="file" id="crFile" accept="application/pdf,image/*" multiple hidden>+ Photos de la caisse ou fiche de colisage (PDF)</label>`:`<p class="hint keep">Pour joindre une photo de caisse, envoyez-la à Claude dans la conversation.</p>`}
+    <div class="msg" id="crFileMsg" hidden></div>`; }
+function crCostHTML(a,c){ const e=c.expenseId&&state.expenses[c.expenseId];
+  if(e){ const st=expStatus(e); return `<div class="hist"><button type="button" class="hrow" data-expopen="${e.id}"><span class="n">${esc(e.supplier||"Fournisseur")}</span><span class="c">${esc(fdate(e.date,"fr"))}${e.ref?" · "+esc(e.ref):""}</span><span class="a">${e.amount?mC(num(e.amount),e.currency):"Montant à saisir"}</span><span class="chip ${st==="paid"?"paid":st==="late"?"late":"sent"}">${EXP_STATUS[st]}</span></button></div><p class="hint keep">Facture fournisseur de la caisse, comptée dans les dépenses de l’œuvre.</p>`; }
+  return VIEWER?`<p class="hint keep">Aucune facture de caisse liée.</p>`:`<button type="button" class="btn" id="crExp">+ Créer la facture fournisseur de la caisse</button><p class="hint keep">Elle sera liée à l’œuvre et reprendra le devis ci-dessus.</p>`; }
+function cratingCard(a){
+  const c=crOf(a);
+  if(!c) return `<div class="card" id="crCard"><h2>Emballage &amp; caisse <span class="lock">Logistique</span></h2><p class="hint keep">Type de caisse, dimensions, poids, fabricant et photos : tout ce dont un transitaire a besoin, sans rien redemander.</p>${VIEWER?"":`<button type="button" class="btn" id="crStart">+ Renseigner l’emballage</button>`}</div>`;
+  const cs=sortedContacts(); const mk=c.makerContactId&&state.contacts[c.makerContactId]?c.makerContactId:((c.maker||window.__crOther)?"__other":"");
+  const vis=!!c.visibleToClient, inColl=!!a.collectionId;
+  return `<div class="card" id="crCard"><h2>Emballage &amp; caisse <span class="lock">${vis&&inColl?"Visible par le client":"Interne"}</span></h2>
+    <div class="crtop"><div class="crchips" role="group" aria-label="État de l’emballage">${CR_STATUS.map(([k,l])=>`<button type="button" class="crchip ${c.status===k?"on":""}" aria-pressed="${c.status===k}" data-crstatus="${k}">${esc(l)}</button>`).join("")}</div>
+      <label class="provck crvis" title="${inColl?"Montrer au client l’état, le type, les dimensions, le poids, l’emplacement de la caisse et les photos cochées":"Rattachez d’abord l’œuvre à une collection client"}"><input type="checkbox" id="crVis" ${vis?"checked":""} ${inColl?"":"disabled"}> Visible par le client</label></div>
+    ${c.crates.map((x,i)=>crateHTML(c,x,i)).join("")}
+    ${VIEWER?"":`<button type="button" class="lnk" id="crAdd">+ Ajouter un colis (socle, cadre, éléments séparés)</button>`}
+    <div class="crcalc" id="crCalc" aria-live="polite">${crCalcHTML(c)}</div>
+    <div class="grid">
+      <div class="f s3"><label for="cr_maker_sel">Fabricant de la caisse</label><select id="cr_maker_sel" data-crmaker><option value="">Non renseigné</option>${cs.map(ct=>`<option value="${ct.id}" ${mk===ct.id?"selected":""}>${esc(ct.name||ct.company||"Sans nom")}${ct.name&&ct.company?" · "+esc(ct.company):""}</option>`).join("")}<option value="__other" ${mk==="__other"?"selected":""}>Autre (saisir le nom)</option></select>
+        ${mk==="__other"?`<input id="cr_maker" data-cr="maker" value="${esc(c.maker||"")}" placeholder="Nom du caissier / transitaire">`:""}</div>
+      ${crIn("Date de fabrication","date",c.date,"s3",{type:"date"})}
+      ${crIn("Où est la caisse ?","where",c.where,"s2",{select:CR_WHERE})}${crIn("Manutention","handling",c.handling,"s2",{select:CR_HANDLING})}${crIn("Sens de transport","orientation",c.orientation,"s2",{select:CR_ORIENT})}
+      ${crIn("Devis / coût prévu","quote",c.quote,"s3 half",{num:1,ph:"0"})}${crIn("Devise","quoteCurrency",c.quoteCurrency||"USD","s3 half",{select:EXP_CURS.map(x=>[x,x])})}
+      <div class="f s6" id="crCost">${crCostHTML(a,c)}</div>
+      ${crIn("Notes internes (ouverture, vis, consignes de déballage)","notes",c.notes,"s6",{area:1,rows:2})}
+      ${crIn("Note visible par le client","clientNote",c.clientNote,"s6",{area:1,rows:2,ph:"Ex. Caisse conservée au port franc, prête pour le prochain prêt."})}
+    </div>
+    <div class="crlbl">Photos de la caisse et fiche de colisage</div><div id="crFiles">${crFilesHTML(c)}</div>
+    ${VIEWER?"":`<div class="crfoot"><button type="button" class="btn danger" id="crClear">${ICON.trash}Effacer la section emballage</button></div>`}
+  </div>`;
+}
+function crRefresh(a){ const c=crOf(a); if(!c) return; const cc=$("#crCalc"); if(cc) cc.innerHTML=crCalcHTML(c);
+  c.crates.forEach((x,i)=>["h","w","d","kg","tare"].forEach(k=>{ const h=$("#cr_crates_"+i+"_"+k+"_h"); if(h) h.textContent=crHint(x[k],k==="kg"||k==="tare"?"kg":"cm"); })); }
+function crRerender(){ const a=state.artworks[state.curArt]; const el=$("#crCard"); if(a&&el){ el.outerHTML=cratingCard(a); } }
+function crSave(a){ schedDoc("artworks",a.id); }
+async function addCrateFiles(files){
+  const a=state.artworks[state.curArt]; if(!a||!assetsCap) return; const c=crEnsure(a); const msg=$("#crFileMsg"); let added=0,lastErr="";
+  for(const file of files){ if(msg){ msg.hidden=false; msg.textContent="Envoi de « "+file.name+" »…"; }
+    try{ let blob=file,type=file.type,name=file.name;
+      if(type.startsWith("image/")){ const du=await resizeImage(file,2400); blob=await (await fetch(du)).blob(); type="image/jpeg"; name=name.replace(/\.[^.]+$/,"")+".jpg"; }
+      else if(type!=="application/pdf"){ lastErr="« "+file.name+" » : format non accepté, PDF ou photo uniquement."; continue; }
+      const r=await assetsCap.upload(blob,{type}); c.files.push({id:r.id,name,type:r.contentType,size:r.sizeBytes,addedAt:new Date().toISOString()});
+      fileCache[r.id]=blob; try{ await idb.set("f:"+r.id,blob); }catch(e){}
+      await flushDoc("artworks",a.id); added++;
+    }catch(err){ lastErr=err?.code==="too_large"?"« "+file.name+" » : fichier trop lourd (50 Mo maximum).":"« "+file.name+" » : l’envoi n’a pas abouti. Réessayez."; } }
+  if(added){ setSave(added>1?added+" fichiers ajoutés":"Fichier ajouté"); const f=$("#crFiles"); if(f) f.innerHTML=crFilesHTML(c); }
+  const m2=$("#crFileMsg"); if(m2){ m2.hidden=!lastErr; m2.textContent=lastErr; }
+}
+/* crating events (own listeners, so the generic artwork handlers stay untouched) */
+document.addEventListener("input",e=>{ const p=e.target.dataset?.cr; if(!p) return; const a=state.artworks[state.curArt]; if(!a) return; const c=crEnsure(a);
+  const parts=p.split("."); if(parts[0]==="crates"){ const x=c.crates[+parts[1]]; if(!x) return; x[parts[2]]=e.target.value; } else c[p]=e.target.value;
+  crSave(a); crRefresh(a); });
+document.addEventListener("change",e=>{ const t=e.target; const a=state.artworks[state.curArt]; if(!a) return;
+  if(t.dataset?.crfeat){ const c=crEnsure(a), x=c.crates.find(z=>z.id===t.dataset.crid); if(!x) return; const s=new Set(x.features||[]); t.checked?s.add(t.dataset.crfeat):s.delete(t.dataset.crfeat); x.features=CR_FEATURES.map(f=>f[0]).filter(k=>s.has(k)); crSave(a); return; }
+  if(t.id==="crVis"){ const c=crEnsure(a); c.visibleToClient=!!t.checked; crSave(a); crRerender(); setSave(t.checked?"Emballage visible par le client":"Emballage gardé en interne"); return; }
+  if(t.dataset?.crfvis){ const c=crEnsure(a), f=c.files.find(z=>z.id===t.dataset.crfvis); if(!f) return; if(t.checked) delete f.internal; else f.internal=true; crSave(a); return; }
+  if(t.dataset && t.dataset.crmaker!==undefined){ const c=crEnsure(a), v=t.value; window.__crOther=v==="__other";
+    if(v==="__other"){ if(c.makerContactId) c.maker=""; c.makerContactId=""; } else if(v===""){ c.makerContactId=""; c.maker=""; } else { const ct=state.contacts[v]; c.makerContactId=v; c.maker=ct?(ct.name||ct.company||""):""; }
+    crSave(a); crRerender(); if(v==="__other"){ const f=$("#cr_maker"); if(f) f.focus(); } return; }
+  if(t.id==="crFile"){ const fs=[...(t.files||[])]; t.value=""; if(fs.length) addCrateFiles(fs); return; }
+});
+document.addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b||!b.closest("#crCard")) return; const a=state.artworks[state.curArt]; if(!a) return;
+  if(b.id==="crStart"){ crEnsure(a); crSave(a); crRerender(); return; }
+  if(b.dataset.crstatus){ const c=crEnsure(a); c.status=c.status===b.dataset.crstatus?"":b.dataset.crstatus; crSave(a); crRerender(); return; }
+  if(b.dataset.crtype){ const c=crEnsure(a), x=c.crates.find(z=>z.id===b.dataset.crid); if(!x) return; x.type=x.type===b.dataset.crtype?"":b.dataset.crtype; crSave(a); crRerender(); return; }
+  if(b.id==="crAdd"){ const c=crEnsure(a); c.crates.push(newCrate()); crSave(a); crRerender(); return; }
+  if(b.dataset.crdel){ if(!b.classList.contains("arm")){ b.classList.add("arm"); b.textContent="Confirmer"; return; } const c=crEnsure(a); c.crates=c.crates.filter(z=>z.id!==b.dataset.crdel); crSave(a); crRerender(); return; }
+  if(b.id==="crExp"){ const c=crEnsure(a); const x=newExpense(); x.artworkId=a.id; x.category="transport"; x.supplier=c.maker||""; x.label="Caisse · "+[a.artist,a.title].filter(Boolean).join(", ");
+    if(c.quote) x.amount=String(c.quote); if(EXP_CURS.includes(c.quoteCurrency)) x.currency=c.quoteCurrency; if(a.collectionId) x.collectionId=a.collectionId;
+    state.expenses[x.id]=x; flushDoc("expenses",x.id); c.expenseId=x.id; flushDoc("artworks",a.id); openExp(x.id); return; }
+  if(b.id==="crClear"){ if(!b.classList.contains("arm")){ b.classList.add("arm"); b.lastChild.textContent="Confirmer l’effacement"; return; }
+    const ids=(a.crating&&a.crating.files||[]).map(f=>f.id); delete a.crating; flushDoc("artworks",a.id); if(assetsCap) ids.forEach(id=>{ try{ assetsCap.delete(id); }catch(err){} }); crRerender(); setSave("Section emballage effacée"); return; }
+}, true);
 const collSlug=n=>(String(n||"collection").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40)||"collection")+"-"+Math.random().toString(36).slice(2,6);
 function collBoxHTML(){
   const cs=state.collections||[];
@@ -1754,6 +1889,7 @@ function renderDetail(){
       </div></div>
       <div class="card" id="ownCard">${ownCardHTML(a)}</div>
       ${collCard(a)}
+      ${cratingCard(a)}
       <div class="card private"><h2>Financials <span class="lock">Privé · jamais sur les factures</span></h2><div class="grid">
         ${kf("Prix de vente","price",a.price,"s3 half",{num:1,ph:"0.00"})}
         ${kf("Devise","currency",a.currency,"s3 half",{select:CURRENCIES.map(x=>[x,x])})}
@@ -2888,7 +3024,7 @@ function refreshAfterExp(){ if(state.view==="payables") renderPay(); else if(sta
 
 /* ---------------- expense sheet ---------------- */
 function fileKind(f){ return (f.type||"").startsWith("image/")?"img":"pdf"; }
-function allFilesOf(o){ return [...(o.files||[]),...(o.proofs||[]),...(o.docs||[])]; }
+function allFilesOf(o){ return [...(o.files||[]),...(o.proofs||[]),...(o.docs||[]),...((o.crating&&o.crating.files)||[])]; }
 const FILE_ICON={img:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="5" width="17" height="14" rx="1.5"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 16l-5-5-8 8"/></svg>',pdf:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 15h5M10 18h3"/></svg>'};
 function ctDocsHTML(c){
   const ds=[...(c.docs||[])].sort((a,b)=>String(b.addedAt||"").localeCompare(String(a.addedAt||"")));
@@ -3028,7 +3164,7 @@ async function fileBlob(f){
   const plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(env.iv)},aes,b64d(env.ct));
   const blob=new Blob([plain],{type:f.type||env.type||"application/octet-stream"}); try{ await idb.set("f:"+f.id,blob); }catch(e){} return blob;
 }
-function findFile(fid){ for(const e of Object.values(state.expenses)) for(const f of [...(e.files||[]),...(e.proofs||[])]) if(f.id===fid) return {e,f,coll:"expenses"}; for(const e of Object.values(state.invoices)) for(const f of (e.proofs||[])) if(f.id===fid) return {e,f,coll:"invoices"}; for(const e of Object.values(state.contacts)) for(const f of (e.docs||[])) if(f.id===fid) return {e,f,coll:"contacts"}; return null; }
+function findFile(fid){ for(const e of Object.values(state.expenses)) for(const f of [...(e.files||[]),...(e.proofs||[])]) if(f.id===fid) return {e,f,coll:"expenses"}; for(const e of Object.values(state.invoices)) for(const f of (e.proofs||[])) if(f.id===fid) return {e,f,coll:"invoices"}; for(const e of Object.values(state.contacts)) for(const f of (e.docs||[])) if(f.id===fid) return {e,f,coll:"contacts"}; for(const e of Object.values(state.artworks)) for(const f of ((e.crating&&e.crating.files)||[])) if(f.id===fid) return {e,f,coll:"artworks"}; return null; }
 const PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
 let pdfjsP=null;
 function ensurePdfJs(){ if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib); if(pdfjsP) return pdfjsP;
@@ -3044,7 +3180,7 @@ async function renderPdfInto(box, blob){
 }
 const fileCache={};
 async function viewFile(fid){
-  const x=findFile(fid); if(!x) return; const m=x.coll==="contacts"?$("#ctDocMsg"):$("#expFileMsg"); if(m){ m.hidden=false; m.textContent="Ouverture…"; }
+  const x=findFile(fid); if(!x) return; const m=x.coll==="contacts"?$("#ctDocMsg"):x.coll==="artworks"?$("#crFileMsg"):$("#expFileMsg"); if(m){ m.hidden=false; m.textContent="Ouverture…"; }
   try{ const blob=fileCache[fid]||await fileBlob(x.f); fileCache[fid]=blob; if(m) m.hidden=true;
     const isImg=fileKind(x.f)==="img", u=URL.createObjectURL(blob);
     const d=document.createElement("div"); d.className="ov lb rcpt"; d.innerHTML=`<div class="lbox rbox" role="dialog" aria-label="${x.coll==="contacts"?"Document":"Justificatif"}">${isImg?`<img src="${u}" alt="">`:`<div class="pdfbox" id="pdfBox"><div class="hint keep">Affichage du PDF…</div></div>`}<div class="eacts"><button type="button" class="btn" data-fdl="${x.f.id}">Télécharger</button><button type="button" class="btn" data-fclose>Fermer</button></div></div>`;
@@ -3061,6 +3197,7 @@ async function dlFile(fid){ const x=findFile(fid); if(!x) return;
 function prefetchFiles(e){ (e.files||[]).forEach(f=>{ if(!fileCache[f.id]) fileBlob(f).then(b=>{ fileCache[f.id]=b; }).catch(()=>{}); }); }
 async function delFile(fid,btn){ const x=findFile(fid); if(!x) return; if(!btn.classList.contains("arm")){ btn.classList.add("arm"); btn.title="Confirmer"; return; }
   if(x.coll==="contacts"){ x.e.docs=(x.e.docs||[]).filter(f=>f.id!==fid); await flushDoc("contacts",x.e.id); delete fileCache[fid]; renderAlt(); setSave("Document supprimé"); }
+  else if(x.coll==="artworks"){ x.e.crating.files=(x.e.crating.files||[]).filter(f=>f.id!==fid); await flushDoc("artworks",x.e.id); delete fileCache[fid]; const fe=$("#crFiles"); if(fe) fe.innerHTML=crFilesHTML(x.e.crating); setSave("Fichier supprimé"); }
   else { x.e.files=x.e.files.filter(f=>f.id!==fid); await flushDoc("expenses",x.e.id); openExp(x.e.id); }
   if(assetsCap){ try{ await assetsCap.delete(fid); }catch(err){} } }
 
@@ -3198,7 +3335,7 @@ function subscribeColl(coll){
     if(state.view==="payables"){ if(!state.curExp) renderPay(); return; }
     if(coll==="expenses" && state.view==="invoices"){ if(!state.curExp){ const a=document.activeElement; if(!a||!a.dataset?.p) renderEditor(); } return; }
     if(coll==="expenses") return;
-    if(state.view!=="invoices"){ renderSide(); const a=document.activeElement; if(cur && (!a||!a.dataset?.k)) renderDetail(); }
+    if(state.view!=="invoices"){ renderSide(); const a=document.activeElement; if(cur && (!a||!(a.dataset?.k||a.dataset?.cr))) renderDetail(); }
   },()=>setSave("Synchronisation interrompue, rechargez la page",true));
 }
 
@@ -3565,6 +3702,6 @@ if("serviceWorker" in navigator){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v5a81a967</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">vfcb68b29</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>
