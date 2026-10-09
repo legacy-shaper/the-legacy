@@ -588,6 +588,7 @@ body[data-view="accounting"] .app,body[data-view="accounting"] .alt,body[data-vi
 .pay-del.arm{color:var(--danger)}
 .pay-form{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:10px;align-items:end;padding-top:10px;border-top:1px solid var(--line)}
 .pay-form[hidden]{display:none}
+.grid .f.nofr{display:none}
 .pay-btns{grid-column:1/-1;display:flex;gap:8px}
 .pay-hint{grid-column:1/-1;font-size:12px;color:var(--warn);min-height:0}
 @media (max-width:700px){ .pay-form{grid-template-columns:1fr 1fr} .pay-n{grid-column:1/-1} .pay-row{flex-direction:column;align-items:flex-start;gap:6px} .pay-main{grid-template-columns:auto 1fr;width:100%} .pay-note{grid-column:1/-1} .pay-actions{width:100%;gap:4px} }
@@ -1776,6 +1777,8 @@ state.contacts={}; state.artworks={}; state.views={}; state.view="invoices"; sta
 const ART_STATUS={available:"Available",reserved:"Reserved",consignment:"Consignment",nfs:"Not for sale",sold:"Sold"};
 const OLD_STATUS={consigned:"consignment"};
 const CATEGORIES=[["painting","Painting"],["sculpture","Sculpture"],["photography","Photography"],["installation","Installation"],["paper","Work on paper"],["furniture","Furniture"],["other","Other"]];
+// framed dimensions: paintings, works on paper, photographs (and works whose category is not set yet)
+const framedOK=a=>!["sculpture","installation","furniture"].includes(a.category||"");
 const catLabel=k=>(CATEGORIES.find(c=>c[0]===k)||[,""])[1];
 const EDITIONS=[["","Non renseigné"],["unique","Unique piece"],["edition","Edition"],["ap","Artist’s proof (AP)"]];
 function editionText(a){ if(a.editionType==="unique") return "Unique"; if(a.editionType==="edition") return a.editionNumber?`Edition ${a.editionNumber}`:"Edition"; if(a.editionType==="ap") return a.editionNumber?`AP ${a.editionNumber}`:"Artist’s proof"; return ""; }
@@ -1892,7 +1895,8 @@ function renderDetail(){
           ${kf("Catégorie","category",a.category||"","s2 half",{select:[["","Non renseignée"],...CATEGORIES]})}
           ${kf("Pièce unique / édition","editionType",a.editionType||"","s2 half",{select:EDITIONS})}
           ${(a.editionType==="edition"||a.editionType==="ap")?kf(a.editionType==="ap"?"N° d’épreuve":"N° d’exemplaire","editionNumber",a.editionNumber||"","s2",{ph:a.editionType==="ap"?"1/2":"2/6"}):`<div class="s2"></div>`}
-          ${kf("Dimensions","dimensions",a.dimensions,"s3",{ph:"100 × 81 cm"})}${kf("Réf. / n° d’archive","ref",a.ref,"s3")}
+          ${kf("Dimensions de l’œuvre","dimensions",a.dimensions,"s3",{ph:"100 × 81 cm"})}${kf("Dimensions avec cadre","dimsFramed",a.dimsFramed||"","s3"+(framedOK(a)?"":" nofr"),{ph:"Facultatif · 120 × 101 cm"})}
+          ${kf("Réf. / n° d’archive","ref",a.ref,"s3")}
           ${kf("Description (signature, certificat…)","notes",a.notes,"s6",{area:1,rows:3})}
           ${kf("Provenance","provenance",a.provenance||"","s6",{area:1,rows:3,ph:"Une ligne par étape, ex. : Chandigarh, Inde"})}
         </div>
@@ -2838,6 +2842,7 @@ function ficheHTML(a, img, withProv){
   const lines=[`<b>${esc(a.artist||"")}</b>`, `<span><i>${esc(a.title||"Untitled")}</i>${a.year?", "+esc(a.year):""}</span>`];
   if(a.medium) lines.push(`<span>${esc(a.medium)}</span>`);
   if(a.dimensions){ lines.push(`<span>${esc(a.dimensions)}</span>`); const inl=inchesLine(a.dimensions); if(inl) lines.push(`<span>${esc(inl)}</span>`); }
+  if(a.dimsFramed&&String(a.dimsFramed).trim()&&framedOK(a)){ const fd=String(a.dimsFramed).trim(); lines.push(`<span>Framed: ${esc(fd)}</span>`); const inl=inchesLine(fd); if(inl) lines.push(`<span>Framed: ${esc(inl)}</span>`); }
   if(editionText(a)) lines.push(`<span>${esc(editionText(a))}</span>`);
   (a.notes||"").split("\n").map(x=>x.trim()).filter(Boolean).forEach(x=>lines.push(`<span>${esc(x)}</span>`));
   if(withProv){ const pl=provLines(a); if(pl.length===1) lines.push(`<span class="fprov">Provenance : ${esc(pl[0])}</span>`); else if(pl.length) lines.push(`<span class="fprov">Provenance :</span>`,...pl.map(x=>`<span>${esc(x)}</span>`)); }
@@ -3337,6 +3342,7 @@ document.addEventListener("input",e=>{
   const coll=state.view==="contacts"?"contacts":"artworks", id=coll==="contacts"?state.curContact:state.curArt, o=state[coll][id]; if(!o) return;
   o[k]=e.target.value; if(coll==="contacts" && /^(email|phone)(Pro|Perso)$|^primary(Email|Phone)$/.test(k)) ctSync(o); schedDoc(coll,id); renderSide();
   if(coll==="artworks" && ["dimensions","category","title","artist","year"].includes(k)){ clearTimeout(window.__scT); window.__scT=setTimeout(()=>{ if(state.curArt===id) scaleRedraw(o); },450); }
+  if(coll==="artworks" && k==="category"){ const fr=document.querySelector('[data-k="dimsFramed"]'); if(fr) fr.closest(".f").classList.toggle("nofr",!framedOK(o)); }
   if(coll==="artworks" && ["price","cost","brokerValue","discValue"].includes(k)){ const mb=$("#marginBox"); if(mb) mb.innerHTML=marginHTML(o); }
   const h=document.querySelector("#detail .ehead h1"); if(h && ["name","company","artist","title","year"].includes(k)){ if(coll==="contacts") h.textContent=o.name||o.company||"Nouveau contact"; else h.innerHTML=`<span>${esc(o.artist||"Artiste")}</span><i>${esc(o.title||"Sans titre")}</i>${o.year?", "+esc(o.year):""}`; }
 });
@@ -3835,6 +3841,6 @@ if("serviceWorker" in navigator){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">vabe1f7dc</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v9e04cf9e</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>

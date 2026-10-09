@@ -4,3 +4,4 @@ SQL files in this folder are applied to the `the-legacy` project (id `uinwjwoood
 
 - `001_client_collections.sql` — client collections: acquisition, insurance, ownership and client-facing location on artworks; expenses and their files linked to a collection and shown to the client when `visibleToClient` is true.
 - `004_support_chat.sql` — messages between collectors, the assistant and Dylan (conversations, messages, settings, push devices, `support-files` bucket, Vault reader for the push signing key).
+- `007_framed_dimensions.sql` — optional « Dimensions avec cadre » (artworks.dimsFramed → public.artworks.dimensions_framed; never for sculptures, installations, furniture).

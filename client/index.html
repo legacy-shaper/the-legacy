@@ -324,7 +324,7 @@ const I18N={
    nWorks:"Works",nLoc:"Locations",insured:"Insured value",acq:"Acquisitions",
    search:"Search an artist, a title…",allLoc:"All locations",noWorks:"No work matches this search.",
    live:"Up to date",offline:"Offline · copy of",updated:"Updated",
-   artist:"Artist",title:"Title",date:"Date",medium:"Medium",dims:"Dimensions",edition:"Edition",unique:"Unique work",ap:"Artist's proof",
+   artist:"Artist",title:"Title",date:"Date",medium:"Medium",dims:"Dimensions",dimsFramed:"Framed",edition:"Edition",unique:"Unique work",ap:"Artist's proof",
    ownership:"Ownership",location:"Location",since:"since",acquisition:"Acquisition",insurance:"Insurance",condition:"Condition",provenance:"Provenance",
    exhibitions:"Exhibitions",literature:"Literature",notes:"Notes",ref:"Inventory no.",
    back:"Back",sheetPdf:"Inventory sheet (PDF)",select:"Select",selCancel:"Cancel",selAll:"Select all",selNone:"Clear",selHint:"Tap the works to include",selN:"{n} works selected · one page each, in a single PDF",selN1:"1 work selected · one page in the PDF",sheetsPdf:"Inventory sheets (PDF)",image:"Download image",prev:"Previous",next:"Next",
@@ -365,7 +365,7 @@ const I18N={
    nWorks:"Œuvres",nLoc:"Localisations",insured:"Valeur assurée",acq:"Acquisitions",
    search:"Rechercher un artiste, un titre…",allLoc:"Toutes les localisations",noWorks:"Aucune œuvre ne correspond à cette recherche.",
    live:"À jour",offline:"Hors ligne · copie du",updated:"Mise à jour",
-   artist:"Artiste",title:"Titre",date:"Date",medium:"Technique",dims:"Dimensions",edition:"Édition",unique:"Œuvre unique",ap:"Épreuve d’artiste",
+   artist:"Artiste",title:"Titre",date:"Date",medium:"Technique",dims:"Dimensions",dimsFramed:"Avec cadre",edition:"Édition",unique:"Œuvre unique",ap:"Épreuve d’artiste",
    ownership:"Propriété",location:"Localisation",since:"depuis le",acquisition:"Acquisition",insurance:"Assurance",condition:"État",provenance:"Provenance",
    exhibitions:"Expositions",literature:"Bibliographie",notes:"Notes",ref:"N° d’inventaire",
    back:"Retour",sheetPdf:"Fiche d’inventaire (PDF)",select:"Sélectionner",selCancel:"Annuler",selAll:"Tout sélectionner",selNone:"Tout désélectionner",selHint:"Touchez les œuvres à inclure",selN:"{n} œuvres sélectionnées · une page chacune, dans un seul PDF",selN1:"1 œuvre sélectionnée · une page dans le PDF",sheetsPdf:"Fiches d’inventaire (PDF)",image:"Télécharger l’image",prev:"Précédente",next:"Suivante",
@@ -537,7 +537,7 @@ async function fetchCollection(cid){
   const [coll]=await q(sb.from("collections").select("id,slug,name,subtitle,display_currency,cover_artwork_id").eq("id",cid));
   // scale_view: the at-scale composition set by Legacy Shaper (SQL 005), crating: packing shared with the collector (SQL 006); older databases still load
   const wq=cols=>q(sb.from("artworks").select(cols).eq("collection_id",cid).order("artist"));
-  const works=await wq(ART_COLS+",scale_view,crating").catch(()=>wq(ART_COLS+",scale_view")).catch(()=>wq(ART_COLS));
+  const works=await wq(ART_COLS+",scale_view,crating,dimensions_framed").catch(()=>wq(ART_COLS+",scale_view,crating")).catch(()=>wq(ART_COLS+",scale_view")).catch(()=>wq(ART_COLS));
   const ids=works.map(w=>w.id);
   let views=[]; for(let i=0;i<ids.length;i+=80) views=views.concat(await q(sb.from("artwork_views").select("id,artwork_id,sort,created_at").in("artwork_id",ids.slice(i,i+80))));
   const expenses=await q(sb.from("expenses").select(EXP_COLS).eq("collection_id",cid).eq("visible_to_client",true).order("date",{ascending:false}));
@@ -773,7 +773,7 @@ async function openWork(id,keep){
         <span class="seg"><button data-chair="on" class="${scSet.chair==="off"?"":"on"}">${esc(t("chairOn"))}</button><button data-chair="off" class="${scSet.chair==="off"?"on":""}">${esc(t("chairOff"))}</button></span>
         <button class="tb" id="dScAdj">${esc(t("scaleAdjust"))}</button><label><input type="checkbox" id="dScPdf" ${scPdf?"checked":""}> ${esc(t("scaleInPdf"))}</label></div>`:""}</div>
     <div class="dh"><div class="artist">${esc(w.artist)}</div><div class="title"><i>${esc(w.title)}</i>${w.year?`, ${esc(w.year)}`:""}</div>
-      <dl class="facts">${fact("medium",esc(w.medium))}${fact("dims",esc(dimsLine(w.dimensions)))}${fact("edition",esc(editionLine(w)))}
+      <dl class="facts">${fact("medium",esc(w.medium))}${fact("dims",esc(dimsLine(w.dimensions)))}${fact("dimsFramed",esc(dimsLine(w.dimensions_framed)))}${fact("edition",esc(editionLine(w)))}
         ${fact("ownership",esc(ownershipLine(w)))}${fact("location",loc)}${fact("acquisition",acq)}${fact("insurance",ins)}${fact("condition",esc(w.condition))}
         ${fact("provenance",esc(w.provenance))}${fact("exhibitions",esc(w.exhibitions))}${fact("literature",esc(w.literature))}${fact("notes",esc(w.notes))}${fact("ref",esc(w.ref))}</dl>
       <div class="acts">${canViewAtScale(w)?`<button id="dRoom">${esc(t("atScale"))}</button>`:""}<button id="dPdf">${esc(t("sheetPdf"))}</button><button class="alt" id="dImgDl">${esc(t("image"))}</button>${C.ok?`<button class="alt" id="dAsk">${esc(t("askWork"))}</button>`:""}</div>
@@ -840,7 +840,7 @@ function fitSheets(p){
   finally{ p.classList.remove("pmeasure"); }
 }
 function sheetHTML(w,img,scaleImg){
-  const rows=[["medium",w.medium],["dims",dimsLine(w.dimensions)],["edition",editionLine(w)],["ownership",ownershipLine(w)],
+  const rows=[["medium",w.medium],["dims",dimsLine(w.dimensions)],["dimsFramed",dimsLine(w.dimensions_framed)],["edition",editionLine(w)],["ownership",ownershipLine(w)],
     ["location",(w.location_text||"")+(w.location_since?` (${t("since")} ${fmtDate(w.location_since)})`:"")],
     ["acquisition",[w.acquisition_date?fmtDate(w.acquisition_date):"",w.acquisition_price!=null?fmtMoney(w.acquisition_price,w.acquisition_currency):"",w.acquisition_source||""].filter(Boolean).join(" · ")],
     ["insurance",w.insured_value!=null?fmtMoney(w.insured_value,w.insured_currency):""],["condition",w.condition],["provenance",w.provenance],["exhibitions",w.exhibitions],["literature",w.literature],["ref",w.ref]].filter(r=>r[1]);
@@ -1598,10 +1598,10 @@ function csvCell(v){ v=v==null?"":String(v); return /[";\n,]/.test(v)?`"${v.repl
 async function exportAll(){
   if(!window.JSZip){ toast(t("docErr")); return; }
   toast(t("preparing"),4000);
-  const zip=new JSZip(); const head=["ref","artist","title","year","medium","dimensions","edition","ownership_share","co_owners","ownership_note","location","location_since","acquisition_date","acquisition_price","acquisition_currency","acquisition_source","insured_value","insured_currency","condition","provenance","exhibitions","literature","notes"];
+  const zip=new JSZip(); const head=["ref","artist","title","year","medium","dimensions","dimensions_framed","edition","ownership_share","co_owners","ownership_note","location","location_since","acquisition_date","acquisition_price","acquisition_currency","acquisition_source","insured_value","insured_currency","condition","provenance","exhibitions","literature","notes"];
   const lines=[head.join(",")];
   for(const w of works()){
-    lines.push([w.ref,w.artist,w.title,w.year,w.medium,w.dimensions,editionLine(w),w.ownership_visible===false?"":w.ownership_share,coOwnersCsv(w),w.ownership_note,w.location_text,w.location_since,w.acquisition_date,w.acquisition_price,w.acquisition_currency,w.acquisition_source,w.insured_value,w.insured_currency,w.condition,w.provenance,w.exhibitions,w.literature,w.notes].map(csvCell).join(","));
+    lines.push([w.ref,w.artist,w.title,w.year,w.medium,w.dimensions,w.dimensions_framed,editionLine(w),w.ownership_visible===false?"":w.ownership_share,coOwnersCsv(w),w.ownership_note,w.location_text,w.location_since,w.acquisition_date,w.acquisition_price,w.acquisition_currency,w.acquisition_source,w.insured_value,w.insured_currency,w.condition,w.provenance,w.exhibitions,w.literature,w.notes].map(csvCell).join(","));
     const vs=((S.data.views)||[]).filter(v=>v.artwork_id===w.id); let n=0;
     for(const v of vs){ const p=await viewPhoto(v.id); const b=await imgData(p); if(!b) continue; n++; zip.file(`images/${fileBase(w)}${vs.length>1?` (${n})`:""}.jpg`, b, {base64:typeof b==="string"}); }
     if(!n&&w.thumb){ const b=await imgData(w.thumb); if(b) zip.file(`images/${fileBase(w)}.jpg`, b, {base64:typeof b==="string"}); }
@@ -1673,5 +1673,5 @@ async function start(){
 if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")) navigator.serviceWorker.register("sw.js").catch(()=>{});
 start();
 </script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v6394ceb2</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v687afb5a</div>
 </body></html>

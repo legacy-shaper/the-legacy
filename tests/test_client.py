@@ -21,6 +21,7 @@ hidden_exp = dict(id="demo-exp-hidden", date="2025-03-01", label="Internal commi
 for w in demo["works"]:
     if w["id"] == "aur-04": w.update(ownership_share=60, co_owners=[dict(name="Jonathan Wahnich", share=25), dict(name="Fondation X", share=15)], ownership_visible=True)
     if w["id"] == "aur-02": w.update(ownership_share=None, co_owners=[], ownership_visible=False)
+    if w["id"] == "aur-01": w.update(dimensions_framed="145 × 120 cm")
 other_work = dict(demo["works"][0], id="b-1", collection_id=OTHER, title="Secret Work", artist="Other Artist", ref="B-1")
 SEED = {
   "users": [dict(id="u1", email="client@example.com", role="client"), dict(id="u2", email="other@example.com", role="client"),
@@ -120,6 +121,7 @@ with sync_playwright() as pw:
     det = p.inner_text("#detail")
     check("Crimson Threshold" in det and "Élise Marchetti" in det, "detail shows artist and title")
     check("51.2 × 39.4 in" in det, "dimensions are also given in inches")
+    check("FRAMED" in det.upper() and "145 × 120 cm" in det and "57.1 × 47.2 in" in det, "framed dimensions shown, with inches, when Dylan filled them in")
     check("$420,000" in det and "14 June 2019" in det, "acquisition date and price")
     check("$520,000" in det, "insured value")
     check(p.locator("#detail .thumbs button[data-v]").count() == 2, "two views available")
