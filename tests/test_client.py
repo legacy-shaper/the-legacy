@@ -163,6 +163,16 @@ with sync_playwright() as pw:
     check("Annual fine art insurance premium" in txt and "Collection Office, annual engagement" in txt, "2025 general expenses")
     check("Conservation treatment" in txt and "2026" not in p.inner_text(".block >> nth=1"), "2025 per-work expenses, year filter applied")
     check("$188,500" in txt, "2025 total in USD (68,500 + 120,000)")
+    grp = p.locator(".wgrp:has(.whead[data-w=aur-05])")
+    check(p.locator(".wgrp").count() == 3 and grp.count() == 1, "per work: one group per work (3 works with expenses in 2025)")
+    gtxt = grp.inner_text(); w5 = p.evaluate("(()=>{ const w=workById('aur-05'); return [w.artist,w.title]; })()")
+    check(w5[0] in gtxt and w5[1] in gtxt and "2 expenses" in gtxt and "Conservation treatment" in gtxt and "Transport and crating, Geneva" in gtxt,
+          "each group names its work (artist, title), its subtotal and count, with its own expenses underneath")
+    check(gtxt.count(w5[1]) == 1, "inside a group the work is not repeated on every line")
+    check(p.locator(".block:has(h3:text-is('Collection')) .line.sub").count() == 0 and p.locator(".wgrp .line.sub").count() == 4, "only the lines inside a work's group are indented")
+    grp.locator(".whead").click(); p.wait_for_selector("#detail:not([hidden]) .dh")
+    check(w5[1] in p.inner_text("#detail"), "touching the work in the group opens it")
+    p.click("#dBack"); p.wait_for_timeout(150)
     # ---------- 6. documents ----------
     p.click("[data-t=documents]"); p.wait_for_selector("#main")
     txt = p.inner_text("#main")

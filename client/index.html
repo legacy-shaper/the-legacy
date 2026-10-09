@@ -133,6 +133,11 @@ body.selecting #main{padding-bottom:110px}
 .line .mid div{font-size:12.5px;color:var(--muted)}
 .line .amt{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;font-size:14px}
 .line .amt div{font-size:11.5px;color:var(--muted)}
+.wgrp+.wgrp{border-top:1px solid var(--gold-soft,var(--line))}
+.line.whead{cursor:pointer}
+.line.whead .mid b{font-weight:600}
+.line.sub{padding-left:76px}
+@media (max-width:480px){ .line.sub{padding-left:30px} }
 .tot{display:flex;justify-content:space-between;padding:12px 18px;border-top:1px solid var(--gold);font-weight:500;gap:10px;flex-wrap:wrap}
 .chipline{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
 .chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 13px;font-size:13px}
@@ -336,7 +341,7 @@ const I18N={
    crH:{"1p":"1 person","2p":"2 people","3p":"3 people or more",forklift:"Forklift / pallet truck"},
    crO:{upright:"Upright (on its edge)",flat:"Flat",any:"Either way"},
    linkedExp:"Expenses for this work",linkedDocs:"Documents",none:"—",
-   byYear:"By year",general:"Collection",perWork:"Per work",total:"Total",allYears:"All years",noExp:"No expenses shared for this period.",
+   byYear:"By year",general:"Collection",perWork:"Per work",oneExp:"expense",nExp:"expenses",total:"Total",allYears:"All years",noExp:"No expenses shared for this period.",
    noDocs:"No documents shared yet.",download:"Download",
    cat:{art:"Acquisition",transport:"Transport",insurance:"Insurance & storage",commission:"Commission",travel:"Travel",meals:"Hospitality",overhead:"Collection management",other:"Other services"},
    menu:"Menu",signedAs:"Signed in as",refresh:"Refresh now",exportAll:"Download my collection",exportSub:"Inventory spreadsheet and images, in one file",
@@ -377,7 +382,7 @@ const I18N={
    crH:{"1p":"1 personne","2p":"2 personnes","3p":"3 personnes et plus",forklift:"Chariot / transpalette"},
    crO:{upright:"Debout (sur la tranche)",flat:"À plat",any:"Indifférent"},
    linkedExp:"Dépenses de cette œuvre",linkedDocs:"Documents",none:"—",
-   byYear:"Par année",general:"Collection",perWork:"Par œuvre",total:"Total",allYears:"Toutes les années",noExp:"Aucune dépense partagée sur cette période.",
+   byYear:"Par année",general:"Collection",perWork:"Par œuvre",oneExp:"dépense",nExp:"dépenses",total:"Total",allYears:"Toutes les années",noExp:"Aucune dépense partagée sur cette période.",
    noDocs:"Aucun document partagé pour le moment.",download:"Télécharger",
    cat:{art:"Acquisition",transport:"Transport",insurance:"Assurance et stockage",commission:"Commission",travel:"Déplacements",meals:"Réception",overhead:"Gestion de la collection",other:"Autres prestations"},
    menu:"Menu",signedAs:"Connecté en tant que",refresh:"Mettre à jour",exportAll:"Télécharger ma collection",exportSub:"Inventaire au format tableur et images, en un seul fichier",
@@ -667,9 +672,20 @@ function viewLocations(){
       <span class="mid"><b>${esc(w.artist)}</b><div><i>${esc(w.title)}</i>${w.year?`, ${esc(w.year)}`:""}${w.location_since?` · ${esc(t("since"))} ${esc(fmtDate(w.location_since))}`:""}</div></span></button>`).join("")}</section>`).join("")||`<div class="empty">—</div>`;
 }
 function expYears(){ return [...new Set(((S.data&&S.data.expenses)||[]).map(e=>String(e.date||"").slice(0,4)).filter(Boolean))].sort().reverse(); }
-function expLine(e){ const w=e.artwork_id&&workById(e.artwork_id); const cat=(t("cat")[e.category]||t("cat").other);
-  return `<div class="line"><span class="mid"><b>${esc(e.label||cat)}</b><div>${esc(cat)}${e.supplier?` · ${esc(e.supplier)}`:""}${w?` · ${esc(w.artist)}, <i>${esc(w.title)}</i>`:""}</div></span>
+// mode: "" = full line (names the work), "group" = inside a work's group (indented, work not repeated), "page" = on the work's own page
+function expLine(e,mode){ mode=typeof mode==="string"?mode:""; const w=!mode&&e.artwork_id&&workById(e.artwork_id); const cat=(t("cat")[e.category]||t("cat").other);
+  return `<div class="line ${mode==="group"?"sub":""}"><span class="mid"><b>${esc(e.label||cat)}</b><div>${esc(cat)}${e.supplier?` · ${esc(e.supplier)}`:""}${w?` · ${esc(w.artist)}, <i>${esc(w.title)}</i>`:""}</div></span>
     <span class="amt">${esc(fmtMoney(e.amount,e.currency))}<div>${esc(fmtDate(e.date))}</div></span></div>`; }
+/* « Par œuvre »: one group per work (photo, artist, title, subtotal — touch it to open the work), its expenses underneath */
+function expByWork(per){
+  const g={}; per.forEach(e=>{ (g[e.artwork_id]=g[e.artwork_id]||[]).push(e); });
+  const ids=Object.keys(g).sort((a,b)=>{ const wa=workById(a)||{}, wb=workById(b)||{}; return String(wa.artist||"").localeCompare(String(wb.artist||""))||String(wa.title||"").localeCompare(String(wb.title||"")); });
+  return ids.map(id=>{ const w=workById(id); const list=g[id];
+    const head=w?`<button class="line whead" data-w="${esc(id)}">${thumbOf(w)?`<img class="th" src="${thumbOf(w)}" alt="">`:`<span class="th"></span>`}
+        <span class="mid"><b>${esc(w.artist)}</b><div><i>${esc(w.title)}</i>${w.year?`, ${esc(w.year)}`:""}</div></span><span class="amt">${esc(curLine(sumByCur(list,"amount","currency")))}<div>${list.length} ${esc(list.length>1?t("nExp"):t("oneExp"))}</div></span></button>`
+      :`<div class="line whead"><span class="mid"><b>—</b></span><span class="amt">${esc(curLine(sumByCur(list,"amount","currency")))}</span></div>`;
+    return `<div class="wgrp">${head}${list.map(e=>expLine(e,"group")).join("")}</div>`; }).join("");
+}
 function viewExpenses(){
   const all=(S.data&&S.data.expenses)||[]; const years=expYears();
   const rows=all.filter(e=>!S.year||String(e.date||"").startsWith(S.year));
@@ -679,8 +695,8 @@ function viewExpenses(){
     ${rows.length?`<section class="block"><h3>${esc(t("total"))}${S.year?` ${S.year}`:""}<small>${rows.length}</small></h3>
       ${Object.keys(byCat).sort().map(k=>`<div class="line"><span class="mid"><b>${esc(t("cat")[k]||t("cat").other)}</b></span><span class="amt">${esc(curLine(sumByCur(byCat[k],"amount","currency")))}</span></div>`).join("")}
       <div class="tot"><span>${esc(t("total"))}</span><span>${esc(curLine(sumByCur(rows,"amount","currency")))}</span></div></section>
-    ${gen.length?`<section class="block"><h3>${esc(t("general"))}<small>${esc(curLine(sumByCur(gen,"amount","currency")))}</small></h3>${gen.map(expLine).join("")}</section>`:""}
-    ${per.length?`<section class="block"><h3>${esc(t("perWork"))}<small>${esc(curLine(sumByCur(per,"amount","currency")))}</small></h3>${per.map(expLine).join("")}</section>`:""}`
+    ${gen.length?`<section class="block"><h3>${esc(t("general"))}<small>${esc(curLine(sumByCur(gen,"amount","currency")))}</small></h3>${gen.map(e=>expLine(e)).join("")}</section>`:""}
+    ${per.length?`<section class="block"><h3>${esc(t("perWork"))}<small>${esc(curLine(sumByCur(per,"amount","currency")))}</small></h3>${expByWork(per)}</section>`:""}`
     :`<div class="empty">${esc(t("noExp"))}</div>`}`;
 }
 function docLine(d){ const w=d.artwork_id&&workById(d.artwork_id);
@@ -777,7 +793,7 @@ async function openWork(id,keep){
         ${fact("ownership",esc(ownershipLine(w)))}${fact("location",loc)}${fact("acquisition",acq)}${fact("insurance",ins)}${fact("condition",esc(w.condition))}
         ${fact("provenance",esc(w.provenance))}${fact("exhibitions",esc(w.exhibitions))}${fact("literature",esc(w.literature))}${fact("notes",esc(w.notes))}${fact("ref",esc(w.ref))}</dl>
       <div class="acts">${canViewAtScale(w)?`<button id="dRoom">${esc(t("atScale"))}</button>`:""}<button id="dPdf">${esc(t("sheetPdf"))}</button><button class="alt" id="dImgDl">${esc(t("image"))}</button>${C.ok?`<button class="alt" id="dAsk">${esc(t("askWork"))}</button>`:""}</div>
-      ${exps.length?`<div class="sec"><h4>${esc(t("linkedExp"))}</h4><section class="block">${exps.map(expLine).join("")}<div class="tot"><span>${esc(t("total"))}</span><span>${esc(curLine(sumByCur(exps,"amount","currency")))}</span></div></section></div>`:""}
+      ${exps.length?`<div class="sec"><h4>${esc(t("linkedExp"))}</h4><section class="block">${exps.map(e=>expLine(e,"page")).join("")}<div class="tot"><span>${esc(t("total"))}</span><span>${esc(curLine(sumByCur(exps,"amount","currency")))}</span></div></section></div>`:""}
       ${cratingHtml(w,crDocs)}
       ${docs.length?`<div class="sec"><h4>${esc(t("linkedDocs"))}</h4>${docs.map(docLine).join("")}</div>`:""}
     </div></div>`;
@@ -1673,5 +1689,5 @@ async function start(){
 if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")) navigator.serviceWorker.register("sw.js").catch(()=>{});
 start();
 </script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v687afb5a</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v2b553f68</div>
 </body></html>

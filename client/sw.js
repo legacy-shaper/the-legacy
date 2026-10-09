@@ -1,6 +1,6 @@
 /* Legacy Shaper — client app service worker.
    The app opens instantly and offline; collection data never passes through this cache (Supabase is always live). */
-const VERSION = "ls-client-687afb5a";
+const VERSION = "ls-client-2b553f68";
 const APP = ["./", "./index.html", "./manifest.webmanifest", "./apple-touch-icon.png", "./icon-192.png", "./icon-512.png", "./room-chair.webp", "./room-parquet.jpg"];
 const EXTERNAL = [
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js",
