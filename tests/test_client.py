@@ -155,6 +155,14 @@ with sync_playwright() as pw:
     check("Senza titolo (Segno rosso)" in pr and "39.4 × 51.2 in" in pr and "Inventory sheet" in pr, "inventory sheet prepared for PDF")
     check(p.evaluate("document.querySelector('#print img.pl').src.startsWith('data:image/png')"), "inventory sheet carries the official logo")
     p.click("#dBack")
+    # ---------- 4b. locations: one header band per place ----------
+    p.click("[data-t=locations]"); p.wait_for_selector(".lochead")
+    n_locs = p.evaluate("new Set(works().map(w=>w.location_text||'')).size")
+    check(p.locator(".lochead").count() == n_locs, "locations: one header per place")
+    gh = p.locator(".locblock:has(h3:text-is('Geneva'))").first
+    check(gh.count() == 1 and "PRIVATE RESIDENCE" in gh.locator(".kind").inner_text().upper(), "the kind of place in small gold capitals, the place itself large (Private residence / Geneva)")
+    n_gva = p.evaluate("works().filter(w=>w.location_text==='Private residence · Geneva').length")
+    check(gh.locator(".cnt").inner_text().strip() == f"{n_gva} works" and gh.locator(".line").count() == n_gva, "count pill matches the works listed under the place")
     # ---------- 5. expenses ----------
     p.click("[data-t=expenses]"); p.wait_for_selector(".chipline")
     txt = p.inner_text("#main")
@@ -269,6 +277,8 @@ with sync_playwright() as pw:
     p.click("[data-bt=expenses]"); p.wait_for_selector(".chipline")
     p.screenshot(path=os.path.join(os.environ.get("SHOTS", "/tmp"), "client-iphone-bar-expenses.png"))
     check(p.get_attribute("[data-bt=expenses]", "aria-current") == "page" and "on" in p.get_attribute("[data-bt=expenses]", "class"), "iPhone: the bar opens Expenses and shows it as the current section")
+    p.click("[data-bt=locations]"); p.wait_for_selector(".lochead"); p.screenshot(path=os.path.join(os.environ.get("SHOTS", "/tmp"), "client-iphone-locations.png"))
+    check(p.evaluate("document.documentElement.scrollWidth<=window.innerWidth"), "iPhone: locations fit the screen")
     p.click("[data-bt=works]"); p.click("[data-w=aur-05]"); p.wait_for_selector("#detail .dh"); p.wait_for_timeout(400)
     check(p.evaluate("document.getElementById('detail').scrollWidth<=window.innerWidth"), "iPhone: detail fits the screen")
     p.screenshot(path=os.path.join(os.environ.get("SHOTS", "/tmp"), "client-phone-detail.png"))

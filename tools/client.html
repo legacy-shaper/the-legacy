@@ -143,6 +143,14 @@ body.selecting #main{padding-bottom:110px}
 /* ---------- lists ---------- */
 .block{background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-bottom:16px;overflow:hidden}
 .block h3{font-family:var(--serif);font-weight:500;font-size:21px;margin:0;padding:16px 18px 10px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.locblock{overflow:hidden}
+.lochead{display:flex;align-items:center;gap:12px;background:var(--deep);color:var(--ivory);padding:14px 18px}
+.lochead .pin{width:24px;height:24px;color:var(--gold);flex:none}
+.lochead .lt{flex:1;min-width:0}
+.lochead .kind{display:block;font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:var(--gold);margin-bottom:2px}
+.lochead h3{font-family:var(--serif);font-weight:500;font-size:25px;line-height:1.15;margin:0;padding:0;display:block;color:var(--ivory)}
+.lochead .cnt{flex:none;border:1px solid rgba(196,160,82,.6);color:var(--gold);border-radius:999px;padding:4px 11px;font-size:12.5px;white-space:nowrap}
+.locblock .line:first-of-type{border-top:0}
 .block h3 small{font-family:var(--sans);font-size:12px;color:var(--muted);font-weight:400}
 .line{display:flex;gap:12px;align-items:center;padding:11px 18px;border-top:1px solid var(--line);text-align:left;width:100%;background:none;border-left:0;border-right:0;border-bottom:0}
 .line .th{width:46px;height:46px;border-radius:8px;object-fit:cover;flex:none;background:var(--surface-2)}
@@ -328,7 +336,7 @@ const I18N={
    offlineTitle:"Legacy Shaper",offlineIntro:"Your collection is available on this device. The connection will refresh it as soon as possible.",openOffline:"Open my collection",retry:"Try again",
    overview:"Overview",works:"Works",locations:"Locations",expenses:"Expenses",documents:"Documents",
    tabShort:{overview:"Home",works:"Works",locations:"Places",expenses:"Expenses",documents:"Documents"},
-   nWorks:"Works",nLoc:"Locations",insured:"Insured value",acq:"Acquisitions",
+   nWorks:"Works",oneWork:"Work",nLoc:"Locations",insured:"Insured value",acq:"Acquisitions",
    search:"Search an artist, a title…",allLoc:"All locations",noWorks:"No work matches this search.",
    live:"Up to date",offline:"Offline · copy of",updated:"Updated",
    artist:"Artist",title:"Title",date:"Date",medium:"Medium",dims:"Dimensions",dimsFramed:"Framed",edition:"Edition",unique:"Unique work",ap:"Artist's proof",
@@ -370,7 +378,7 @@ const I18N={
    offlineTitle:"Legacy Shaper",offlineIntro:"Votre collection est disponible sur cet appareil. Elle se mettra à jour dès que la connexion reviendra.",openOffline:"Ouvrir ma collection",retry:"Réessayer",
    overview:"Vue d’ensemble",works:"Œuvres",locations:"Localisations",expenses:"Dépenses",documents:"Documents",
    tabShort:{overview:"Accueil",works:"Œuvres",locations:"Lieux",expenses:"Dépenses",documents:"Documents"},
-   nWorks:"Œuvres",nLoc:"Localisations",insured:"Valeur assurée",acq:"Acquisitions",
+   nWorks:"Œuvres",oneWork:"Œuvre",nLoc:"Localisations",insured:"Valeur assurée",acq:"Acquisitions",
    search:"Rechercher un artiste, un titre…",allLoc:"Toutes les localisations",noWorks:"Aucune œuvre ne correspond à cette recherche.",
    live:"À jour",offline:"Hors ligne · copie du",updated:"Mise à jour",
    artist:"Artiste",title:"Titre",date:"Date",medium:"Technique",dims:"Dimensions",dimsFramed:"Avec cadre",edition:"Édition",unique:"Œuvre unique",ap:"Épreuve d’artiste",
@@ -677,9 +685,12 @@ function viewWorks(){
 }
 function viewLocations(){
   const g={}; works().forEach(w=>{ const k=w.location_text||t("none"); (g[k]=g[k]||[]).push(w); });
-  return Object.keys(g).sort().map(k=>`<section class="block"><h3>${esc(k)}<small>${g[k].length} ${esc(t("nWorks").toLowerCase())}</small></h3>
+  // header band per place: the kind of place as a small gold label, the place itself large, the number of works in a pill
+  return Object.keys(g).sort().map(k=>{ const i=k.indexOf(" · "); const kind=i>0?k.slice(0,i):"", place0=i>0?k.slice(i+3):k, place=place0.charAt(0).toUpperCase()+place0.slice(1); const n=g[k].length;
+    return `<section class="block locblock"><div class="lochead"><svg class="pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0113 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>
+      <div class="lt">${kind?`<span class="kind">${esc(kind)}</span>`:""}<h3>${esc(place)}</h3></div><span class="cnt">${n} ${esc((n>1?t("nWorks"):t("oneWork")).toLowerCase())}</span></div>
     ${g[k].map(w=>`<button class="line" data-w="${esc(w.id)}">${thumbOf(w)?`<img class="th" src="${thumbOf(w)}" alt="">`:`<span class="th"></span>`}
-      <span class="mid"><b>${esc(w.artist)}</b><div><i>${esc(w.title)}</i>${w.year?`, ${esc(w.year)}`:""}${w.location_since?` · ${esc(t("since"))} ${esc(fmtDate(w.location_since))}`:""}</div></span></button>`).join("")}</section>`).join("")||`<div class="empty">—</div>`;
+      <span class="mid"><b>${esc(w.artist)}</b><div><i>${esc(w.title)}</i>${w.year?`, ${esc(w.year)}`:""}${w.location_since?` · ${esc(t("since"))} ${esc(fmtDate(w.location_since))}`:""}</div></span></button>`).join("")}</section>`; }).join("")||`<div class="empty">—</div>`;
 }
 function expYears(){ return [...new Set(((S.data&&S.data.expenses)||[]).map(e=>String(e.date||"").slice(0,4)).filter(Boolean))].sort().reverse(); }
 // mode: "" = full line (names the work), "group" = inside a work's group (indented, work not repeated), "page" = on the work's own page
