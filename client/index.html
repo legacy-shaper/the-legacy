@@ -144,12 +144,13 @@ body.selecting #main{padding-bottom:110px}
 .block{background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-bottom:16px;overflow:hidden}
 .block h3{font-family:var(--serif);font-weight:500;font-size:21px;margin:0;padding:16px 18px 10px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .locblock{overflow:hidden}
-.lochead{display:flex;align-items:center;gap:12px;background:var(--deep);color:var(--ivory);padding:14px 18px}
-.lochead .pin{width:24px;height:24px;color:var(--gold);flex:none}
-.lochead .lt{flex:1;min-width:0}
-.lochead .kind{display:block;font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:var(--gold);margin-bottom:2px}
-.lochead h3{font-family:var(--serif);font-weight:500;font-size:25px;line-height:1.15;margin:0;padding:0;display:block;color:var(--ivory)}
-.lochead .cnt{flex:none;border:1px solid rgba(196,160,82,.6);color:var(--gold);border-radius:999px;padding:4px 11px;font-size:12.5px;white-space:nowrap}
+/* slim band: place in serif, its kind in small gold capitals just under it (same layout for every place), the count on the right */
+.lochead{display:flex;align-items:center;gap:10px;background:var(--deep);color:var(--ivory);padding:8px 16px;min-height:44px}
+.lochead .pin{width:17px;height:17px;color:var(--gold);flex:none;opacity:.9}
+.lochead .lt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.lochead h3{font-family:var(--serif);font-weight:500;font-size:18px;line-height:1.2;margin:0;padding:0;display:block;color:var(--ivory);letter-spacing:.2px}
+.lochead .kind{font-size:9.5px;line-height:1.3;letter-spacing:1.6px;text-transform:uppercase;color:var(--gold)}
+.lochead .cnt{flex:none;color:var(--gold);font-size:12px;letter-spacing:.3px;white-space:nowrap}
 .locblock .line:first-of-type{border-top:0}
 .block h3 small{font-family:var(--sans);font-size:12px;color:var(--muted);font-weight:400}
 .line{display:flex;gap:12px;align-items:center;padding:11px 18px;border-top:1px solid var(--line);text-align:left;width:100%;background:none;border-left:0;border-right:0;border-bottom:0}
@@ -708,7 +709,7 @@ function viewLocations(){
   // header band per place: the kind of place as a small gold label, the place itself large, the number of works in a pill
   return Object.keys(g).sort().map(k=>{ const i=k.indexOf(" · "); const kind=i>0?k.slice(0,i):"", place0=i>0?k.slice(i+3):k, place=place0.charAt(0).toUpperCase()+place0.slice(1); const n=g[k].length;
     return `<section class="block locblock"><div class="lochead"><svg class="pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0113 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>
-      <div class="lt">${kind?`<span class="kind">${esc(kind)}</span>`:""}<h3>${esc(place)}</h3></div><span class="cnt">${n} ${esc((n>1?t("nWorks"):t("oneWork")).toLowerCase())}</span></div>
+      <div class="lt"><h3>${esc(place)}</h3>${kind?`<span class="kind">${esc(kind)}</span>`:""}</div><span class="cnt">${n} ${esc((n>1?t("nWorks"):t("oneWork")).toLowerCase())}</span></div>
     ${g[k].map(w=>`<button class="line" data-w="${esc(w.id)}">${thumbOf(w)?`<img class="th" src="${thumbOf(w)}" alt="">`:`<span class="th"></span>`}
       <span class="mid"><b>${esc(w.artist)}</b><div><i>${esc(w.title)}</i>${w.year?`, ${esc(w.year)}`:""}${w.location_since?` · ${esc(t("since"))} ${esc(fmtDate(w.location_since))}`:""}</div></span></button>`).join("")}</section>`; }).join("")||`<div class="empty">—</div>`;
 }
@@ -1730,5 +1731,5 @@ async function start(){
 if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")) navigator.serviceWorker.register("sw.js").catch(()=>{});
 start();
 </script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v386a3e13</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v9565857f</div>
 </body></html>
