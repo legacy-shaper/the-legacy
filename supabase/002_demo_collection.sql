@@ -11,7 +11,7 @@ Acquired from the above',null,null,'Excellent',540000,'USD','2023-09-28',465000,
   ('aur-03','a0e1d2c3-0000-4000-8000-00000000d3e0','AUR-003','Henrik Aalto-Lind (1932–2009)','Composition with Arc','1968','Acrylic on canvas','110 x 110 cm','unique',null,'The Aurelian Family Trust',100,null,'Private residence · Geneva','2021-03-12','Estate of the artist
 Private collection, Copenhagen
 Acquired at auction','Copenhagen, retrospective exhibition, 1988','H. Aalto-Lind, Catalogue raisonné, vol. II, no. 214, ill.','Very good. Minor stabilised craquelure lower left.',950000,'EUR','2020-11-05',780000,'EUR','Evening sale, Paris','demo/aur-03-t.jpg'),
-  ('aur-04','a0e1d2c3-0000-4000-8000-00000000d3e0','AUR-004','Yuna Takemori (b. 1984)','Blue Field I','2020','Pure pigment and resin on panel','100 x 100 cm','unique',null,'The Aurelian Family Trust',100,null,'Yacht · Mediterranean','2024-05-20','The artist
+  ('aur-04','a0e1d2c3-0000-4000-8000-00000000d3e0','AUR-004','Yuna Takemori (b. 1984)','Blue Field I','2020','Pure pigment and resin on panel','100 x 100 cm','unique',null,'The Aurelian Family Trust',100,null,'Yacht · Capri','2024-05-20','The artist
 Acquired from the above',null,null,'Excellent. Surface to be handled with gloves only.',210000,'USD','2021-04-17',145000,'USD','Primary market','demo/aur-04-t.jpg'),
   ('aur-05','a0e1d2c3-0000-4000-8000-00000000d3e0','AUR-005','Matteo Corvani (1928–1997)','Senza titolo (Movimento)','1959','Oil and enamel on canvas','100 x 130 cm','unique',null,'The Aurelian Family Trust',100,null,'Fine art storage · Geneva Freeport','2025-01-15','Private gallery, Milan
 Private collection, Turin
@@ -22,7 +22,7 @@ Acquired from the above','Lausanne, museum exhibition, September 2026 – Januar
 Acquired from the above',null,null,'Excellent. Framed with UV-filtering glazing.',65000,'USD','2016-12-08',38000,'USD','Art fair, Basel','demo/aur-07-t.jpg'),
   ('aur-08','a0e1d2c3-0000-4000-8000-00000000d3e0','AUR-008','Céleste Moreau-Vidal (b. 1990)','Garden Rooms (Green)','2022','Acrylic on canvas','110 x 110 cm','unique',null,'The Aurelian Family Trust',100,null,'Private residence · Geneva','2022-12-01','The artist
 Acquired from the above',null,null,'Excellent',90000,'EUR','2022-11-18',62000,'EUR','Primary market','demo/aur-08-t.jpg'),
-  ('aur-09','a0e1d2c3-0000-4000-8000-00000000d3e0','AUR-009','Céleste Moreau-Vidal (b. 1990)','Garden Rooms (Dusk)','2023','Acrylic on canvas','110 x 110 cm','unique',null,'The Aurelian Family Trust',100,null,'Yacht · Mediterranean','2024-05-20','The artist
+  ('aur-09','a0e1d2c3-0000-4000-8000-00000000d3e0','AUR-009','Céleste Moreau-Vidal (b. 1990)','Garden Rooms (Dusk)','2023','Acrylic on canvas','110 x 110 cm','unique',null,'The Aurelian Family Trust',100,null,'Yacht · Capri','2024-05-20','The artist
 Acquired from the above',null,null,'Excellent',95000,'EUR','2024-02-09',71000,'EUR','Primary market','demo/aur-09-t.jpg'),
   ('aur-10','a0e1d2c3-0000-4000-8000-00000000d3e0','AUR-010','Nadia Karami (b. 1986)','Horizon, Hatta','2021','Sumi ink on Japanese paper','90 x 140 cm','unique',null,'The Aurelian Family Trust',100,null,'Private residence · Dubai','2023-11-02','The artist
 Acquired from the above',null,null,'Excellent',90000,'AED','2021-11-11',54000,'AED','Primary market','demo/aur-10-t.jpg'),
