@@ -109,6 +109,16 @@ with sync_playwright() as pw:
     p.fill("#cIn", "Merci Dylan !"); p.click("#cSend"); p.wait_for_timeout(1500)
     check(p.evaluate("window.__SEED.tables.support_messages.filter(m=>m.author==='ai').length") == n_ai and p.locator("#cList .typing").count() == 0, "while Dylan is there, the assistant does not answer")
     p.screenshot(path="/tmp/ls-chat-iphone-2.png")
+
+    # ---------- the app was in the background (iOS froze it) when Dylan answered ----------
+    p.evaluate("""(()=>{ clearInterval(C.poll); C.poll=null; window.__vis='hidden';
+        Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>window.__vis});
+        window.__supportReply(window.__SEED.tables.support_threads[0].id,'Réponse pendant que l’app dormait.','dylan'); })()""")
+    p.wait_for_timeout(600)
+    check("pendant que l’app dormait" not in p.inner_text("#cList"), "(setup) app in the background, timers frozen: the reply has not been read yet")
+    p.evaluate("window.__vis='visible'; document.dispatchEvent(new Event('visibilitychange'))")
+    p.wait_for_function("document.querySelector('#cList').innerText.includes('pendant que l’app dormait')", timeout=1500)
+    check(p.evaluate("!!C.poll"), "back in the app with the conversation open: Dylan's reply appears at once, live link and polling restarted")
     p.click("#cClose")
 
     # ---------- unread badge ----------

@@ -843,6 +843,17 @@ function chatLive(){
     .subscribe(); }catch(e){}
   clearInterval(C.poll); C.poll=setInterval(()=>{ if(C.open&&document.visibilityState==="visible") chatLoad(); }, window.LS_CHAT_POLL_MS||8000);
 }
+// Back to the app (another app was in front, the phone was locked): iOS has frozen the timers and closed the live
+// connection, so the conversation is read again at once and the live link re-opened — a reply never waits for a reopen.
+let chatWokeAt=0;
+function chatWake(){
+  if(document.visibilityState!=="visible"||navigator.onLine===false) return;
+  const now=Date.now(); if(now-chatWokeAt<800) return; chatWokeAt=now;
+  if(C.open&&C.thread){ if(C.ch){ try{ sb.removeChannel(C.ch); }catch(e){} C.ch=null; } chatLoad(); chatLive(); }
+  else chatProbe();
+}
+document.addEventListener("visibilitychange",chatWake); window.addEventListener("pageshow",chatWake);
+window.addEventListener("focus",chatWake); window.addEventListener("online",chatWake);
 const chatTime=d=>new Date(d).toLocaleString(LANG==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
 function chatRender(scroll){
   const l=$("#cList"); if(!l) return; chatState();

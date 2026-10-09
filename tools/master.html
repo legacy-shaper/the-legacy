@@ -2933,7 +2933,9 @@ async function viewerSync(manual){
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"support_messages"},p=>{ load(); if(p&&p.new&&p.new.thread_id===M.cur&&isOpen()) loadThread(true); })
       .subscribe(); }catch(x){}
     setInterval(()=>{ if(document.visibilityState==="visible"){ load(); if(isOpen()&&M.cur&&M.view!=="settings") loadThread(true); } }, window.LEGACY_MSG_POLL_MS||20000);
-    document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") load(); });
+    // back to the app: the list AND the open conversation are read again at once (iOS freezes timers in the background)
+    const wake=()=>{ if(document.visibilityState!=="visible") return; load(); if(isOpen()&&M.cur&&M.view!=="settings") loadThread(true); };
+    document.addEventListener("visibilitychange",wake); window.addEventListener("pageshow",wake); window.addEventListener("focus",wake);
   }
   function route(){ const m=location.hash.match(/^#messages(?:\/([\w-]+))?/); if(m&&M.ok) open(m[1]||null); }
   window.LEGACY_SB.ready.then(async x=>{
