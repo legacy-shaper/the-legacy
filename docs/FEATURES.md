@@ -18,6 +18,16 @@ Client = `tools/client.html` → `client/` → repo `legacy-shaper/app` (https:/
 | Fiche d'inventaire (client) | client | œuvre → « Fiche d'inventaire (PDF) » | `sheetHTML()` + `printHTML()` (impression → PDF du téléphone/Mac). Page « à l'échelle » en option | `test_client.py` |
 | **Fiches d'inventaire de plusieurs œuvres** (9 oct. 2026) | client | Œuvres → « Sélectionner » → cocher → « Fiches d'inventaire (PDF) » | Une fiche par page A4, un seul PDF « Collection - N œuvres - date ». `workTap()`, `selBar()`, `printSheets()`. `fitSheets()` réduit la photo (min. 55 mm) si le texte est long, pour qu'une œuvre tienne toujours sur une page (vaut aussi pour la fiche seule) | `test_client_sheets.py` (vérifie le vrai PDF imprimé : 1 page par œuvre) |
 
+## Ajouts du 9 oct. 2026 (session messagerie / fiches / app client)
+
+| Fonction | App | Où | Comment | Test |
+|---|---|---|---|---|
+| **Messagerie en mode personnel** (essai choisi par Dylan) | les deux + fonction `support-chat` | Messages | Sans clé `ANTHROPIC_API_KEY` : accusé de réception « L'équipe Legacy Shaper y porte toute son attention… » (1 fois par heure), notification à Dylan (titre = client · collection, texte = ses mots), Dylan répond lui-même. Le bureau Messages demande `{action:"status"}` et masque relais, résumé, catégorie devinée, réglages de relais. Ajouter la clé rallume l'assistant sans recoder | `test_master_messages.py` (mode personnel), `supabase/functions/support-chat/test/function_test.ts` |
+| **Retour dans l'app = conversation relue** | client + master | Messages | `chatWake()` (client) et `wake()` (master) sur visibilitychange / pageshow / focus / online : relecture immédiate + reconnexion temps réel (iOS gèle les apps en arrière-plan) | `test_client_chat.py` (« app en arrière-plan ») |
+| **Dimensions avec cadre** | master + client | fiche œuvre : « Dimensions de l'œuvre » + « Dimensions avec cadre » (facultatif) | Champ `dimsFramed`, visible pour peinture / papier / photo / sans catégorie, masqué pour sculpture, installation, mobilier (`framedOK`). Fiche PDF : ligne « Framed: … » cm + inches. Client : `artworks.dimensions_framed` (SQL 007, exécuté le 9 oct.), fait « Avec cadre », fiche imprimée, export CSV | `test_master_framed.py`, `test_client.py` |
+| **Dépenses « Par œuvre » regroupées** | client | Dépenses | `expByWork()` : un groupe par œuvre (vignette, artiste, titre, sous-total, nombre ; toucher = ouvrir l'œuvre), ses dépenses en retrait dessous. `expLine(e, mode)` : "" / "group" / "page" | `test_client.py` |
+| **Barre de rubriques en bas sur iPhone** | client | ≤ 720 px de large | Les 5 rubriques toujours visibles (Accueil, Œuvres, Lieux, Dépenses, Documents) avec icône, ≥ 44 px ; onglets du haut masqués ; « Nous écrire », barre de sélection et messages au-dessus de la barre. Montants en plusieurs devises : passent à la ligne au lieu de chevaucher le libellé | `test_client.py` (iPhone), `test_client_sheets.py` |
+
 ## Autres fonctions déjà en place (résumé)
 - Vue à l'échelle (chaise cannée, parquet Versailles) : `tools/room.js`, master + client — `test_scale_view.py`, `test_client_room.py`.
 - Emballage & caisse (crating) sur la fiche œuvre : master + client — `test_master_crating.py`, `test_client_crating.py`.
