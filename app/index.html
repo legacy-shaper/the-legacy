@@ -687,6 +687,16 @@ body[data-view="contacts"] .listbtn,body[data-view="artworks"] .listbtn{display:
 .art.on{background:var(--surface);border-color:var(--line-2);box-shadow:var(--shadow)}
 .art .th{width:52px;height:52px;border-radius:4px;background:var(--line);overflow:hidden;display:block}
 .art .th img{width:100%;height:100%;object-fit:cover;display:block}
+.art .th{position:relative}
+.selmode .art{cursor:pointer}
+.selmode .art .th::after{content:"";position:absolute;right:3px;top:3px;width:18px;height:18px;border-radius:50%;border:1.5px solid #fff;background:rgba(0,0,0,.25);box-shadow:0 0 0 1px rgba(0,0,0,.15)}
+.selmode .art.picked{background:var(--surface);border-color:var(--gold)}
+.selmode .art.picked .th::after{content:"✓";background:var(--green);border-color:var(--gold);color:#F3EEDF;font:700 11px/15px var(--sans);text-align:center}
+.selopen{display:flex;justify-content:flex-end;margin:-4px 0 10px}
+.selbar{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--gold);border-radius:12px;padding:10px 12px;margin:0 0 12px;box-shadow:var(--shadow)}
+.selbar .sn{flex:1 1 100%;font-size:13px;color:var(--muted)}
+.selbar .btn{padding:7px 12px;font-size:13px}
+#printArea .fiche+.fiche{break-before:page;page-break-before:always}
 .art .tx{display:flex;flex-direction:column;min-width:0}
 .art .ar{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .art .ti{font:400 16px/1.25 var(--serif);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1807,6 +1817,7 @@ function ownerName(a){ if(a.ownerContactId&&state.contacts[a.ownerContactId]){ c
 const artLabel=a=>`${a.artist||"Artiste"} — ${a.title||"Sans titre"}${a.year?", "+a.year:""}`;
 
 let q2="", artFilter="all", locFilter="", catFilter="";
+let artSel=null;   // Set of artwork ids while choosing works for a multi-fiche PDF (null = normal list)
 function renderSide(){
   const el=$("#side"); if(state.view==="invoices") return;
   const f=q2.trim().toLowerCase();
@@ -1820,13 +1831,17 @@ function renderSide(){
       ${!all.length && Object.keys(clientNames()).length?`<button type="button" class="btn" id="importClients" style="margin-top:10px">Importer les clients de mes factures</button>`:""}`;
   } else {
     const all=sortedArtworks();
-    const rows=all.filter(a=>(artFilter==="all"||artStatus(a)===artFilter) && (!locFilter||a.location===locFilter) && (!catFilter||a.category===catFilter) && (!f||[a.artist,a.title,a.year,a.ref,a.medium,a.location,a.owner,a.provenance,catLabel(a.category),editionText(a)].join(" ").toLowerCase().includes(f)));
+    const rows=window.__artRows=all.filter(a=>(artFilter==="all"||artStatus(a)===artFilter) && (!locFilter||a.location===locFilter) && (!catFilter||a.category===catFilter) && (!f||[a.artist,a.title,a.year,a.ref,a.medium,a.location,a.owner,a.provenance,catLabel(a.category),editionText(a)].join(" ").toLowerCase().includes(f)));
     el.innerHTML=`<input class="search" id="q2" type="search" placeholder="Artiste, titre, référence…" value="${esc(q2)}">
       <div class="filters">${[["all","Toutes"],...Object.entries(ART_STATUS)].map(([k,v])=>`<button type="button" data-af="${k}" class="${artFilter===k?"on":""}">${v}</button>`).join("")}</div>
       <select id="catFilter" class="search" style="margin-bottom:8px" aria-label="Filtrer par catégorie"><option value="">Toutes les catégories</option>${CATEGORIES.map(c=>`<option value="${c[0]}" ${catFilter===c[0]?"selected":""}>${c[1]}</option>`).join("")}</select>
       <select id="locFilter" class="search" style="margin-bottom:14px" aria-label="Filtrer par emplacement"><option value="">Tous les emplacements</option>${[...new Set([...(state.company.locations||[]).map(l=>l.name),...all.map(a=>a.location).filter(Boolean)])].map(n=>`<option value="${esc(n)}" ${locFilter===n?"selected":""}>${esc(n)}</option>`).join("")}</select>
       <div class="lh"><span>Œuvres</span><span>${rows.length}${rows.length!==all.length?" / "+all.length:""}</span></div>
-      <div class="inv-list">${rows.map(a=>`<button type="button" class="art ${a.id===state.curArt?"on":""}" data-art="${a.id}">
+      ${artSel?`<div class="selbar" id="selBar"><span class="sn">${artSel.size?`${artSel.size} œuvre${artSel.size>1?"s":""} sélectionnée${artSel.size>1?"s":""} · une fiche pleine page chacune, dans un seul PDF`:"Touchez les œuvres à mettre dans le PDF"}</span>
+        <button type="button" class="btn" id="selAll">${rows.length&&rows.every(a=>artSel.has(a.id))?"Tout désélectionner":"Tout sélectionner"}</button><button type="button" class="btn" id="selCancel">Annuler</button>
+        <button type="button" class="btn primary" id="selGo" ${artSel.size?"":"disabled"}>Créer le PDF${artSel.size?` · ${artSel.size} fiche${artSel.size>1?"s":""}`:""}</button></div>`
+        :(all.length?`<div class="selopen"><button type="button" class="btn" id="selStart" title="Choisir plusieurs œuvres : une fiche pleine page par œuvre, dans un seul PDF">Sélectionner pour un PDF</button></div>`:"")}
+      <div class="inv-list ${artSel?"selmode":""}">${rows.map(a=>`<button type="button" class="art ${artSel?(artSel.has(a.id)?"picked":""):(a.id===state.curArt?"on":"")}" data-art="${a.id}" ${artSel?`aria-pressed="${artSel.has(a.id)}"`:""}>
         <span class="th">${a.photo?`<img src="${a.photo}" alt="">`:""}</span>
         <span class="tx"><span class="ar">${esc(a.artist||"Artiste")}</span><span class="ti"><i>${esc(a.title||"Sans titre")}</i>${a.year?", "+esc(a.year):""}</span>
         <span class="pr">${[catLabel(a.category)?esc(catLabel(a.category)):"",editionText(a)&&a.editionType!=="unique"?esc(editionText(a)):"",ownerName(a)?esc(ownerName(a)):"",a.location?esc(a.location.split(",")[0]):"",a.price?esc(money(num(a.price),a.currency,"en")):"Prix non renseigné"].filter(Boolean).join(" · ")}</span></span>
@@ -2870,6 +2885,41 @@ async function exportFiche(chosen){
   }catch(err){ if(err?.code!=="declined") setSave(err?.code==="unavailable"?"Téléchargement indisponible dans cette vue":"La fiche PDF n’a pas pu être créée",true); }
   finally{ if(btn) btn.disabled=false; }
 }
+/* Several works in one PDF: one full-page fiche per work (same template as « Fiche PDF »: logo, primary photo,
+   caption, provenance if ticked), in the order of the list. Chosen from the works list → « Sélectionner pour un PDF ». */
+async function exportFicheSet(ids){
+  const list=(ids||[]).map(id=>state.artworks[id]).filter(Boolean); if(!list.length) return;
+  const withProv=!!state.ficheProv; const btn=$("#selGo"); if(btn) btn.disabled=true;
+  const u=s=>String(s||"").replace(/[\\/:*?"<>|]+/g," ").trim().replace(/\s+/g,"_");
+  const d=new Date(), day=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const base=list.length===1?`${u(list[0].artist)}_-_${u(list[0].title||"Untitled")}${list[0].year?"_"+u(list[0].year):""}_-_Legacy_Shaper`:`Legacy_Shaper_-_${list.length}_works_-_${day}`;
+  try{
+    const pages=[];
+    for(const a of list){ await loadViews(a.id); const pv=a.primaryViewId&&(state.views[a.id]||{})[a.primaryViewId]; pages.push([a, pv?pv.photo:(a.photo||"")]); }
+    if(STANDALONE && !(window.html2canvas && window.jspdf)){
+      const old=document.title; document.title=base; $("#printArea").innerHTML=pages.map(([a,img])=>ficheHTML(a,img,withProv)).join("");
+      await Promise.all([...$("#printArea").querySelectorAll("img")].map(im=>im.complete?0:new Promise(r=>{im.onload=im.onerror=r;})));
+      window.print(); setTimeout(()=>{ document.title=old; $("#printArea").innerHTML=""; },500); return;
+    }
+    if(!window.html2canvas||!window.jspdf){ setSave("Le module PDF n’a pas pu se charger",true); return; }
+    const { jsPDF } = window.jspdf; const pdf=new jsPDF({unit:"pt",format:"a4",compress:true});
+    const PW=pdf.internal.pageSize.getWidth(), PH=pdf.internal.pageSize.getHeight(); const stage=$("#pdfstage");
+    await document.fonts.ready;
+    for(let i=0;i<pages.length;i++){
+      setSave(`PDF en préparation… ${i+1} / ${pages.length}`);
+      stage.innerHTML=ficheHTML(pages[i][0],pages[i][1],withProv); const el=stage.firstElementChild;
+      await Promise.all([...el.querySelectorAll("img")].map(im=>im.complete?0:new Promise(r=>{im.onload=im.onerror=r;})));
+      const canvas=await html2canvas(el,{scale:2,backgroundColor:"#ffffff",logging:false,width:794,windowWidth:794});
+      if(i) pdf.addPage(); pdf.addImage(canvas.toDataURL("image/jpeg",0.93),"JPEG",0,0,PW,PH);
+    }
+    stage.innerHTML="";
+    pdf.setProperties({title:list.length===1?`${list[0].artist||""} — ${list[0].title||""}`:`Legacy Shaper — ${list.length} works`,author:"Legacy Shaper",creator:"Legacy Shaper"});
+    window.__lastFicheSet={name:base+".pdf",pages:pdf.getNumberOfPages()};
+    await saveFile(base+".pdf", pdf.output("blob")); setSave(`PDF enregistré · ${list.length} fiche${list.length>1?"s":""}`);
+    artSel=null; renderSide();
+  }catch(err){ const s=$("#pdfstage"); if(s) s.innerHTML=""; if(err?.code!=="declined") setSave(err?.code==="unavailable"?"Téléchargement indisponible dans cette vue":"Le PDF n’a pas pu être créé",true); }
+  finally{ const b2=$("#selGo"); if(b2) b2.disabled=false; }
+}
 function openViewsChooser(a){
   const list=viewsList(a.id).filter(v=>v.id!==a.primaryViewId); const sel=new Set();
   const draw=()=>{ $("#vcGrid").innerHTML=list.map((v,i)=>`<button type="button" class="vw pick ${sel.has(v.id)?"on":""}" data-vc="${v.id}" aria-pressed="${sel.has(v.id)}"><img src="${v.photo}" alt=""><span class="pbadge">${sel.has(v.id)?"✓ ":""}View ${i+2}</span></button>`).join("");
@@ -3310,6 +3360,11 @@ document.addEventListener("click",async e=>{
   if(b.dataset.fdl){ dlFile(b.dataset.fdl); return; }
   if(b.dataset.fdel){ delFile(b.dataset.fdel,b); return; }
   if(b.dataset.ct){ state.curContact=b.dataset.ct; document.body.classList.add("alt-detail"); renderAlt(); window.scrollTo(0,0); return; }
+  if(b.dataset.art && artSel){ const id=b.dataset.art; artSel.has(id)?artSel.delete(id):artSel.add(id); renderSide(); return; }
+  if(b.id==="selStart"){ artSel=new Set(); renderSide(); return; }
+  if(b.id==="selCancel"){ artSel=null; renderSide(); return; }
+  if(b.id==="selAll"){ const r=window.__artRows||[]; if(r.length&&r.every(a=>artSel.has(a.id))) r.forEach(a=>artSel.delete(a.id)); else r.forEach(a=>artSel.add(a.id)); renderSide(); return; }
+  if(b.id==="selGo"){ const ids=sortedArtworks().filter(a=>artSel.has(a.id)).map(a=>a.id); exportFicheSet(ids); return; }
   if(b.dataset.art){ window.__locOther=false; window.__ownOther=false; window.__brkOther=false; state.curArt=b.dataset.art; document.body.classList.add("alt-detail"); renderAlt(); window.scrollTo(0,0); return; }
   if(b.dataset.artOpen){ state.curArt=b.dataset.artOpen; window.__locOther=false; window.__ownOther=false; switchView("artworks"); document.body.classList.add("alt-detail"); renderAlt(); return; }
   if(b.dataset.af){ artFilter=b.dataset.af; renderSide(); return; }
@@ -3780,6 +3835,6 @@ if("serviceWorker" in navigator){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadCtl && !reloaded){ reloaded=true; location.reload(); } });
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{ r.update().catch(()=>{}); }).catch(()=>{}); });
 }</script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">v0c562be3</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(243,238,223,.22);z-index:61;pointer-events:none">vabe1f7dc</div>
 <style>body:not(.home-on) #buildTag{display:none}</style>
 </body></html>

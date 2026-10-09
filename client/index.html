@@ -104,6 +104,18 @@ select.sel{font:inherit;font-size:14px;padding:10px 12px;border-radius:10px;bord
 .card:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(27,57,36,.10)}
 .card .ph{aspect-ratio:1/1;background:var(--surface-2);display:grid;place-items:center;overflow:hidden}
 .card .ph img{width:100%;height:100%;object-fit:cover}
+.card .ph{position:relative}
+.selmode .card .ph::after{content:"";position:absolute;right:8px;top:8px;width:24px;height:24px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.22);box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.selmode .card.picked{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.selmode .card.picked .ph::after{content:"✓";background:var(--deep);border-color:var(--gold);color:var(--gold);font:700 13px/20px var(--sans);text-align:center}
+button.tb2{font:inherit;font-size:14px;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+#selBar{position:fixed;left:12px;right:12px;bottom:calc(14px + var(--safe-b));z-index:26;max-width:720px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--deep);color:var(--ivory);border:1px solid var(--gold);border-radius:14px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+#selBar .sn{flex:1 1 160px;font-size:13.5px}
+#selBar button{font:inherit;font-size:13.5px;padding:9px 13px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:transparent;color:var(--ivory)}
+#selBar button.go{background:var(--gold);border-color:var(--gold);color:var(--deep);font-weight:600}
+#selBar button[disabled]{opacity:.45}
+body.selecting #chatFab{display:none!important}
+body.selecting #main{padding-bottom:110px}
 .card .tx{padding:11px 12px 13px}
 .card .ar{font-weight:600;font-size:13.5px}
 .card .ti{font-family:var(--serif);font-style:italic;font-size:16px;line-height:1.3}
@@ -248,23 +260,27 @@ select.sel{font:inherit;font-size:14px;padding:10px 12px;border-radius:10px;bord
 
 /* ---------- print: inventory sheet ---------- */
 #print{display:none}
+/* sheet layout lives outside @media print so the page can measure it before printing (#print stays hidden on screen) */
+#print{color:#16241A;font-family:var(--sans);font-size:10.5pt}
+#print .pl{width:44mm;margin:0 auto 4mm}
+#print .pimg{max-height:100mm;max-width:100%;margin:0 auto 5mm;object-fit:contain}
+#print .pa{font-weight:600;font-size:13pt}
+#print .pt{font-family:var(--serif);font-size:17pt;margin:1mm 0 3mm}
+#print .pt i{font-style:italic}
+#print table{width:100%;border-collapse:collapse;margin-top:3mm;border-top:.6pt solid #C4A052}
+#print td{padding:1.5mm 0;border-bottom:.4pt solid #E2D9C6;vertical-align:top}
+#print td:first-child{width:44mm;font-size:7.5pt;letter-spacing:1.6pt;text-transform:uppercase;color:#7A6332}
+#print .pf{margin-top:4mm;font-size:7.5pt;color:#6A6656;text-align:center}
+#print .pscale img{width:100%;max-height:220mm;object-fit:contain}
+#print .pscale div{margin-top:4mm;font-size:8pt;color:#6A6656}
+#print.pmeasure{display:block;position:absolute;left:-10000px;top:0;width:178mm;visibility:hidden}
 @media print{
   @page{size:A4;margin:16mm 16mm 14mm}
-  body{background:#fff}
+  html,body{background:#fff!important}
   body>*:not(#print){display:none!important}
-  #print{display:block;color:#16241A;font-family:var(--sans);font-size:10.5pt}
-  #print .pl{width:52mm;margin:0 auto 6mm}
-  #print .pimg{max-height:108mm;max-width:100%;margin:0 auto 7mm;object-fit:contain}
-  #print .pa{font-weight:600;font-size:13pt}
-  #print .pt{font-family:var(--serif);font-size:17pt;margin:1mm 0 3mm}
-  #print .pt i{font-style:italic}
-  #print table{width:100%;border-collapse:collapse;margin-top:3mm;border-top:.6pt solid #C4A052}
-  #print td{padding:2.2mm 0;border-bottom:.4pt solid #E2D9C6;vertical-align:top}
-  #print td:first-child{width:44mm;font-size:7.5pt;letter-spacing:1.6pt;text-transform:uppercase;color:#7A6332}
-  #print .pf{margin-top:6mm;font-size:7.5pt;color:#6A6656;text-align:center}
+  #print{display:block}
   #print .pscale{break-before:page;page-break-before:always;text-align:center;padding-top:10mm}
-  #print .pscale img{width:100%;max-height:220mm;object-fit:contain}
-  #print .pscale div{margin-top:4mm;font-size:8pt;color:#6A6656}
+  #print .psheet+.psheet{break-before:page;page-break-before:always}
 }
 </style>
 </head><body>
@@ -311,7 +327,7 @@ const I18N={
    artist:"Artist",title:"Title",date:"Date",medium:"Medium",dims:"Dimensions",edition:"Edition",unique:"Unique work",ap:"Artist's proof",
    ownership:"Ownership",location:"Location",since:"since",acquisition:"Acquisition",insurance:"Insurance",condition:"Condition",provenance:"Provenance",
    exhibitions:"Exhibitions",literature:"Literature",notes:"Notes",ref:"Inventory no.",
-   back:"Back",sheetPdf:"Inventory sheet (PDF)",image:"Download image",prev:"Previous",next:"Next",
+   back:"Back",sheetPdf:"Inventory sheet (PDF)",select:"Select",selCancel:"Cancel",selAll:"Select all",selNone:"Clear",selHint:"Tap the works to include",selN:"{n} works selected · one page each, in a single PDF",selN1:"1 work selected · one page in the PDF",sheetsPdf:"Inventory sheets (PDF)",image:"Download image",prev:"Previous",next:"Next",
    crating:"Packing & crate",crStatus:"Status",crType:"Packing",crDims:"Exterior dimensions",crWeight:"Gross weight",crWhere:"Crate",crHandling:"Handling",crOrient:"Transport",crRef:"Crate marking",crFeat:"Specifications",crPkg:"Package",crPhotos:"Photos and packing list",
    crS:{none:"Not packed",packed:"Packed",todo:"Crate to be made",making:"Crate being made"},
    crT:{soft:"Soft packing",tframe:"T-frame",travel:"Travel frame",museum:"International museum crate",slatted:"Slatted crate",climate:"Climate-controlled crate",solander:"Solander box (works on paper)",sculpture:"Sculpture / plinth crate"},
@@ -352,7 +368,7 @@ const I18N={
    artist:"Artiste",title:"Titre",date:"Date",medium:"Technique",dims:"Dimensions",edition:"Édition",unique:"Œuvre unique",ap:"Épreuve d’artiste",
    ownership:"Propriété",location:"Localisation",since:"depuis le",acquisition:"Acquisition",insurance:"Assurance",condition:"État",provenance:"Provenance",
    exhibitions:"Expositions",literature:"Bibliographie",notes:"Notes",ref:"N° d’inventaire",
-   back:"Retour",sheetPdf:"Fiche d’inventaire (PDF)",image:"Télécharger l’image",prev:"Précédente",next:"Suivante",
+   back:"Retour",sheetPdf:"Fiche d’inventaire (PDF)",select:"Sélectionner",selCancel:"Annuler",selAll:"Tout sélectionner",selNone:"Tout désélectionner",selHint:"Touchez les œuvres à inclure",selN:"{n} œuvres sélectionnées · une page chacune, dans un seul PDF",selN1:"1 œuvre sélectionnée · une page dans le PDF",sheetsPdf:"Fiches d’inventaire (PDF)",image:"Télécharger l’image",prev:"Précédente",next:"Suivante",
    crating:"Emballage & caisse",crStatus:"État",crType:"Emballage",crDims:"Dimensions extérieures",crWeight:"Poids brut",crWhere:"Caisse",crHandling:"Manutention",crOrient:"Transport",crRef:"Marquage de la caisse",crFeat:"Caractéristiques",crPkg:"Colis",crPhotos:"Photos et fiche de colisage",
    crS:{none:"Sans emballage",packed:"Emballée",todo:"Caisse à fabriquer",making:"Caisse en fabrication"},
    crT:{soft:"Soft packing",tframe:"T-frame",travel:"Travel frame",museum:"Caisse internationale (musée)",slatted:"Caisse claire-voie",climate:"Caisse climatique",solander:"Boîte Solander (papier)",sculpture:"Caisse sculpture / socle"},
@@ -603,7 +619,7 @@ function render(){
   $("#collName").textContent=d.coll.name||"";
   $("#collSub").textContent=d.coll.subtitle||"Collection Office";
   $("#tabs").innerHTML=TABS.map(k=>`<button data-t="${k}" class="${S.tab===k?"on":""}">${esc(t(k))}</button>`).join("");
-  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{ S.tab=b.dataset.t; window.scrollTo(0,0); render(); });
+  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{ S.tab=b.dataset.t; S.sel=null; window.scrollTo(0,0); render(); });
   renderStatus();
   const m=$("#main");
   if(S.tab==="overview") m.innerHTML=viewOverview();
@@ -618,7 +634,7 @@ function renderStatus(){ const s=$("#status"); if(!s) return; s.classList.toggle
 const works=()=>(S.data&&S.data.works)||[];
 const thumbOf=w=>w.thumb||"";
 const workById=id=>works().find(w=>w.id===id);
-function cardHtml(w){ return `<button class="card" data-w="${esc(w.id)}"><div class="ph">${thumbOf(w)?`<img loading="lazy" src="${thumbOf(w)}" alt="">`:""}</div>
+function cardHtml(w){ return `<button class="card ${S.sel&&S.sel.has(w.id)?"picked":""}" data-w="${esc(w.id)}" ${S.sel?`aria-pressed="${S.sel.has(w.id)}"`:""}><div class="ph">${thumbOf(w)?`<img loading="lazy" src="${thumbOf(w)}" alt="">`:""}</div>
   <div class="tx"><div class="ar">${esc(w.artist)}</div><div class="ti"><i>${esc(w.title)}</i>${w.year?`, ${esc(w.year)}`:""}</div>${w.location_text?`<div class="lo">${esc(w.location_text)}</div>`:""}</div></button>`; }
 
 function viewOverview(){
@@ -640,8 +656,9 @@ function viewWorks(){
   const locs=[...new Set(works().map(x=>x.location_text).filter(Boolean))].sort();
   const list=filteredWorks();
   return `<div class="tools"><input class="search" id="q" type="search" placeholder="${esc(t("search"))}" value="${esc(S.q)}">
-    <select class="sel" id="loc"><option value="">${esc(t("allLoc"))}</option>${locs.map(l=>`<option ${S.loc===l?"selected":""}>${esc(l)}</option>`).join("")}</select></div>
-    <div class="grid" id="grid">${list.map(cardHtml).join("")}</div>${list.length?"":`<div class="empty">${esc(t("noWorks"))}</div>`}`;
+    <select class="sel" id="loc"><option value="">${esc(t("allLoc"))}</option>${locs.map(l=>`<option ${S.loc===l?"selected":""}>${esc(l)}</option>`).join("")}</select>
+    ${list.length&&!S.sel?`<button class="tb2" id="selStart">${esc(t("select"))}</button>`:""}</div>
+    <div class="grid ${S.sel?"selmode":""}" id="grid">${list.map(cardHtml).join("")}</div>${list.length?"":`<div class="empty">${esc(t("noWorks"))}</div>`}`;
 }
 function viewLocations(){
   const g={}; works().forEach(w=>{ const k=w.location_text||t("none"); (g[k]=g[k]||[]).push(w); });
@@ -671,13 +688,43 @@ function docLine(d){ const w=d.artwork_id&&workById(d.artwork_id);
 function viewDocs(){ const docs=(S.data&&S.data.docs)||[]; return docs.length?`<section class="block" style="padding:12px">${docs.map(docLine).join("")}</section>`:`<div class="empty">${esc(t("noDocs"))}</div>`; }
 function bindMain(){
   const m=$("#main");
-  m.querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>openWork(b.dataset.w));
+  m.querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>workTap(b.dataset.w));
   m.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{ S.tab=b.dataset.goto; window.scrollTo(0,0); render(); });
   m.querySelectorAll("[data-y]").forEach(b=>b.onclick=()=>{ S.year=b.dataset.y; render(); });
   m.querySelectorAll("[data-doc]").forEach(b=>b.onclick=()=>downloadDoc(b.dataset.doc));
-  const q=$("#q"); if(q) q.oninput=()=>{ S.q=q.value; const list=filteredWorks(); $("#grid").innerHTML=list.map(cardHtml).join(""); $("#grid").querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>openWork(b.dataset.w)); };
+  const q=$("#q"); if(q) q.oninput=()=>{ S.q=q.value; const list=filteredWorks(); $("#grid").innerHTML=list.map(cardHtml).join(""); $("#grid").querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>workTap(b.dataset.w)); selBar(); };
+  const ss=$("#selStart"); if(ss) ss.onclick=()=>{ S.sel=new Set(); render(); };
+  selBar();
   const l=$("#loc"); if(l) l.onchange=()=>{ S.loc=l.value; render(); };
   const ib=$("#instClose"); if(ib) ib.onclick=()=>{ try{ localStorage.setItem("ls-install-seen","1"); }catch(e){} render(); };
+}
+
+/* ---------------- several works in one PDF: Œuvres → « Sélectionner » → tick → one inventory sheet per page ---------------- */
+function workTap(id){
+  if(!S.sel){ openWork(id); return; }
+  S.sel.has(id)?S.sel.delete(id):S.sel.add(id);
+  const c=document.querySelector(`#grid [data-w="${CSS.escape(id)}"]`); if(c){ c.classList.toggle("picked",S.sel.has(id)); c.setAttribute("aria-pressed",S.sel.has(id)); }
+  selBar();
+}
+function selBar(){
+  let b=$("#selBar"); const on=!!S.sel&&S.tab==="works"; document.body.classList.toggle("selecting",on);
+  if(!on){ if(b) b.remove(); return; }
+  if(!b){ b=document.createElement("div"); b.id="selBar"; document.body.appendChild(b); }
+  const vis=filteredWorks(), n=S.sel.size, all=vis.length&&vis.every(w=>S.sel.has(w.id));
+  b.innerHTML=`<span class="sn">${esc(n?(n===1?t("selN1"):t("selN").replace("{n}",n)):t("selHint"))}</span><button id="selAll">${esc(t(all?"selNone":"selAll"))}</button><button id="selCancel">${esc(t("selCancel"))}</button><button class="go" id="selGo" ${n?"":"disabled"}>${esc(t("sheetsPdf"))}${n?` · ${n}`:""}</button>`;
+  $("#selAll").onclick=()=>{ if(all) vis.forEach(w=>S.sel.delete(w.id)); else vis.forEach(w=>S.sel.add(w.id)); document.querySelectorAll("#grid [data-w]").forEach(c=>c.classList.toggle("picked",S.sel.has(c.dataset.w))); selBar(); };
+  $("#selCancel").onclick=()=>{ S.sel=null; render(); };
+  $("#selGo").onclick=async()=>{ const ids=works().filter(w=>S.sel.has(w.id)).map(w=>w.id); const g=$("#selGo"); g.disabled=true; try{ await printSheets(ids); } finally{ S.sel=null; render(); } };
+}
+async function printSheets(ids){
+  const list=ids.map(workById).filter(Boolean); if(!list.length) return;
+  const items=[];
+  for(const w of list){ const v=((S.data.views)||[]).filter(x=>x.artwork_id===w.id).sort((a,b)=>(a.sort||0)-(b.sort||0)||String(a.created_at).localeCompare(String(b.created_at)))[0];
+    items.push(sheetHTML(w,(v&&await viewPhoto(v.id))||thumbOf(w),"")); }
+  const d=new Date(), day=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const name=list.length===1?fileBase(list[0]):`${String(S.data.coll.name||"Collection").replace(/[\\/:*?"<>|]+/g,"")} - ${list.length} ${LANG==="fr"?"œuvres":"works"} - ${day}`;
+  window.__lastSheets={name,pages:items.length};
+  await printHTML(items.map(h=>`<div class="psheet">${h}</div>`).join(""), name);
 }
 
 /* ---------------- artwork detail ---------------- */
@@ -776,18 +823,31 @@ function scaleGet(id){ let v=null; try{ v=JSON.parse(localStorage.getItem("ls-sc
 function scaleSet(id,v){ const c=Object.assign({},v); delete c.cutout; try{ localStorage.setItem("ls-scale:"+id,JSON.stringify(c)); }catch(e){} }   // the cut-out mask stays on the work (scale_view), never copied here
 function scalePdfGet(id){ try{ return localStorage.getItem("ls-scalepdf:"+id)==="1"; }catch(e){ return false; } }
 function scalePdfSet(id,on){ try{ if(on) localStorage.setItem("ls-scalepdf:"+id,"1"); else localStorage.removeItem("ls-scalepdf:"+id); }catch(e){} }
-function printSheet(w,img,scaleImg){
-  const p=$("#print"); const rows=[["medium",w.medium],["dims",dimsLine(w.dimensions)],["edition",editionLine(w)],["ownership",ownershipLine(w)],
+function printSheet(w,img,scaleImg){ return printHTML(`<div class="psheet">${sheetHTML(w,img,scaleImg)}</div>`, fileBase(w)); }
+function printHTML(html,title){
+  const p=$("#print"); p.innerHTML=html;
+  const prevTitle=document.title; document.title=title;
+  const go=()=>{ window.print(); setTimeout(()=>{ document.title=prevTitle; },500); };
+  const imgs=[...p.querySelectorAll("img")]; return Promise.all(imgs.map(i=>i.complete?1:new Promise(r=>{ i.onload=i.onerror=r; }))).then(()=>{ fitSheets(p); go(); });
+}
+/* one A4 page per sheet: if the text is long, the photo gets smaller (never below 55 mm) so the sheet does not spill onto a 2nd page */
+function fitSheets(p){
+  const MM=96/25.4, PAGE=263*MM;   // A4 297 mm − margins 30 mm − 4 mm safety
+  p.classList.add("pmeasure");
+  try{ p.querySelectorAll(".psheet").forEach(sh=>{ const im=sh.querySelector(".pimg"), f=sh.querySelector(".pf"); if(!im||!f) return;
+      const over=(f.getBoundingClientRect().bottom-sh.getBoundingClientRect().top)-PAGE; if(over<=0) return;
+      const h=im.getBoundingClientRect().height; im.style.maxHeight=Math.max(55*MM,h-over)+"px"; }); }
+  finally{ p.classList.remove("pmeasure"); }
+}
+function sheetHTML(w,img,scaleImg){
+  const rows=[["medium",w.medium],["dims",dimsLine(w.dimensions)],["edition",editionLine(w)],["ownership",ownershipLine(w)],
     ["location",(w.location_text||"")+(w.location_since?` (${t("since")} ${fmtDate(w.location_since)})`:"")],
     ["acquisition",[w.acquisition_date?fmtDate(w.acquisition_date):"",w.acquisition_price!=null?fmtMoney(w.acquisition_price,w.acquisition_currency):"",w.acquisition_source||""].filter(Boolean).join(" · ")],
     ["insurance",w.insured_value!=null?fmtMoney(w.insured_value,w.insured_currency):""],["condition",w.condition],["provenance",w.provenance],["exhibitions",w.exhibitions],["literature",w.literature],["ref",w.ref]].filter(r=>r[1]);
-  p.innerHTML=`<img class="pl" src="${LOGO_GREEN}" alt="Legacy Shaper">${img?`<img class="pimg" src="${img}" alt="">`:""}
+  return `<img class="pl" src="${LOGO_GREEN}" alt="Legacy Shaper">${img?`<img class="pimg" src="${img}" alt="">`:""}
     <div class="pa">${esc(w.artist)}</div><div class="pt"><i>${esc(w.title)}</i>${w.year?`, ${esc(w.year)}`:""}</div>
     <table>${rows.map(r=>`<tr><td>${esc(t(r[0]))}</td><td style="white-space:pre-line">${esc(r[1])}</td></tr>`).join("")}</table>
     <div class="pf">${esc(S.data.coll.name)} · ${esc(t("sheetFoot"))} · ${esc(fmtDate(new Date().toISOString()))}</div>${scaleImg?`<div class="pscale"><img src="${scaleImg}" alt=""><div>${esc(w.artist)}${w.title?", "+esc(w.title):""}${w.year?", "+esc(w.year):""} · ${esc(t("atScale"))}</div></div>`:""}`;
-  const prevTitle=document.title; document.title=fileBase(w);
-  const go=()=>{ window.print(); setTimeout(()=>{ document.title=prevTitle; },500); };
-  const imgs=[...p.querySelectorAll("img")]; Promise.all(imgs.map(i=>i.complete?1:new Promise(r=>{ i.onload=i.onerror=r; }))).then(go);
 }
 async function downloadDoc(id){
   const doc=((S.data&&S.data.docs)||[]).find(d=>d.id===id); if(!doc) return;
@@ -1613,5 +1673,5 @@ async function start(){
 if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")) navigator.serviceWorker.register("sw.js").catch(()=>{});
 start();
 </script>
-<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v3db69300</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font:9px/1 -apple-system,sans-serif;color:rgba(22,36,26,.18);pointer-events:none">v6394ceb2</div>
 </body></html>
