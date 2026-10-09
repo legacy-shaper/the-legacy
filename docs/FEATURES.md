@@ -37,6 +37,7 @@ Démo Aurelian : les images de Blue Field I, Red Field II (Takemori) et Horizon,
 - Emballage & caisse (crating) sur la fiche œuvre : master + client — `test_master_crating.py`, `test_client_crating.py`.
 - Copropriétaires et cloisonnement des collections clients — `test_master_coowners.py`, `test_master_collections.py`.
 - Contacts (emails/téléphones pro et perso, primary, documents hors comptabilité) — `test_master_contacts.py`.
+- Contacts : **deux adresses** — « Adresse principale » (`address`, reprise par défaut sur les factures) et « Adresse secondaire » (`address2`, résidence secondaire, facultative), côte à côte dans Coordonnées ; la recherche de contacts couvre les deux. Dans une facture liée à un contact qui a une adresse secondaire, deux boutons « Adresse principale / Adresse secondaire » (`data-invaddr`) basculent l'adresse facturée (demande de Dylan, 9 oct. 2026) — `test_master_contacts.py`.
 - Messagerie client ↔ Legacy Shaper — `test_master_messages.py`, `test_client_chat.py`.
 - App client hors ligne — `test_client_offline.py`.
 - Factures, dépenses, comptabilité AED, sauvegarde hebdomadaire : voir le skill « the-legacy ».

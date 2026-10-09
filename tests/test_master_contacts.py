@@ -86,6 +86,26 @@ with sync_playwright() as pw:
     check(p.locator("[data-ct=ct2]").count() == 1 and p.locator("[data-ct=ct1]").count() == 0, "search matches the perso email")
     p.fill("#q2", "")
     check("pamela@plw.paris" in p.inner_text("[data-ct=ct2]"), "contact list shows the primary email")
+    # two addresses: principale (used on invoices) + secondaire
+    check(p.locator("label[for=k_address]").inner_text() == "Adresse principale" and p.locator("#k_address2").count() == 1, "two address fields: principale + secondaire")
+    p.fill("#k_address", "12 avenue Montaigne\n75008 Paris"); p.fill("#k_address2", "Villa Les Pins\n83990 Saint-Tropez"); p.wait_for_timeout(1500)
+    d = D("ct2")
+    check(d["address"] == "12 avenue Montaigne\n75008 Paris" and d["address2"] == "Villa Les Pins\n83990 Saint-Tropez", "both addresses saved in their own fields")
+    p.fill("#q2", "saint-tropez")
+    check(p.locator("[data-ct=ct2]").count() == 1 and p.locator("[data-ct=ct1]").count() == 0, "search finds a contact by its secondary address")
+    p.fill("#q2", "")
+    # invoice for this contact: principal address by default, switch to the secondary one and back
+    open_ct("ct2"); p.click("#ctInvoice"); p.wait_for_selector("[data-invaddr=address2]")
+    inv = lambda: p.evaluate("state.invoices[state.current].client.address")
+    check(inv() == "12 avenue Montaigne\n75008 Paris", "invoice uses the principal address by default")
+    p.click("[data-invaddr=address2]"); p.wait_for_timeout(300)
+    check(inv() == "Villa Les Pins\n83990 Saint-Tropez", "invoice switched to the secondary address")
+    p.wait_for_function("[...document.querySelectorAll('.pp-parties')].some(e=>e.innerText.includes('Saint-Tropez'))")
+    check(True, "invoice preview shows the secondary address")
+    check("primary" in p.get_attribute("[data-invaddr=address2]", "class"), "active address highlighted")
+    p.click("[data-invaddr=address]"); p.wait_for_timeout(300)
+    check(inv() == "12 avenue Montaigne\n75008 Paris", "invoice back to the principal address")
+    check(p.locator("[data-invaddr]").count() == 2, "address choice only shown for a contact with a secondary address")
     # re-render keeps values
     open_ct("ct2")
     check(p.input_value("#k_emailPerso") == "pamela.wahnich@gmail.com" and p.input_value("#k_primaryEmail") == "pro", "values kept after reopening")
@@ -191,6 +211,7 @@ with sync_playwright() as pw:
     # new contact has empty channels, primary pro
     p.evaluate("const c=newContact(); state.contacts[c.id]=c; state.curContact=c.id; leaveHome('contacts'); renderAlt();"); p.wait_for_selector("#k_emailPro")
     check(p.input_value("#k_primaryEmail") == "pro" and p.input_value("#k_emailPro") == "", "new contact: empty, primary pro")
+    check(p.input_value("#k_address") == "" and p.input_value("#k_address2") == "", "new contact: both addresses empty")
 
     # mobile layout: no horizontal scroll
     p.set_viewport_size({"width": 390, "height": 844}); open_ct("ct2")

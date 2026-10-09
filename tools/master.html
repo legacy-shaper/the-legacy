@@ -914,7 +914,7 @@ function renderEditor(){
       ${fld("Email","client.email",inv.client.email,"s3",{type:"email"})}
       ${fld("TRN / n° TVA (facultatif)","client.trn",inv.client.trn,"s3")}
     </div>
-    <div class="addrow">${inv.contactId&&state.contacts[inv.contactId]?`<span class="linked">✓ Lié au contact ${esc(state.contacts[inv.contactId].name||state.contacts[inv.contactId].company)}</span>`:inv.client.name?`<button type="button" class="btn" id="saveContact">+ Enregistrer dans les contacts</button>`:""}</div>
+    <div class="addrow">${inv.contactId&&state.contacts[inv.contactId]?`<span class="linked">✓ Lié au contact ${esc(state.contacts[inv.contactId].name||state.contacts[inv.contactId].company)}</span>${invAddrBtns(inv)}`:inv.client.name?`<button type="button" class="btn" id="saveContact">+ Enregistrer dans les contacts</button>`:""}</div>
   </div>
 
   <div class="card"><h2>Œuvres & prestations</h2>
@@ -1592,7 +1592,7 @@ async function flushDoc(coll,id){
 }
 async function removeDoc(coll,id){ clearTimeout(dT[coll+"/"+id]); delete dT[coll+"/"+id]; delete state[coll][id]; if(db) await db.collection(coll).doc(id).delete(); else await local.write(); }
 
-const newContact=()=>({id:uid(),name:"",company:"",address:"",email:"",phone:"",emailPro:"",emailPerso:"",primaryEmail:"pro",phonePro:"",phonePerso:"",primaryPhone:"pro",newsletter:"",trn:"",notes:"",createdAt:new Date().toISOString()});
+const newContact=()=>({id:uid(),name:"",company:"",address:"",address2:"",email:"",phone:"",emailPro:"",emailPerso:"",primaryEmail:"pro",phonePro:"",phonePerso:"",primaryPhone:"pro",newsletter:"",trn:"",notes:"",createdAt:new Date().toISOString()});
 /* Contact channels: pro + perso for email and phone, one marked primary.
    c.email / c.phone always hold the PRIMARY value (used by lists, search, the database sync and future mailings / newsletters). */
 const CT_CH={email:["emailPro","emailPerso","primaryEmail"],phone:["phonePro","phonePerso","primaryPhone"]};
@@ -1604,12 +1604,14 @@ function ctNorm(c){
   return c; }
 function ctPrimary(c,kind){ const [pro,perso,pk]=CT_CH[kind], first=c[pk]==="perso"?perso:pro, other=first===pro?perso:pro; return String(c[first]||c[other]||"").trim(); }
 function ctSync(c){ ctNorm(c); c.email=ctPrimary(c,"email"); c.phone=ctPrimary(c,"phone"); return c; }
-const ctAll=c=>[c.name,c.company,c.email,c.phone,c.emailPro,c.emailPerso,c.phonePro,c.phonePerso].join(" ");
+const ctAll=c=>[c.name,c.company,c.email,c.phone,c.emailPro,c.emailPerso,c.phonePro,c.phonePerso,c.address,c.address2].join(" ");
 const newArtwork=()=>({id:uid(),photo:"",artist:"",title:"",year:"",medium:"",dimensions:"",ref:"",notes:"",provenance:"",location:"",owner:"",ownerContactId:"",price:"",currency:state.company.currency||"USD",status:"available",createdAt:new Date().toISOString()});
 const sortedContacts=()=>Object.values(state.contacts).sort((a,b)=>(a.name||a.company||"").localeCompare(b.name||b.company||"","fr"));
 const sortedArtworks=()=>Object.values(state.artworks).sort((a,b)=>(a.artist||"").localeCompare(b.artist||"","fr")||(a.title||"").localeCompare(b.title||"","fr"));
 function contactInvoices(ct){ return sortedInvoices().filter(i=>i.contactId===ct.id || (!i.contactId && ct.name && (i.client?.name||"").trim().toLowerCase()===ct.name.trim().toLowerCase())); }
 function artworkInvoices(a){ return sortedInvoices().filter(i=>(i.items||[]).some(t=>t.artworkId===a.id)); }
+function invAddrBtns(inv){ const ct=state.contacts[inv.contactId]; if(!ct||!String(ct.address2||"").trim()) return ""; const cur=String(inv.client.address||"").trim();
+  return [["address","Adresse principale"],["address2","Adresse secondaire"]].map(([k,l])=>`<button type="button" class="btn ${cur===String(ct[k]||"").trim()?"primary":""}" data-invaddr="${k}">${l}</button>`).join(""); }
 function clientFromContact(ct){ return {name:ct.name||"",company:ct.company||"",address:ct.address||"",email:"",trn:ct.trn||""}; }
 function itemFromArtwork(a){ return {id:uid(),kind:"art",artworkId:a.id,photo:a.photo||"",artist:a.artist||"",title:a.title||"",year:a.year||"",medium:a.medium||"",dimensions:a.dimensions||"",ref:a.ref||"",notes:[editionText(a),a.notes||""].filter(Boolean).join("\n"),qty:1,price:(num(a.discValue)&&num(a.price))?String(Math.round(artFinal(a)*100)/100):(a.price||"")}; }
 function ownerName(a){ if(a.ownerContactId&&state.contacts[a.ownerContactId]){ const c=state.contacts[a.ownerContactId]; return c.name||c.company||a.owner||""; } return a.owner||""; }
@@ -1666,7 +1668,7 @@ function renderDetail(){
       <div class="eacts"><button type="button" class="btn primary" id="ctInvoice">+ Facture pour ce contact</button><button type="button" class="btn danger" id="ctDel">${ICON.trash}Supprimer</button></div></div>
       <div class="card"><h2>Coordonnées</h2><div class="grid">
         ${kf("Nom","name",c.name,"s3",{ph:"Prénom Nom"})}${kf("Société (facultatif)","company",c.company)}
-        ${kf("Adresse","address",c.address,"s6",{area:1})}
+        ${kf("Adresse principale","address",c.address,"s3",{area:1,rows:3,ph:"Résidence principale (utilisée par défaut sur les factures)"})}${kf("Adresse secondaire","address2",c.address2||"","s3",{area:1,rows:3,ph:"Résidence secondaire, facultatif"})}
         ${kf("Email pro","emailPro",c.emailPro,"s2",{type:"email"})}${kf("Email perso","emailPerso",c.emailPerso,"s2",{type:"email"})}${kf("Email principal","primaryEmail",c.primaryEmail,"s2",{select:PRI})}
         ${kf("Téléphone pro","phonePro",c.phonePro,"s2",{type:"tel"})}${kf("Téléphone perso","phonePerso",c.phonePerso,"s2",{type:"tel"})}${kf("Téléphone principal","primaryPhone",c.primaryPhone,"s2",{select:PRI})}
         ${kf("Newsletters","newsletter",c.newsletter||"","s2",{select:[["","Non renseigné"],["yes","Oui, inscrit"],["no","Non"]]})}<div class="s4"><p class="hint" style="margin:22px 0 0">Les envois depuis l’application (newsletters, propositions) partent vers l’email principal.</p></div>
@@ -2558,6 +2560,7 @@ document.addEventListener("click",async e=>{
   if(b.dataset.pickclose!==undefined){ $("#modal").innerHTML=""; return; }
   if(b.dataset.pickart!==undefined){ openArtPicker(); return; }
   if(b.dataset.pickfor!==undefined){ openArtPicker(+b.dataset.pickfor); return; }
+  if(b.dataset.invaddr){ const inv=state.invoices[state.current], ct=inv&&state.contacts[inv.contactId]; if(ct){ inv.client.address=ct[b.dataset.invaddr]||""; touch({editor:true}); } return; }
   if(b.id==="saveContact"){ const inv=state.invoices[state.current]; if(!inv) return; const c=Object.assign(newContact(),clone(inv.client)); state.contacts[c.id]=c; inv.contactId=c.id; flushDoc("contacts",c.id); touch({editor:true}); setSave("Contact enregistré"); return; }
   if(b.id==="importClients"){ const m=clientNames(); Object.values(m).forEach(cl=>{ const c=Object.assign(newContact(),clone(cl)); c.emailPro=c.email||""; ctSync(c); state.contacts[c.id]=c; flushDoc("contacts",c.id); }); state.curContact=sortedContacts()[0]?.id||null; renderAlt(); return; }
   if(b.id==="ctInvoice"){ const c=state.contacts[state.curContact]; if(c) createInvoiceWith(inv=>{ inv.client=clientFromContact(c); inv.contactId=c.id; }); return; }
