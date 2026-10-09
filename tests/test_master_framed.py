@@ -16,7 +16,7 @@ class Quiet(http.server.SimpleHTTPRequestHandler):
     def handle(self):
         try: super().handle()
         except (BrokenPipeError, ConnectionResetError): pass
-srv = http.server.ThreadingHTTPServer(("127.0.0.1", 8771), functools.partial(Quiet, directory=R))
+srv = http.server.ThreadingHTTPServer(("127.0.0.1", 8784), functools.partial(Quiet, directory=R))
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 ok = 0
 def check(c, label):
@@ -30,7 +30,7 @@ with sync_playwright() as pw:
     ctx.route("**/supabase-js@*/**", lambda r: r.fulfill(status=200, content_type="application/javascript", body=MOCK))
     ctx.route(re.compile(r"https://(cdnjs\.cloudflare\.com|fonts\.(googleapis|gstatic)\.com)/.*"), lambda r: r.fulfill(status=200, content_type="application/javascript", body=""))
     p = ctx.new_page(); p.add_init_script(f"window.__MASTER_SEED={json.dumps(SEED)};"); p.on("pageerror", lambda e: errors.append(str(e)))
-    p.goto("http://127.0.0.1:8771/app/"); p.wait_for_selector("#gEmail")
+    p.goto("http://127.0.0.1:8784/app/"); p.wait_for_selector("#gEmail")
     p.fill("#gEmail", "dylan@legacy-shaper.com"); p.fill("#gPass", "good-pass"); p.click("#gForm button[type=submit]"); p.wait_for_selector("#gCode")
     p.fill("#gCode", "123456"); p.click("#gForm button[type=submit]")
     p.wait_for_function("typeof state!=='undefined' && state.artworks && state.artworks.p1", timeout=15000)

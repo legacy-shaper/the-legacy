@@ -28,6 +28,16 @@ Client = `tools/client.html` → `client/` → repo `legacy-shaper/app` (https:/
 | **Dépenses « Par œuvre » regroupées** | client | Dépenses | `expByWork()` : un groupe par œuvre (vignette, artiste, titre, sous-total, nombre ; toucher = ouvrir l'œuvre), ses dépenses en retrait dessous. `expLine(e, mode)` : "" / "group" / "page" | `test_client.py` |
 | **Barre de rubriques en bas sur iPhone** | client | ≤ 720 px de large | Les 5 rubriques toujours visibles (Accueil, Œuvres, Lieux, Dépenses, Documents) avec icône, ≥ 44 px ; onglets du haut masqués ; « Nous écrire », barre de sélection et messages au-dessus de la barre. Montants en plusieurs devises : passent à la ligne au lieu de chevaucher le libellé | `test_client.py` (iPhone), `test_client_sheets.py` |
 
+## Ajouts du 9 oct. 2026 (messagerie, fiches, app client)
+
+| Fonction | App | Où | Comment | Test |
+|---|---|---|---|---|
+| **Messagerie en mode personnel** (essai choisi par Dylan) | les deux + fonction `support-chat` | Messages | Sans clé `ANTHROPIC_API_KEY` : accusé de réception « L'équipe Legacy Shaper y porte toute son attention… » (une fois par heure), notification à Dylan (client · collection + ses mots), Dylan répond lui-même. Le bureau Messages demande `{action:"status"}` et masque relais, résumé, catégorie devinée. Ajouter la clé rallume l'assistant sans recoder | `test_master_messages.py`, `supabase/functions/support-chat/test/function_test.ts` |
+| **Retour dans l'app = conversation relue** | client + master | Messages | `chatWake()` / `wake()` sur visibilitychange, pageshow, focus, online : relecture immédiate et reconnexion temps réel (iOS gèle les apps en arrière-plan) | `test_client_chat.py` |
+| **Dimensions avec cadre** | master + client | fiche œuvre | Champ `dimsFramed` (facultatif), visible pour peinture, papier, photo, sans catégorie ; masqué pour sculpture, installation, mobilier (`framedOK`). Fiche PDF « Framed: » cm + inches. Client : `artworks.dimensions_framed` (SQL 007, exécuté), fait « Avec cadre », fiche imprimée, export | `test_master_framed.py`, `test_client.py` |
+| **Dépenses « Par œuvre » regroupées** | client | Dépenses | `expByWork()` : un groupe par œuvre (vignette, artiste, titre, sous-total, nombre ; toucher = ouvrir), ses dépenses en retrait. `expLine(e, mode)` : "" / "group" / "page" | `test_client.py` |
+| **Barre de rubriques en bas sur iPhone** | client | écran ≤ 720 px | Les 5 rubriques toujours visibles avec icône (Accueil, Œuvres, Lieux, Dépenses, Documents), boutons ≥ 44 px ; onglets du haut masqués ; « Nous écrire », barre de sélection et messages placés au-dessus. Montants multi-devises : passent à la ligne au lieu de chevaucher le libellé | `test_client.py`, `test_client_sheets.py` |
+
 ## Autres fonctions déjà en place (résumé)
 - Vue à l'échelle (chaise cannée, parquet Versailles) : `tools/room.js`, master + client — `test_scale_view.py`, `test_client_room.py`.
 - Emballage & caisse (crating) sur la fiche œuvre : master + client — `test_master_crating.py`, `test_client_crating.py`.
@@ -39,5 +49,6 @@ Client = `tools/client.html` → `client/` → repo `legacy-shaper/app` (https:/
 
 ## Tester avant de publier
 Toutes les suites de `tests/` doivent passer (zéro échec) avant tout push sur main.
+`bash tests/run_all.sh` les lance toutes en parallèle (environ 2 min au lieu de 10) ; chaque suite a son propre port local, un nouveau test doit en prendre un libre.
 Les bibliothèques PDF (jsPDF, html2canvas) viennent d'un CDN non joignable depuis le bac à sable :
 les tests les simulent et enregistrent chaque page produite.

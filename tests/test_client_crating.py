@@ -42,9 +42,9 @@ class Quiet(http.server.SimpleHTTPRequestHandler):
     def handle(self):
         try: super().handle()
         except (BrokenPipeError, ConnectionResetError): pass
-srv = http.server.ThreadingHTTPServer(("127.0.0.1", 8772), functools.partial(Quiet, directory=CLIENT))
+srv = http.server.ThreadingHTTPServer(("127.0.0.1", 8786), functools.partial(Quiet, directory=CLIENT))
 threading.Thread(target=srv.serve_forever, daemon=True).start()
-URL = "http://127.0.0.1:8772/"
+URL = "http://127.0.0.1:8786/"
 
 ok = 0
 def check(cond, label):
