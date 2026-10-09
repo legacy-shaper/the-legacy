@@ -29,6 +29,8 @@ Client = `tools/client.html` → `client/` → repo `legacy-shaper/app` (https:/
 | **Lieux : bandeau par lieu** | client | Lieux | Bandeau vert fin par lieu : lieu en serif avec majuscule (« Geneva »), type de lieu en petites capitales or juste dessous (« PRIVATE RESIDENCE »), nombre d'œuvres à droite ; découpe sur « · » de `location_text` | `test_client.py` |
 | **Barre de rubriques en bas sur iPhone** | client | écran ≤ 720 px | Les 5 rubriques toujours visibles avec icône (Accueil, Œuvres, Lieux, Dépenses, Documents), boutons ≥ 44 px ; onglets du haut masqués ; « Nous écrire », barre de sélection et messages placés au-dessus. Montants multi-devises : passent à la ligne au lieu de chevaucher le libellé | `test_client.py`, `test_client_sheets.py` |
 
+Démo Aurelian : les images de Blue Field I, Red Field II (Takemori) et Horizon, Hatta (Karami) sont peintes par `tools/demo_art.py` (fichiers `client/demo/<id>-v2.jpg` et `-v2-t.jpg`, chemins mis à jour dans `public.artworks.thumb` et `artwork_views.photo`). Le yacht de la démo est à Capri.
+
 ## Autres fonctions déjà en place (résumé)
 - Vue à l'échelle (chaise cannée, parquet Versailles) : `tools/room.js`, master + client — `test_scale_view.py`, `test_client_room.py`.
 - Emballage & caisse (crating) sur la fiche œuvre : master + client — `test_master_crating.py`, `test_client_crating.py`.
