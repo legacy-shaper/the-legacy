@@ -43,12 +43,12 @@ def check(c, label):
     if not c: print("FAIL:", label); srv.shutdown(); sys.exit(1)
     ok += 1; print("ok  ", label)
 errors = []
-def start(b, sd, vp=None, mobile=False, hash=""):
+def start(b, sd, vp=None, mobile=False, hash="", extra=""):
     ctx = b.new_context(service_workers="block", viewport=vp or {"width": 1400, "height": 900}, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1)
     ctx.route("**/supabase-js@*/**", lambda r: r.fulfill(status=200, content_type="application/javascript", body=MOCK))
     ctx.route(re.compile(r"https://(cdnjs\.cloudflare\.com|fonts\.(googleapis|gstatic)\.com)/.*"), lambda r: r.fulfill(status=200, content_type="application/javascript", body=""))
     p = ctx.new_page()
-    p.add_init_script(f"window.__MASTER_SEED={json.dumps(sd)};window.LEGACY_MSG_POLL_MS=500;")
+    p.add_init_script(f"window.__MASTER_SEED={json.dumps(sd)};window.LEGACY_MSG_POLL_MS=500;" + extra)
     p.on("pageerror", lambda e: errors.append(str(e)))
     p.goto(URL + hash); p.wait_for_selector("#gEmail")
     p.fill("#gEmail", "dylan@legacy-shaper.com"); p.fill("#gPass", "good-pass"); p.click("#gForm button[type=submit]"); p.wait_for_selector("#gCode")
@@ -126,6 +126,21 @@ with sync_playwright() as pw:
     check("client@example.com" in p.inner_text(".msgToast") and p.inner_text("#btnMsg .mbadge") == "1", "live: a card announces the new message and the badge updates")
     p.click(".msgToast"); p.wait_for_selector("#msgDesk .bub")
     check("Une dernière chose" in p.inner_text("#msgDesk .mthread"), "touching the card opens that conversation")
+    ctx.close()
+
+    # ---------- personal mode (no assistant key): Dylan answers himself ----------
+    ctx, p = start(b, seed(True), extra="window.__SUPPORT_AI=false;")
+    p.wait_for_selector("#btnMsg:not([hidden])"); p.click("#homeMsg"); p.wait_for_selector("#msgDesk .bub")
+    check(any(i["name"] == "support-chat" and i["body"]["action"] == "status" for i in p.evaluate("window.__invokes")), "personal mode: the desk asks the function whether the assistant is on")
+    check(p.locator("#mTake").count() == 0 and p.locator("#mBack2").count() == 0 and p.locator("#msgDesk .sum").count() == 0, "personal mode: no take-over button, no assistant summary")
+    check("Souci technique" not in p.inner_text("#msgDesk .mlist") and "Prioritaire" in p.inner_text("#msgDesk .mlist"), "personal mode: no guessed category in the list, priority kept")
+    check("Mode personnel" in p.inner_text("#msgDesk .hint2") and "ACCUSÉ DE RÉCEPTION" in p.inner_text("#msgDesk .bub.ai").upper(), "personal mode: the automatic message is labelled as the acknowledgement")
+    p.fill("#mIn", "Bonjour, je regarde cela pour vous."); p.click("#mSend")
+    p.wait_for_function(f"{DB}.support_messages.some(m=>m.thread_id==='t1'&&m.author==='dylan')")
+    check(not p.evaluate(f"{DB}.support_messages.some(m=>m.thread_id==='t1'&&m.author==='system')"), "personal mode: Dylan's reply goes straight to the client, no « a rejoint la conversation » notice")
+    p.click("#mSet"); p.wait_for_selector("#sQs")
+    check(p.locator("#sNotify").is_hidden() and p.locator("#sHand").is_hidden() and "PAS DE NOTIFICATION" in p.inner_text("#msgDesk .mset").upper() and "Mode personnel" in p.inner_text("#msgDesk .mset"), "personal mode: settings keep the notifications and quiet hours only")
+    p.screenshot(path="/tmp/ls-desk-personal.png")
     ctx.close()
 
     # ---------- link from a notification, iPhone layout ----------

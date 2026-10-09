@@ -2734,6 +2734,7 @@ async function viewerSync(manual){
 #msgDesk .mset label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 #msgDesk .mset select,#msgDesk .mset input{font:inherit;font-size:15px;padding:9px 11px;border-radius:10px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink)}
 #msgDesk .mset .two{display:flex;gap:10px;align-items:center}
+#msgDesk .mset .f[hidden]{display:none}
 #msgDesk .mset p{font-size:13px;color:var(--muted);margin:4px 0}
 #msgDesk .ok{color:var(--ok)} #msgDesk .warnx{color:var(--warn)}
 @media (max-width:820px){
@@ -2751,7 +2752,7 @@ async function viewerSync(manual){
   if(!window.LEGACY_SB) return;
   const VAPID_PUBLIC="BAdqfBis6JKWD8kAGLOwniIEZ-SLsTt6y_P_CvloY5i9M7yHQEZGShSN9IsHPGmtRMjnhNP2lwNbMAFJb6eDH0Q";
   const CAT={bug:"Souci technique",correction:"Correction",document:"Document",request:"Demande",question:"Question",other:"Message"};
-  const M={ ok:false, threads:[], colls:{}, cur:null, msgs:[], settings:null, view:"list", ch:null, poll:null, lastSeen:null };
+  const M={ ok:false, ai:false, aiKnown:false, threads:[], colls:{}, cur:null, msgs:[], settings:null, view:"list", ch:null, poll:null, lastSeen:null };
   let sb=null;
   const q=s=>document.querySelector(s);
   const e=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -2769,6 +2770,8 @@ async function viewerSync(manual){
     const cids=[...new Set(M.threads.map(t=>t.collection_id))].filter(c=>!M.colls[c]);
     if(cids.length){ const {data:cs}=await sb.from("collections").select("id,name").in("id",cids); (cs||[]).forEach(c=>M.colls[c.id]=c.name); }
     if(!M.settings){ const {data:st}=await sb.from("support_settings").select("*").eq("id",1); M.settings=(st&&st[0])||{notify:"all",handoff_minutes:10}; }
+    // personal mode (no assistant key): no take-over, no summary — Dylan answers himself
+    if(!M.aiKnown){ M.aiKnown=true; try{ const {data:ss,error:se}=await sb.functions.invoke("support-chat",{body:{action:"status"}}); M.ai=!se&&!!(ss&&ss.ai); }catch(x){ M.ai=false; } }
     // a new message from a collector while the app is open: a discreet card
     if(!firstLoad) M.threads.forEach(t=>{ if(t.last_author==="client"&&prev[t.id]!==t.last_message_at&&!(isOpen()&&M.cur===t.id)) toast(t); });
     badges(); if(isOpen()&&M.view!=="settings") render();
@@ -2806,18 +2809,18 @@ async function viewerSync(manual){
     const list=M.threads.length?M.threads.map(x=>`<button type="button" class="mrow ${x.id===M.cur&&M.view!=="list"||x.id===M.cur&&window.matchMedia("(min-width:821px)").matches?"on":""}" data-t="${x.id}">
         <span class="l1"><b>${e(x.client_email||"Collectionneur")}</b>${x.unread_admin?`<span class="mbadge">${x.unread_admin}</span>`:""}<time>${e(when(x.last_message_at))}</time></span>
         <span class="l2">${e(M.colls[x.collection_id]||"")}</span>
-        <span class="l3">${x.priority==="high"&&x.status!=="resolved"?`<span class="tag high">Prioritaire</span>`:""}${x.status==="resolved"?`<span class="tag done">Traité</span>`:""}${humanNow(x)?`<span class="tag human">Vous êtes en ligne</span>`:""}${x.category?`<span class="tag">${e(CAT[x.category]||"Message")}</span>`:""}${e(x.summary||"")}</span></button>`).join("")
+        <span class="l3">${x.priority==="high"&&x.status!=="resolved"?`<span class="tag high">Prioritaire</span>`:""}${x.status==="resolved"?`<span class="tag done">Traité</span>`:""}${M.ai&&humanNow(x)?`<span class="tag human">Vous êtes en ligne</span>`:""}${M.ai&&x.category?`<span class="tag">${e(CAT[x.category]||"Message")}</span>`:""}${e(x.summary||"")}</span></button>`).join("")
       :`<div class="empty">Aucun message pour le moment.<br>Les messages de vos collectionneurs arriveront ici.</div>`;
     let right;
     if(M.view==="settings") right=settingsHTML();
     else if(!t) right=`<div class="empty">Choisissez une conversation.</div>`;
     else { const live=humanNow(t);
       right=`<div class="mhead"><div class="who"><b>${e(t.client_email||"Collectionneur")}</b><span>${e(M.colls[t.collection_id]||"")} · ${t.lang==="fr"?"français":"anglais"}</span></div>
-        ${live?`<button type="button" class="btn" id="mBack2">Rendre la main à l’assistant</button>`:`<button type="button" class="btn gold" id="mTake">Prendre le relais</button>`}
+        ${!M.ai?"":live?`<button type="button" class="btn" id="mBack2">Rendre la main à l’assistant</button>`:`<button type="button" class="btn gold" id="mTake">Prendre le relais</button>`}
         <button type="button" class="btn" id="mDone">${t.status==="resolved"?"Rouvrir":"Marquer comme traité"}</button></div>
-        ${t.summary?`<div class="sum"><small>Résumé de l’assistant${t.category?" · "+e(CAT[t.category]||""):""}${t.priority==="high"?" · prioritaire":""}</small>${e(t.summary)}</div>`:""}
+        ${M.ai&&t.summary?`<div class="sum"><small>Résumé de l’assistant${t.category?" · "+e(CAT[t.category]||""):""}${t.priority==="high"?" · prioritaire":""}</small>${e(t.summary)}</div>`:""}
         <div class="mmsgs" id="mMsgs">${msgsHTML()}</div>
-        <div class="hint2">${live?"Vous êtes en ligne : l’assistant reste silencieux. Il reprend seul après "+Math.round(handoff()/60000)+" min sans message de votre part.":"L’assistant répond pour vous. Écrire ici prend aussitôt le relais."}</div>
+        <div class="hint2">${!M.ai?"Mode personnel : votre client reçoit un accusé de réception, puis votre réponse arrive aussitôt dans son application.":live?"Vous êtes en ligne : l’assistant reste silencieux. Il reprend seul après "+Math.round(handoff()/60000)+" min sans message de votre part.":"L’assistant répond pour vous. Écrire ici prend aussitôt le relais."}</div>
         <div class="mcomp"><textarea id="mIn" data-t="${t.id}" rows="1" placeholder="Votre réponse à ${e((t.client_email||"").split("@")[0]||"votre client")}…"></textarea><button type="button" class="btn gold" id="mSend">Envoyer</button></div>`; }
     el.innerHTML=`<div class="mtop">${M.view!=="list"?`<button type="button" class="tbtn" id="mList">←</button>`:""}<h1>Messages</h1>
       <button type="button" class="tbtn" id="mSet">Réglages</button><button type="button" class="tbtn" id="mClose">Fermer</button></div>
@@ -2840,7 +2843,7 @@ async function viewerSync(manual){
   function msgsHTML(){
     return M.msgs.map(m=>{
       if(m.author==="system") return `<div class="sys">${e(m.body)}</div>`;
-      const who=m.author==="client"?"Client":m.author==="ai"?"Assistant":"Vous";
+      const who=m.author==="client"?"Client":m.author==="ai"?(M.ai?"Assistant":"Accusé de réception"):"Vous";
       const att=m.attachment_path?(/^image\//.test(m.attachment_type||"")?`<img data-att="${e(m.attachment_path)}" alt="${e(m.attachment_name||"")}">`:`<a href="#" data-att-dl="${e(m.attachment_path)}">📎 ${e(m.attachment_name||"document")}</a>`):"";
       const w=m.artwork_id&&typeof state!=="undefined"&&state.artworks&&state.artworks[m.artwork_id];
       return `<div class="bub ${m.author}"><small>${who}</small>${e(m.body)}${m.artwork_id?`<span class="about">Œuvre : ${w?e((w.artist||"")+", "+(w.title||"")):e(m.artwork_id)}</span>`:""}${att}</div><div class="ts ${m.author==="client"?"":"r"}">${e(when(m.created_at))}</div>`;
@@ -2876,7 +2879,7 @@ async function viewerSync(manual){
     const t=M.threads.find(x=>x.id===M.cur); const inp=q("#mIn"); const body=(inp&&inp.value||"").trim(); if(!t||!body||sending) return;
     sending=true; q("#mSend").disabled=true;
     try{
-      if(!humanNow(t)) await sb.from("support_messages").insert({thread_id:t.id,author:"system",body:sysText(t,"join")});
+      if(M.ai&&!humanNow(t)) await sb.from("support_messages").insert({thread_id:t.id,author:"system",body:sysText(t,"join")});
       const {error}=await sb.from("support_messages").insert({thread_id:t.id,author:"dylan",body});
       if(error) throw error;
       const now=new Date().toISOString(); await sb.from("support_threads").update({mode:"human",human_last_at:now}).eq("id",t.id);
@@ -2894,9 +2897,10 @@ async function viewerSync(manual){
     return `<div class="mset"><h2>Notifications</h2>
       <p id="pushState">${!pushSupported()?(ios&&!standalone()?"Sur iPhone, ouvrez The Legacy depuis son icône sur l’écran d’accueil pour activer les notifications.":"Ce navigateur ne reçoit pas les notifications."):perm==="granted"?`<span class="ok">Autorisées sur cet appareil.</span>`:perm==="denied"?`<span class="warnx">Refusées sur cet appareil : réglages de l’appareil › Notifications › The Legacy.</span>`:"Pas encore activées sur cet appareil."}</p>
       <div class="two"><button type="button" class="btn gold" id="pushOn" ${pushSupported()?"":"disabled"}>Activer sur cet appareil</button><button type="button" class="btn" id="pushTest" ${pushSupported()?"":"disabled"}>Envoyer un test</button></div>
-      <div class="f"><label>Me prévenir</label><select id="sNotify"><option value="all" ${st.notify!=="important"?"selected":""}>À chaque message d’un client</option><option value="important" ${st.notify==="important"?"selected":""}>Seulement les messages importants (demande, correction, urgence, premier message)</option></select></div>
-      <div class="f"><label>Heures calmes (l’assistant répond seul, sauf urgence)</label><div class="two"><input type="time" id="sQs" value="${e(st.quiet_start||"")}"><span>à</span><input type="time" id="sQe" value="${e(st.quiet_end||"")}"></div><p>Laissez vide pour être prévenu à toute heure. Fuseau : ${e(st.tz||"Europe/Paris")}.</p></div>
-      <div class="f"><label>L’assistant reprend la main après</label><select id="sHand">${[5,10,15,30,60].map(m=>`<option value="${m}" ${(+st.handoff_minutes||10)===m?"selected":""}>${m} minutes sans message de votre part</option>`).join("")}</select></div>
+      ${M.ai?"":`<p>Mode personnel : l’assistant automatique est désactivé. Chaque message reçoit un accusé de réception, puis vous répondez vous-même.</p>`}
+      <div class="f" ${M.ai?"":"hidden"}><label>Me prévenir</label><select id="sNotify"><option value="all" ${st.notify!=="important"?"selected":""}>À chaque message d’un client</option><option value="important" ${st.notify==="important"?"selected":""}>Seulement les messages importants (demande, correction, urgence, premier message)</option></select></div>
+      <div class="f"><label>${M.ai?"Heures calmes (l’assistant répond seul, sauf urgence)":"Heures calmes (pas de notification)"}</label><div class="two"><input type="time" id="sQs" value="${e(st.quiet_start||"")}"><span>à</span><input type="time" id="sQe" value="${e(st.quiet_end||"")}"></div><p>Laissez vide pour être prévenu à toute heure. Fuseau : ${e(st.tz||"Europe/Paris")}.</p></div>
+      <div class="f" ${M.ai?"":"hidden"}><label>L’assistant reprend la main après</label><select id="sHand">${[5,10,15,30,60].map(m=>`<option value="${m}" ${(+st.handoff_minutes||10)===m?"selected":""}>${m} minutes sans message de votre part</option>`).join("")}</select></div>
       <p id="sSaved"></p></div>`;
   }
   function wireSettings(){

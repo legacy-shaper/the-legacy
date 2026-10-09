@@ -3,6 +3,7 @@
 //   -> the assistant answers (unless Dylan has taken over), the conversation is sorted and summarised for Dylan,
 //      and Dylan's devices are notified according to his settings.
 // POST { action: "test" }             (Dylan) -> a test notification on his devices.
+// POST { action: "status" }           (Dylan) -> { ai: true|false } — false = personal mode (acknowledgement, then Dylan answers).
 // The assistant never changes any collection data: it only writes its reply and the summary of the conversation.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { sendPush, type Sub } from "./push.ts";
@@ -23,10 +24,16 @@ function cors(req: Request) {
 }
 const json = (req: Request, status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { ...cors(req), "Content-Type": "application/json" } });
 
+// Personal mode (no ANTHROPIC_API_KEY): the collector receives this acknowledgement, then Dylan (or his team) answers.
 const ACK = {
-  fr: "Merci beaucoup pour votre message, il a bien été transmis à l’équipe Legacy Shaper. Nous nous en occupons avec attention et revenons vers vous très rapidement.",
-  en: "Thank you very much for your message, it has been passed on to the Legacy Shaper team. We are taking care of it and will come back to you very shortly.",
+  fr: "Merci pour votre message, il a bien été reçu. L’équipe Legacy Shaper y porte toute son attention et revient vers vous dans les meilleurs délais.",
+  en: "Thank you for your message, it has been well received. The Legacy Shaper team is giving it its full attention and will return to you shortly.",
 };
+// earlier wording, still recognised so an older acknowledgement is not repeated
+const ACK_OLD = [
+  "Merci beaucoup pour votre message, il a bien été transmis à l’équipe Legacy Shaper. Nous nous en occupons avec attention et revenons vers vous très rapidement.",
+  "Thank you very much for your message, it has been passed on to the Legacy Shaper team. We are taking care of it and will come back to you very shortly.",
+];
 const CATS = ["bug", "correction", "document", "request", "question", "other"];
 
 function system(collName: string, lang: string, works: string) {
@@ -143,6 +150,11 @@ Deno.serve(async (req) => {
     const sent = await notifyDylan(admin, { title: "The Legacy", body: "Les notifications des messages clients sont actives sur cet appareil.", tag: "test", url: MASTER_URL + "#messages" }, false);
     return json(req, 200, { sent });
   }
+  if (body.action === "status") {
+    const { data: gate } = await caller.from("company_settings").select("id").limit(1);
+    if (!gate || gate.length !== 1) return json(req, 403, { error: "forbidden" });
+    return json(req, 200, { ai: !!aiKey() });
+  }
   if (body.action !== "reply") return json(req, 400, { error: "action" });
 
   // The conversation, read with the collector's own session: they can only reach their own.
@@ -180,7 +192,7 @@ Deno.serve(async (req) => {
   if (!out) {
     // no assistant available: a courteous acknowledgement, once per exchange
     const prevAck = list.slice(0, -1).reverse().find((m) => m.author !== "client");
-    const already = prevAck && prevAck.author === "ai" && (prevAck.body === ACK.fr || prevAck.body === ACK.en) && Date.now() - Date.parse(prevAck.created_at) < 3600000;
+    const already = prevAck && prevAck.author === "ai" && [ACK.fr, ACK.en, ...ACK_OLD].includes(prevAck.body) && Date.now() - Date.parse(prevAck.created_at) < 3600000;
     out = { reply: already ? "" : ACK[lang as "fr" | "en"], category: guessCategory(last.body), priority: "normal", summary_fr: last.body.slice(0, 200), needs_team: true };
   }
   if (out.reply) {
@@ -194,7 +206,9 @@ Deno.serve(async (req) => {
   const important = priority === "high" || out.needs_team || firstMessage;
   if ((st?.notify !== "important" || important) && !(inQuiet(st) && priority !== "high")) {
     const labels: Record<string, string> = { bug: "Souci technique", correction: "Correction", document: "Document", request: "Demande", question: "Question", other: "Message" };
-    await notifyDylan(admin, { title: `${labels[category]} · ${who}`, body: (out.summary_fr || last.body).slice(0, 200), tag: tid, url }, priority === "high");
+    // personal mode: the client's name and collection, then their own words (no guessed category)
+    const title = aiKey() ? `${labels[category]} · ${who}` : `${who} · ${coll?.name || ""}`;
+    await notifyDylan(admin, { title, body: (out.summary_fr || last.body).slice(0, 200), tag: tid, url }, priority === "high");
   }
   return json(req, 200, { ok: true, category, priority });
 });

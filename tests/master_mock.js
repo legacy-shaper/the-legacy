@@ -84,6 +84,7 @@
     const functions = { async invoke(name, { body }) {
       window.__invokes.push({ name, body });
       if (!aal2()) return { error: { message: "forbidden" } };
+      if (name === "support-chat" && body.action === "status") return { data: { ai: window.__SUPPORT_AI !== false }, error: null };
       if (name === "support-chat") return { data: { sent: (DB.tables.push_subscriptions || []).length }, error: null };
       const m = DB.tables.collection_members;
       if (body.action === "list") return { data: { members: m.filter(x => x.collection_id === body.collectionId).map(x => ({ ...x, email: (DB.tables.profiles.find(p => p.id === x.user_id) || {}).email })) } };

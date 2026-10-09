@@ -43,6 +43,10 @@ Hand-over note: everything needed to resume work in a new conversation. No secre
   Master app: « Messages » (top bar + home 05): list, conversation, « Prendre le relais » / « Rendre la main », « Marquer comme traité »,
   Réglages (activate notifications on this device, test, all/important, quiet hours, hand-back delay). Assistant resumes alone after the delay.
   SQL `supabase/004_support_chat.sql` (Dylan runs it). Before it runs, both apps hide the feature.
+  **Personal mode (trial chosen by Dylan, 9 Oct 2026)**: no `ANTHROPIC_API_KEY` on purpose. The collector gets one elegant
+  acknowledgement from « the Legacy Shaper team » (once per hour), Dylan is notified (title = client · collection, body = their words)
+  and answers himself. The master asks the function `{action:"status"}` and then hides take-over, summary, guessed category and
+  hand-back settings. Adding the key later switches the assistant back on with no code change (plan: scope lock + validated Q&A base first).
   Tests: `tests/test_client_chat.py`, `tests/test_master_messages.py`, `supabase/functions/support-chat/push_test.ts` (RFC 8291 vector),
   `supabase/functions/support-chat/test/function_test.ts` (`deno run --allow-env --import-map=import_map.json function_test.ts`).
 
@@ -66,7 +70,7 @@ Hand-over note: everything needed to resume work in a new conversation. No secre
   `python3 tests/test_client_room.py`, `python3 tests/test_client_chat.py`, `python3 tests/test_master_messages.py`.
 
 ## To finish together (state 8 Oct 2026, 12:35)
-1. Dylan runs `supabase/004_support_chat.sql` (page « Messages clients · mise en service », https://claude.ai/artifact/9fQpoh8cXV4MPcfi8oqEXY).
+1. DONE 9 Oct 2026 — Dylan ran `supabase/004_support_chat.sql` (page « Messages clients · mise en service », https://claude.ai/artifact/9fQpoh8cXV4MPcfi8oqEXY).
    Then Claude: check tables/bucket/policies, `get_advisors` (security), test with the demo (sign in as office@legacy-shaper.com).
 2. Dylan adds `ANTHROPIC_API_KEY` (Edge Functions → Secrets); then a real test of the assistant's tone (positive vocabulary).
 3. Dylan activates notifications on iPhone and Mac (Messages → Réglages), sends a test.
